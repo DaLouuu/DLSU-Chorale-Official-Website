@@ -1,0 +1,14 @@
+FROM node:20-alpine
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+WORKDIR /app
+
+EXPOSE 5173
+
+ENV NODE_ENV=development
+
+# All source files are volume-mounted from the host at runtime.
+# Install deps from the mounted package.json/pnpm-lock.yaml, then start dev server.
+CMD ["sh", "-c", "pnpm install && pnpm dev"]
