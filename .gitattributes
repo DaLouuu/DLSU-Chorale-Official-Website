@@ -1,0 +1,27 @@
+# Auto normalize line endings for all text files
+* text=auto
+
+# Markdown files - always use LF
+*.md text eol=lf
+
+# Source code - use LF
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.sql text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+
+# Shell scripts - use LF
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary

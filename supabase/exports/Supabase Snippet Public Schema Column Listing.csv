@@ -1,0 +1,51 @@
+table_name,column_name,data_type,is_nullable
+attendance_logs,log_id,bigint,NO
+attendance_logs,created_at,timestamp with time zone,NO
+attendance_logs,account_id_fk,uuid,YES
+attendance_logs,log_method,text,YES
+attendance_logs,event_id_fk,bigint,YES
+attendance_logs,log_status,text,YES
+directory,school_id,bigint,NO
+directory,email,text,YES
+events,event_id,bigint,NO
+events,event_date,date,NO
+events,start_time,time with time zone,NO
+events,end_time,time with time zone,YES
+events,notes,text,YES
+events,event_type,text,YES
+events,is_castable,text,YES
+excuse_requests,request_id,bigint,NO
+excuse_requests,created_at,timestamp with time zone,NO
+excuse_requests,account_id_fk,uuid,YES
+excuse_requests,eta,time with time zone,YES
+excuse_requests,etd,time with time zone,YES
+excuse_requests,notes,text,YES
+excuse_requests,status,text,YES
+excuse_requests,excused_date,date,YES
+excuse_requests,excuse_type,text,YES
+profiles,id,uuid,NO
+profiles,email,text,YES
+profiles,created_at,timestamp with time zone,YES
+profiles,updated_at,timestamp with time zone,YES
+profiles,last_name,text,YES
+profiles,first_name,text,YES
+profiles,middle_name,text,YES
+profiles,nickname,text,YES
+profiles,membership_status,text,NO
+profiles,current_term_stat,text,NO
+profiles,committee,text,YES
+profiles,voice_section,text,YES
+profiles,bday,date,YES
+profiles,mobile_num,text,YES
+profiles,college,text,YES
+profiles,course_code,text,YES
+profiles,alternative_email,text,YES
+profiles,terms_left,bigint,YES
+profiles,telegram_user,text,YES
+profiles,fb_link,text,YES
+profiles,guardian_name,text,YES
+profiles,parent_contact_num,text,YES
+profiles,entry_date,date,YES
+profiles,longevity_terms,bigint,YES
+profiles,last_term_gpa,double precision,YES
+profiles,school_id,bigint,YES

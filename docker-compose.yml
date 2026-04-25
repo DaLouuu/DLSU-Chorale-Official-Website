@@ -1,0 +1,18 @@
+services:
+  web:
+    build:
+      context: "./High Fi DLSU Chorale Website"
+      dockerfile: Dockerfile.dev
+    container_name: dlsu-chorale-web
+    ports:
+      - "5173:5173"
+    volumes:
+      - "./High Fi DLSU Chorale Website:/app"
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    env_file:
+      - "./High Fi DLSU Chorale Website/.env"
+    restart: unless-stopped
+    stdin_open: true
+    tty: true

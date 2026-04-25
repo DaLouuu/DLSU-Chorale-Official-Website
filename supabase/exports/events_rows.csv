@@ -1,0 +1,6 @@
+event_id,event_date,start_time,end_time,notes,event_type,is_castable
+1,2025-08-18,18:30:00+08,20:30:00+08,"Choir rehearsal, focus on harmonies",,
+2,2025-08-19,19:00:00+08,21:00:00+08,"Choir rehearsal, dynamics and diction",,
+3,2025-08-20,18:45:00+08,20:45:00+08,"Choir rehearsal with piano accompanist, polishing entrances",,
+4,2025-08-21,18:30:00+08,20:30:00+08,"Choir practice, blending voices and phrasing",,
+5,2025-08-22,19:15:00+08,21:00:00+08,"Choir rehearsal, focus on final concert program",,
