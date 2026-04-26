@@ -19,7 +19,6 @@ function useViewportWidth() {
 
 const MEMBER_NAV = [
   { key: 'member-home', label: 'Home', icon: 'home' },
-  { key: 'member-calendar', label: 'Calendar', icon: 'calendar' },
   { key: 'member-attendance', label: 'My Attendance', icon: 'clock' },
   { key: 'member-excuses', label: 'Excuse Requests', icon: 'ticket' },
   { key: 'member-performances', label: 'Events', icon: 'music' },
@@ -31,7 +30,6 @@ const MEMBER_NAV = [
 
 const ADMIN_NAV = [
   { key: 'admin-home', label: 'Dashboard', icon: 'home' },
-  { key: 'admin-calendar', label: 'Calendar', icon: 'calendar' },
   { key: 'admin-events', label: 'Events', icon: 'music' },
   { key: 'admin-attendance', label: 'Attendance Overview', icon: 'clock' },
   { key: 'admin-excuses', label: 'Excuse Approvals', icon: 'ticket' },
@@ -135,7 +133,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
 
 function Topbar({ onMenuClick, isMobile }: { onMenuClick?: () => void; isMobile?: boolean }) {
   const { user, role, go } = useRouter();
-  const { theme } = useTheme();
+  const { theme, mode, setMode } = useTheme();
   const app = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
@@ -378,6 +376,24 @@ function Topbar({ onMenuClick, isMobile }: { onMenuClick?: () => void; isMobile?
       </div>
 
       <NotificationBell />
+
+      <button
+        onClick={() => setMode(mode === 'light' ? 'dark' : 'light')}
+        title={mode === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+        style={{
+          background: 'transparent',
+          border: `1px solid ${theme.line}`,
+          borderRadius: 8,
+          padding: '6px 8px',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          color: theme.dim,
+          flexShrink: 0,
+        }}
+      >
+        <Icon name={mode === 'light' ? 'moon' : 'sun'} size={15} stroke={theme.dim} />
+      </button>
 
       <div
         style={{

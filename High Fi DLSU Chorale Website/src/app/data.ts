@@ -382,6 +382,18 @@ export const REHEARSALS = [
   { id: "r10", date: "2026-05-15", time: "18:00", endTime: "21:00", type: "Full Rehearsal", venue: "Music Studio A", notes: "Full ensemble" },
 ];
 
+// Rehearsal events for AdminAttendance mock fallback (April 2026 weekly rehearsals)
+export const REHEARSAL_EVENTS = [
+  { id: "201", name: "Full Rehearsal", date: "2026-04-07", time: "18:00", venue: "Music Studio A", type: "rehearsal" },
+  { id: "202", name: "Sectional — S/A", date: "2026-04-09", time: "18:00", venue: "Music Studio B", type: "rehearsal" },
+  { id: "203", name: "Full Rehearsal", date: "2026-04-14", time: "18:00", venue: "Music Studio A", type: "rehearsal" },
+  { id: "204", name: "Sectional — T/B", date: "2026-04-16", time: "18:00", venue: "Music Studio A", type: "rehearsal" },
+  { id: "205", name: "Full Rehearsal", date: "2026-04-21", time: "18:00", venue: "Music Studio A", type: "rehearsal" },
+  { id: "206", name: "Sectional — S/A", date: "2026-04-23", time: "18:00", venue: "Music Studio B", type: "rehearsal" },
+  { id: "207", name: "Full Rehearsal", date: "2026-04-28", time: "18:00", venue: "Music Studio A", type: "rehearsal" },
+  { id: "208", name: "Sectional — T/B", date: "2026-04-30", time: "18:00", venue: "Music Studio A", type: "rehearsal" },
+];
+
 export const CLASS_SCHEDULES = [
   {
     memberId: 12100234,

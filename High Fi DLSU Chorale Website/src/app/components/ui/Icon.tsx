@@ -6,7 +6,8 @@ type IconName =
   | 'clock' | 'search' | 'filter' | 'download' | 'chevronRight' | 'chevronLeft'
   | 'chevronDown' | 'mapPin' | 'dollar' | 'mail' | 'menu' | 'megaphone'
   | 'shield' | 'rfid' | 'wifi' | 'wifiOff' | 'alert' | 'refresh' | 'heart'
-  | 'folder' | 'info' | 'file' | 'externalLink' | 'edit' | 'trash' | 'image';
+  | 'folder' | 'info' | 'file' | 'externalLink' | 'edit' | 'trash' | 'image'
+  | 'camera' | 'alertTriangle' | 'userPlus' | 'sun' | 'moon';
 
 type IconProps = {
   name: IconName;
@@ -226,6 +227,34 @@ export function Icon({ name, size = 18, stroke = 'currentColor', fill = 'none', 
         <circle cx="8.5" cy="8.5" r="1.5" />
         <path d="m21 15-5-5L5 21" />
       </>
+    ),
+    camera: (
+      <>
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z" />
+        <circle cx="12" cy="13" r="4" />
+      </>
+    ),
+    alertTriangle: (
+      <>
+        <path d="M10.3 3.6 1.4 18a2 2 0 0 0 1.7 3h17.8a2 2 0 0 0 1.7-3L13.7 3.6a2 2 0 0 0-3.4 0Z" />
+        <path d="M12 9v5M12 17h0" />
+      </>
+    ),
+    userPlus: (
+      <>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="8.5" cy="7" r="4" />
+        <path d="M20 8v6M17 11h6" />
+      </>
+    ),
+    sun: (
+      <>
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+      </>
+    ),
+    moon: (
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
     ),
   };
 

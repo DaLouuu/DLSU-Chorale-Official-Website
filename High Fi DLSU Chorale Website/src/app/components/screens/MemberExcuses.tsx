@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useRouter, useTheme, useApp } from '../../App';
+import { notifyExcuseFiled } from '../../utils/email';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
@@ -35,6 +36,8 @@ export function MemberExcuses() {
       eta: eta || undefined,
     });
     app.showToast("Excuse submitted — your Section Head will review it.");
+    const adminEmail = import.meta.env.VITE_ADMIN_EMAIL as string ?? '';
+    if (adminEmail) notifyExcuseFiled({ adminEmail, memberName: user.name, section: user.section, excuseType: type, date, reason });
     setSubmitted(true);
     setReason('');
     setEta('');

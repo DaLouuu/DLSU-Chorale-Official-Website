@@ -8,7 +8,7 @@ import { Avatar } from '../ui/Avatar';
 import { SectionTag } from '../ui/SectionTag';
 import { StatusPill } from '../ui/Chip';
 import { Icon } from '../ui/Icon';
-import { MEMBERS, EVENTS } from '../../data';
+import { MEMBERS, EVENTS, REHEARSAL_EVENTS } from '../../data';
 import { supabase } from '../../supabase';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -24,6 +24,19 @@ function getWeekBounds(offset: number): { start: string; end: string; label: str
   const label = (d: Date) =>
     d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
   return { start: fmt(monday), end: fmt(sunday), label: `${label(monday)} — ${label(sunday)}, ${monday.getFullYear()}` };
+}
+
+function buildMockAttendance(members: any[], events: any[]): Map<number, Map<string, string>> {
+  const pool = ['present', 'present', 'present', 'present', 'late', 'absent', 'excused'];
+  const map = new Map<number, Map<string, string>>();
+  members.forEach((m, mi) => {
+    const inner = new Map<string, string>();
+    events.forEach((ev, ei) => {
+      inner.set(String(ev.id), pool[(mi * 3 + ei * 7) % pool.length]);
+    });
+    map.set(m.id, inner);
+  });
+  return map;
 }
 
 function statusColor(s: string, theme: any): string {
@@ -111,7 +124,11 @@ export function AdminAttendance() {
   const [loadingLogs, setLoadingLogs] = useState(false);
 
   const week = getWeekBounds(weekOffset);
-  const weekEvents = EVENTS.filter(ev => ev.date >= week.start && ev.date <= week.end);
+  const realWeekEvents = EVENTS.filter(ev => ev.date >= week.start && ev.date <= week.end);
+  const mockWeekEvents = REHEARSAL_EVENTS.filter(ev => ev.date >= week.start && ev.date <= week.end);
+  const usingMock = realWeekEvents.length === 0 && mockWeekEvents.length > 0;
+  const weekEvents = usingMock ? mockWeekEvents : realWeekEvents;
+  const mockMap = usingMock ? buildMockAttendance(MEMBERS, weekEvents) : null;
 
   // Fetch attendance logs whenever the week changes
   useEffect(() => {
@@ -142,12 +159,18 @@ export function AdminAttendance() {
   // Members list filtered by section
   let members = section === 'All' ? MEMBERS : MEMBERS.filter(m => m.section === section);
 
+  const getStatuses = (m: any): string[] =>
+    weekEvents.map(ev =>
+      usingMock
+        ? (mockMap!.get(m.id)?.get(String(ev.id)) ?? 'absent')
+        : (logMap.get(m._uuid as string)?.get(Number(ev.id)) ?? 'absent')
+    );
+
   // Apply rate threshold filter
   if (filters.rateThreshold > 0 && weekEvents.length > 0) {
     members = members.filter(m => {
-      const uuid = m._uuid as string;
-      const memberLogs = logMap.get(uuid) ?? new Map();
-      const presentCount = weekEvents.filter(ev => memberLogs.get(Number(ev.id)) === 'present').length;
+      const statuses = getStatuses(m);
+      const presentCount = statuses.filter(s => s === 'present').length;
       const rate = Math.round((presentCount / weekEvents.length) * 100);
       return rate < filters.rateThreshold;
     });
@@ -231,12 +254,10 @@ export function AdminAttendance() {
               </thead>
               <tbody>
                 {members.map(m => {
-                  const uuid = m._uuid as string;
-                  const memberLogs = logMap.get(uuid) ?? new Map<number, string>();
-                  const statuses = weekEvents.map(ev => memberLogs.get(Number(ev.id)) ?? 'absent');
+                  const statuses = getStatuses(m);
                   const presentCount = statuses.filter(s => s === 'present').length;
                   const rate = weekEvents.length > 0 ? Math.round((presentCount / weekEvents.length) * 100) : 0;
-                  const hasAnyLog = statuses.some(s => s !== 'absent');
+                  const hasAnyLog = usingMock || statuses.some(s => s !== 'absent');
 
                   // Skip members who don't match status filter (when specific statuses are selected)
                   const filteredStatuses = filters.statuses;

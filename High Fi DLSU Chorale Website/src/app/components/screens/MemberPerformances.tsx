@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useTheme, useApp } from '../../App';
+import { useTheme, useApp, useRouter } from '../../App';
+import { notifyEventSignup } from '../../utils/email';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
@@ -297,6 +298,8 @@ function EventCard({ event: e, theme, onSignUp }: { event: UnifiedEvent; theme: 
 export function MemberPerformances() {
   const app = useApp();
   const { theme } = useTheme();
+  const { user } = useRouter();
+  const adminEmail = import.meta.env.VITE_ADMIN_EMAIL as string ?? '';
   const [filter, setFilter] = useState<FilterCategory>('all');
   const [timeFilter, setTimeFilter] = useState('upcoming');
   const [signupEvent, setSignupEvent] = useState<UnifiedEvent | null>(null);
@@ -342,11 +345,13 @@ export function MemberPerformances() {
       setSocialSignups(prev => ({ ...prev, [e.id]: !wasSignedUp }));
       setSocialCounts(prev => ({ ...prev, [e.id]: (prev[e.id] ?? 0) + (wasSignedUp ? -1 : 1) }));
       app.showToast(wasSignedUp ? 'Removed from sign-up' : `Signed up — ${e.name}`);
+      if (adminEmail) notifyEventSignup({ adminEmail, memberName: user?.name ?? '', section: user?.section ?? '', eventName: e.name, eventDate: e.date, withdrew: wasSignedUp });
       return;
     }
     if (e.mySignup) {
       app.signUpEvent(e.id);
       app.showToast('Removed from roster');
+      if (adminEmail) notifyEventSignup({ adminEmail, memberName: user?.name ?? '', section: user?.section ?? '', eventName: e.name, eventDate: e.date, withdrew: true });
       return;
     }
     if (hasRequiredForm(e)) {
@@ -354,6 +359,7 @@ export function MemberPerformances() {
     } else {
       app.signUpEvent(e.id);
       app.showToast(`Signed up — ${e.name}`);
+      if (adminEmail) notifyEventSignup({ adminEmail, memberName: user?.name ?? '', section: user?.section ?? '', eventName: e.name, eventDate: e.date });
     }
   };
 
@@ -447,6 +453,7 @@ export function MemberPerformances() {
           onSubmit={() => {
             app.signUpEvent(signupEvent.id);
             app.showToast(`Signed up — ${signupEvent.name}`);
+            if (adminEmail) notifyEventSignup({ adminEmail, memberName: user?.name ?? '', section: user?.section ?? '', eventName: signupEvent.name, eventDate: signupEvent.date });
             setSignupEvent(null);
           }}
         />

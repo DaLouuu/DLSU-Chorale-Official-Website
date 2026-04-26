@@ -72,6 +72,82 @@ const EVENT_TYPE_CHIP: Record<string, 'neutral' | 'green' | 'amber' | 'blue' | '
   rehearsal: 'neutral',
 };
 
+// ── PDF text extraction ───────────────────────────────────────────────────────
+
+async function extractPdfText(file: File): Promise<string> {
+  const buf = await file.arrayBuffer();
+  // Decode as latin-1 so every byte becomes a char — PDF binary survives
+  const raw = new TextDecoder('iso-8859-1').decode(buf);
+  const parts: string[] = [];
+  // Capture all PDF string objects: content between ( … ) with basic escape handling
+  const re = /\(([^)\\]{0,400}(?:\\.[^)\\]{0,400})*)\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(raw)) !== null) {
+    const s = m[1]
+      .replace(/\\n/g, '\n').replace(/\\r/g, '').replace(/\\t/g, ' ')
+      .replace(/\\([^nrt])/g, '$1');
+    // Keep only strings with readable content
+    if (s.length >= 2 && /[a-zA-Z0-9]/.test(s)) parts.push(s);
+  }
+  return parts.join(' ');
+}
+
+function parsePrPdf(text: string): Partial<FormData> & { autoFilled: AutoFilledKey[] } {
+  const result: Partial<FormData> = {};
+  const autoFilled: AutoFilledKey[] = [];
+
+  const grab = (re: RegExp, max = 100) => {
+    const m = text.match(re);
+    return m ? m[1].trim().slice(0, max) : null;
+  };
+
+  // Event name / title
+  const name = grab(/Event\s+Title[:\s]+([^\n(]{3,100})/i)
+    || grab(/Event[:\s]+([^\n(]{3,80})/i);
+  if (name) { result.name = name; autoFilled.push('name'); }
+
+  // Date — "March 22, 2026" or "March 22 2026"
+  const rawDate = grab(/Event\s+Date[:\s]+([A-Za-z]+ \d{1,2},?\s*\d{4})/i);
+  if (rawDate) {
+    const d = new Date(rawDate.replace(/\s*\([^)]*\)/g, ''));
+    if (!isNaN(d.getTime())) { result.date = d.toISOString().split('T')[0]; autoFilled.push('date'); }
+  }
+
+  // Venue
+  const venue = grab(/Venue[:\s]+([^\n(]{3,100})/i);
+  if (venue) { result.venue = venue; autoFilled.push('venue'); }
+
+  // Cast size
+  const cast = grab(/Number\s+of\s+Performers[:\s]+(\d+)/i) || grab(/(\d{1,3})\s+performers/i);
+  if (cast && !isNaN(Number(cast))) { result.cast_size = cast.trim(); autoFilled.push('cast_size'); }
+
+  // Repertoire — song request line
+  const song = grab(/Song\s+requests?[:\s]+([^\n(]{2,100})/i);
+  if (song) { result.repertoire = [song]; autoFilled.push('repertoire'); }
+
+  // Attire
+  const attire = grab(/Attire[:\s]+([^\n(]{3,150})/i);
+  if (attire) { result.attire = attire; autoFilled.push('attire'); }
+
+  // Call time — "March 22 - 7 AM" or "7:00 AM" in Soundcheck/Rehearsal line
+  const ctLine = text.match(/(?:Soundcheck|Rehearsal)[^:]*[:\s]+[A-Za-z]+ \d+\s*[-–]\s*(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?/i)
+    || text.match(/(?:call\s*time|start)[:\s]+(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?/i);
+  if (ctLine) {
+    let h = parseInt(ctLine[1], 10);
+    const min = ctLine[2] ? parseInt(ctLine[2], 10) : 0;
+    const ap = (ctLine[3] ?? 'AM').toUpperCase();
+    if (ap === 'PM' && h < 12) h += 12;
+    if (ap === 'AM' && h === 12) h = 0;
+    result.call_time = `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+    autoFilled.push('call_time');
+  }
+
+  // Mark as a "request" type since this is a performance request form
+  if (autoFilled.length > 0) { result.type = 'request'; autoFilled.push('type'); }
+
+  return { ...result, autoFilled };
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function displayName(ev: DbEvent) {
@@ -231,6 +307,7 @@ type UploadResult = {
   rows: Record<string, string>[] | null;
   isBulk: boolean;
   parseError: string | null;
+  parsedForm?: { fields: Partial<FormData>; autoFilled: AutoFilledKey[] };
 };
 
 function FileUploadZone({
@@ -287,9 +364,25 @@ function FileUploadZone({
       }
     } else if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
       parseError = 'Excel auto-fill is not supported yet — file was uploaded. To auto-fill fields, save your spreadsheet as CSV first.';
-    } else {
-      parseError = null; // PDF/image — no auto-fill, just attach
+    } else if (name.endsWith('.pdf')) {
+      setStatus('Reading PDF…');
+      try {
+        const text = await extractPdfText(file);
+        if (text.length > 30) {
+          const { autoFilled, ...fields } = parsePrPdf(text);
+          if (autoFilled.length > 0) {
+            onResult({ fileUrl, rows: null, isBulk: false, parseError: null, parsedForm: { fields, autoFilled } });
+            setStatus(null);
+            return;
+          }
+        }
+        // PDF yielded no fields — just attach
+        parseError = null;
+      } catch {
+        parseError = null;
+      }
     }
+    // Images — just attach, no auto-fill possible without OCR
 
     setStatus(null);
     onResult({
@@ -365,7 +458,7 @@ function FileUploadZone({
         {status ?? 'Drop a file or click to browse'}
       </div>
       <div style={{ fontSize: 11.5, color: theme.dim, marginTop: 4 }}>
-        PDF · Image · CSV · Excel (.xlsx) — CSV/Excel auto-fills form fields
+        PDF (CAO request form auto-fills) · CSV (bulk import) · Image (attaches only)
       </div>
       {error && <div style={{ marginTop: 8, fontSize: 12, color: '#dc2626' }}>{error}</div>}
     </div>
@@ -586,6 +679,14 @@ function EventDrawer({
     setUploading(false);
     if (r.fileUrl) set('file_url', r.fileUrl);
     if (r.parseError) { setSaveError(r.parseError); return; }
+
+    // PDF parsed directly into form fields
+    if (r.parsedForm) {
+      setForm(prev => ({ ...prev, ...r.parsedForm!.fields }));
+      setAutoFilled(new Set(r.parsedForm!.autoFilled));
+      return;
+    }
+
     if (!r.rows || r.rows.length === 0) return;
 
     if (r.isBulk) {

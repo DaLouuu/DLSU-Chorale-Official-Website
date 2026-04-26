@@ -9,6 +9,12 @@ import { SectionTag } from '../ui/SectionTag';
 import { Chip, StatusPill } from '../ui/Chip';
 import { MEMBERS } from '../../data';
 import { supabase } from '../../supabase';
+import { notifyExcuseDecision } from '../../utils/email';
+
+function memberEmail(memberId: string | number): string {
+  const m = MEMBERS.find(x => String(x.id) === String(memberId));
+  return m?.email ?? '';
+}
 
 type Excuse = {
   id: string | number;
@@ -49,6 +55,7 @@ export function AdminExcuses() {
     // Update local state immediately
     app.updateExcuse(e.id, { status: 'Approved', approvedBy: user?.name ?? 'Admin', notes: 'Approved.' });
     app.showToast(`Approved · ${e.memberName}`);
+    notifyExcuseDecision({ email: memberEmail(e.memberId), name: e.memberName, excuseType: e.type, date: e.date, status: 'Approved', notes: 'Approved.' });
     setActioning(null);
   };
 
@@ -59,7 +66,9 @@ export function AdminExcuses() {
       .from('excuse_requests')
       .update({ status: 'Declined' })
       .eq('request_id', declineFor.id);
-    app.updateExcuse(declineFor.id, { status: 'Declined', approvedBy: user?.name ?? 'Admin', notes: declineNote || 'Declined.' });
+    const note = declineNote || 'Declined.';
+    app.updateExcuse(declineFor.id, { status: 'Declined', approvedBy: user?.name ?? 'Admin', notes: note });
+    notifyExcuseDecision({ email: memberEmail(declineFor.memberId), name: declineFor.memberName, excuseType: declineFor.type, date: declineFor.date, status: 'Declined', notes: note });
     app.showToast('Declined — member notified', 'error');
     setDeclineFor(null);
     setDeclineNote('');

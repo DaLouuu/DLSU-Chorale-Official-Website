@@ -69,11 +69,18 @@ export const useTheme = () => {
 };
 
 function ThemeProvider({ children }: { children: ReactNode }) {
-  const [mode, setMode] = useState<ThemeMode>('light');
+  const [mode, setMode] = useState<ThemeMode>(() => {
+    try { return (localStorage.getItem('chorale-theme') as ThemeMode) || 'light'; } catch { return 'light'; }
+  });
   const theme = PALETTES[mode];
 
+  const handleSetMode = (m: ThemeMode) => {
+    try { localStorage.setItem('chorale-theme', m); } catch {}
+    setMode(m);
+  };
+
   return (
-    <ThemeContext.Provider value={{ theme, mode, setMode }}>
+    <ThemeContext.Provider value={{ theme, mode, setMode: handleSetMode }}>
       <div style={{ background: theme.bodyBg, minHeight: '100vh', color: theme.ink, fontFamily: FONTS.sans }}>
         {children}
       </div>
@@ -284,7 +291,7 @@ function Router() {
   if (route === 'member-profile') return <Shell><MemberProfile /></Shell>;
   if (route === 'member-social') return <Shell><MemberSocialEvents /></Shell>;
   if (route === 'member-music') return <Shell><MemberMusicLibrary /></Shell>;
-  if (route === 'member-calendar') return <Shell><MemberCalendar /></Shell>;
+  if (route === 'member-calendar') return <Shell><MemberHome /></Shell>;
 
   // Admin screens
   if (route === 'admin-home') return <Shell><AdminHome /></Shell>;
@@ -294,7 +301,7 @@ function Router() {
   if (route === 'admin-fees') return <Shell><AdminFees /></Shell>;
   if (route === 'admin-analytics') return <Shell><AdminAnalytics /></Shell>;
   if (route === 'admin-members') return <Shell><AdminMembers /></Shell>;
-  if (route === 'admin-calendar') return <Shell><AdminCalendar /></Shell>;
+  if (route === 'admin-calendar') return <Shell><AdminHome /></Shell>;
   if (route === 'admin-social') return <Shell><AdminSocialEvents /></Shell>;
   if (route === 'admin-music') return <Shell><AdminMusicLibrary /></Shell>;
   if (route === 'admin-events') return <Shell><AdminEvents /></Shell>;
