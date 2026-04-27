@@ -237,10 +237,10 @@ function Topbar({ onMenuClick, isMobile }: { onMenuClick?: () => void; isMobile?
         borderBottom: `1px solid ${theme.line}`,
         display: 'flex',
         alignItems: 'center',
-        padding: '0 28px',
+        padding: isMobile ? '0 12px' : '0 28px',
         background: theme.paper,
         fontFamily: FONTS.sans,
-        gap: 18,
+        gap: isMobile ? 8 : 18,
         flexShrink: 0,
       }}
     >
@@ -415,19 +415,24 @@ function Topbar({ onMenuClick, isMobile }: { onMenuClick?: () => void; isMobile?
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 10,
-          padding: '4px 10px 4px 4px',
+          gap: isMobile ? 6 : 10,
+          padding: isMobile ? '3px 8px 3px 3px' : '4px 10px 4px 4px',
           border: `1px solid ${theme.line}`,
           borderRadius: 999,
+          minWidth: 0,
         }}
       >
-        <Avatar member={user} size={30} />
-        <div style={{ lineHeight: 1.2 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 500, color: theme.ink }}>{user?.name}</div>
-          <div style={{ fontSize: 10.5, color: theme.dim, fontFamily: FONTS.mono, letterSpacing: 0.3 }}>
-            {user?.section} · {role === 'admin' ? 'Admin' : 'Member'}
+        <Avatar member={user} size={isMobile ? 26 : 30} />
+        <div style={{ lineHeight: 1.2, minWidth: 0 }}>
+          <div style={{ fontSize: isMobile ? 11.5 : 12.5, fontWeight: 500, color: theme.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: isMobile ? 106 : 180 }}>
+            {user?.name}
           </div>
-          {sessionExpiry && (
+          {!isMobile && (
+            <div style={{ fontSize: 10.5, color: theme.dim, fontFamily: FONTS.mono, letterSpacing: 0.3 }}>
+              {user?.section} · {role === 'admin' ? 'Admin' : 'Member'}
+            </div>
+          )}
+          {!isMobile && sessionExpiry && (
             <div
               title={`Session expires ${new Date(sessionExpiry).toLocaleString()}`}
               style={{ fontSize: 9.5, color: theme.dim, fontFamily: FONTS.mono, letterSpacing: 0.2, marginTop: 2, opacity: 0.7 }}

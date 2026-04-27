@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useTheme, useApp } from '../../App';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
@@ -21,6 +21,13 @@ export function MemberPaalam() {
   const [reason, setReason] = useState('');
   const [eta, setEta] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setVw(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  const isMobile = vw < 768;
 
   const submit = () => {
     if (!reason.trim()) return;
@@ -52,7 +59,7 @@ export function MemberPaalam() {
         subtitle="File excused absences, late arrivals, or stepping-out requests. Your Section Head decides within 24 hours."
       />
 
-      <div style={{ display: 'flex', gap: 0, marginBottom: 22, borderBottom: `1px solid ${theme.line}` }}>
+      <div style={{ display: 'flex', gap: 0, marginBottom: 22, borderBottom: `1px solid ${theme.line}`, overflowX: 'auto' }}>
         {[
           { k: 'new', l: 'New request' },
           { k: 'mine', l: `My requests (${mine.length})` },
@@ -61,7 +68,7 @@ export function MemberPaalam() {
             key={t.k}
             onClick={() => setTab(t.k)}
             style={{
-              padding: '12px 22px',
+              padding: isMobile ? '11px 16px' : '12px 22px',
               background: 'transparent',
               border: 'none',
               cursor: 'pointer',
@@ -79,9 +86,9 @@ export function MemberPaalam() {
       </div>
 
       {tab === 'new' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 22 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: 22 }}>
           <Card pad={28}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 10, marginBottom: 18 }}>
               {['Absent', 'Excused Absent', 'Late', 'Stepping Out'].map(t => (
                 <button
                   key={t}
@@ -107,7 +114,7 @@ export function MemberPaalam() {
               ))}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14 }}>
               <Field label="Date" type="date" value={date} onChange={e => setDate(e.target.value)} />
               <Field label="Event type" select options={['Rehearsal', 'Performance']} value={eventType} onChange={e => setEventType(e.target.value)} />
               {(type === 'Late' || type === 'Stepping Out') && <Field label="Estimated arrival / return" type="time" value={eta} onChange={e => setEta(e.target.value)} />}
@@ -141,7 +148,7 @@ export function MemberPaalam() {
               </div>
             </div>
 
-            <div style={{ marginTop: 20, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <div style={{ marginTop: 20, display: 'flex', gap: 10, justifyContent: isMobile ? 'stretch' : 'flex-end', flexWrap: 'wrap' }}>
               <Button variant="outline">Save draft</Button>
               <Button onClick={submit} icon="check" disabled={submitted}>
                 {submitted ? 'Submitted ✓' : 'Submit excuse'}
@@ -210,7 +217,7 @@ export function MemberPaalam() {
           )}
           {mine.map(e => (
             <Card key={e.id}>
-              <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr 120px', gap: 18, alignItems: 'center' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '90px 1fr 120px', gap: 18, alignItems: 'center' }}>
                 <div>
                   <div style={{ fontFamily: FONTS.mono, fontSize: 10, color: theme.dim, letterSpacing: 0.5 }}>
                     {new Date(e.date).toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}
@@ -232,7 +239,7 @@ export function MemberPaalam() {
                     </div>
                   )}
                 </div>
-                <div style={{ textAlign: 'right' }}>
+                <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
                   <StatusPill status={e.status} />
                   <div style={{ fontSize: 10.5, color: theme.dim, marginTop: 6, fontFamily: FONTS.mono }}>Filed {e.submittedAt?.slice(0, 10)}</div>
                 </div>

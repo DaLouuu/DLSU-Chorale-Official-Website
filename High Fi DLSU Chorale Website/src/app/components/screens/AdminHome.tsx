@@ -566,7 +566,7 @@ export function AdminHome() {
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: 20 }}>
         <Card>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18, gap: 10, flexWrap: 'wrap' }}>
             <div>
               <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, color: theme.green, textTransform: 'uppercase' }}>Action needed</div>
               <h3 style={{ fontFamily: FONTS.serif, fontSize: 22, margin: '4px 0 0', fontWeight: 500 }}>Pending excuses · {pending.length}</h3>
@@ -577,7 +577,7 @@ export function AdminHome() {
             {pending.slice(0, 5).map(e => {
               const m = MEMBERS.find(m => m.id === e.memberId);
               return (
-                <div key={e.id} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto auto', gap: 14, alignItems: 'center', padding: 12, background: theme.cream, borderRadius: 10 }}>
+                <div key={e.id} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'auto 1fr auto auto', gap: 14, alignItems: 'center', padding: 12, background: theme.cream, borderRadius: 10 }}>
                   <Avatar member={m} size={34} />
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 500 }}>{e.memberName} · <span style={{ color: theme.dim, fontWeight: 400 }}>{e.type}</span></div>
@@ -619,7 +619,7 @@ export function AdminHome() {
 
       {/* ── Calendar section ── */}
       <div style={{ marginTop: 40, paddingTop: 32, borderTop: `1px solid ${theme.line}` }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'flex-end', marginBottom: 24, gap: 12, flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, color: theme.green, textTransform: 'uppercase' }}>Admin Console</div>
             <h2 style={{ fontFamily: FONTS.serif, fontSize: 28, margin: '4px 0 0', fontWeight: 500 }}>Calendar Management</h2>
@@ -632,7 +632,7 @@ export function AdminHome() {
       <Calendar role="admin" />
 
       <Card style={{ marginTop: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', marginBottom: 16, gap: 10, flexWrap: 'wrap' }}>
           <div>
             <h3 style={{ fontFamily: FONTS.serif, fontSize: 20, margin: 0, fontWeight: 500 }}>Upcoming Rehearsals & Sectionals</h3>
             <div style={{ fontSize: 12, color: theme.dim, marginTop: 4 }}>{upcoming.length} upcoming · click a row to edit</div>
@@ -653,7 +653,7 @@ export function AdminHome() {
               return (
                 <div
                   key={r.id}
-                  style={{ display: 'grid', gridTemplateColumns: '110px 140px 1fr auto auto auto', gap: 14, padding: '12px 14px', background: theme.cream, borderRadius: 10, alignItems: 'center', fontSize: 13, cursor: 'pointer' }}
+                  style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '110px 140px 1fr auto auto auto', gap: 14, padding: '12px 14px', background: theme.cream, borderRadius: 10, alignItems: 'center', fontSize: 13, cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.background = theme.line)}
                   onMouseLeave={e => (e.currentTarget.style.background = theme.cream)}
                   onClick={() => { setEditingRehearsal(r); setShowModal(true); }}
@@ -675,7 +675,7 @@ export function AdminHome() {
                     {r.notes && <div style={{ fontSize: 12, color: theme.dim, marginTop: 2 }}>{r.notes}</div>}
                   </div>
                   <div style={{ fontFamily: FONTS.mono, fontSize: 12, whiteSpace: 'nowrap' }}>{r.time}–{r.endTime}</div>
-                  <div style={{ textAlign: 'right' }}>
+                  <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
                     <div style={{ fontSize: 12, color: theme.dim }}>Est. attendance</div>
                     <div style={{ fontWeight: 600, color: conflicts.length > 5 ? theme.amber : theme.green }}>
                       {estimatedAttendance}/64
@@ -694,7 +694,7 @@ export function AdminHome() {
 
       {/* ── Recent Announcements section ── */}
       <div style={{ marginTop: 40, paddingTop: 32, borderTop: `1px solid ${theme.line}` }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'flex-end', marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, color: theme.green, textTransform: 'uppercase' }}>Admin Console</div>
             <h2 style={{ fontFamily: FONTS.serif, fontSize: 28, margin: '4px 0 0', fontWeight: 500 }}>Recent Announcements</h2>
@@ -709,7 +709,7 @@ export function AdminHome() {
           {app.announcements.slice(0, 5).map((a: any) => (
             <div key={a.id}>
               <Card style={{ padding: '16px 20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: isMobile ? 'wrap' as const : 'nowrap' as const }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                       {a.pinned && (

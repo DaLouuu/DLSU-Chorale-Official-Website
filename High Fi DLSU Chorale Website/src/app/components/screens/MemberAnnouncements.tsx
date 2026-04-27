@@ -1,4 +1,5 @@
 import { useTheme, useApp } from '../../App';
+import { useEffect, useState } from 'react';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
@@ -36,6 +37,13 @@ function AnnouncementCard({ a, variant = 'paper' }: AnnouncementCardProps) {
 export function MemberAnnouncements() {
   const app = useApp();
   const { theme } = useTheme();
+  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setVw(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  const isMobile = vw < 768;
   const announcements = app.announcements as Announcement[];
   const pinned = announcements.filter(a => a.pinned);
   const rest = announcements.filter(a => !a.pinned);
@@ -53,7 +61,7 @@ export function MemberAnnouncements() {
           <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, color: theme.green, textTransform: 'uppercase', marginBottom: 10 }}>
             📌 Pinned
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 28 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 28 }}>
             {pinned.map(a => (
               <AnnouncementCard key={a.id} a={a} variant="green" />
             ))}

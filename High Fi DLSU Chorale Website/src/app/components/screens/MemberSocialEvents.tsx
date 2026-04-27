@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme, useApp } from '../../App';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
@@ -29,6 +29,13 @@ export function MemberSocialEvents() {
   const { theme } = useTheme();
   const app = useApp();
   const [events, setEvents] = useState(window.SOCIAL_EVENTS);
+  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setVw(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  const isMobile = vw < 768;
 
   const toggleSignup = (id: string) => {
     setEvents(prev =>
@@ -58,7 +65,7 @@ export function MemberSocialEvents() {
         subtitle="Team building, parties, and bonding activities. Sign up to join the fun!"
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 18 }}>
         {events.map(e => (
           <Card key={e.id}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
@@ -71,7 +78,7 @@ export function MemberSocialEvents() {
               {e.mySignup && <Chip tone="green" icon="check">Signed up</Chip>}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 13, color: theme.dim, marginBottom: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 10, fontSize: 13, color: theme.dim, marginBottom: 14 }}>
               <div>
                 <div style={{ fontFamily: FONTS.mono, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' }}>Time</div>
                 <div style={{ color: theme.ink, marginTop: 2 }}>{e.time}</div>
