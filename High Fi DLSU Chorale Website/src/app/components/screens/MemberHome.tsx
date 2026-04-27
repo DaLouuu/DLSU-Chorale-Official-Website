@@ -30,10 +30,22 @@ function StatCard({ label, value, trend, tone = 'neutral' }: any) {
   );
 }
 
+function useViewportWidth() {
+  const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setWidth(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return width;
+}
+
 export function MemberHome() {
   const { user, go } = useRouter();
   const { theme } = useTheme();
   const app = useApp();
+  const vw = useViewportWidth();
+  const isMobile = vw < 768;
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
 
   useEffect(() => {
@@ -103,6 +115,9 @@ export function MemberHome() {
             <Button icon="music" onClick={() => go('member-performances' as any)}>
               Sign up for a performance
             </Button>
+            <Button variant="outline" icon="check" onClick={() => go('rfid' as any)}>
+              Launch kiosk
+            </Button>
           </>
         }
       />
@@ -113,24 +128,27 @@ export function MemberHome() {
           display: 'flex',
           gap: 18,
           marginBottom: 28,
-          background: `linear-gradient(90deg, ${theme.greenDark} 0%, ${theme.greenDark} 48%, transparent 48%), url("${tet}") right center/cover`,
+          flexDirection: isMobile ? 'column' : 'row',
+          background: isMobile
+            ? `linear-gradient(180deg, ${theme.greenDark} 0%, ${theme.greenDark} 62%, transparent 62%), url("${tet}") center/cover`
+            : `linear-gradient(90deg, ${theme.greenDark} 0%, ${theme.greenDark} 48%, transparent 48%), url("${tet}") right center/cover`,
           borderRadius: 16,
           overflow: 'hidden',
           color: '#fff',
         }}
       >
-        <div style={{ padding: '32px 36px', flex: '0 0 58%' }}>
+        <div style={{ padding: isMobile ? '22px 20px' : '32px 36px', flex: isMobile ? '1 1 auto' : '0 0 58%' }}>
           <Chip tone="dark">Next performance · in 16 days</Chip>
-          <h2 style={{ fontFamily: FONTS.serif, fontSize: 34, fontWeight: 500, margin: '14px 0 6px', lineHeight: 1.1 }}>
+          <h2 style={{ fontFamily: FONTS.serif, fontSize: isMobile ? 30 : 34, fontWeight: 500, margin: '14px 0 6px', lineHeight: 1.1 }}>
             Baccalaureate & Commencement
             <br />
             <em style={{ color: theme.greenMid }}>— Term 3</em>
           </h2>
-          <div style={{ display: 'flex', gap: 20, fontSize: 13, opacity: 0.85, marginTop: 14, fontFamily: FONTS.mono }}>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13, opacity: 0.85, marginTop: 14, fontFamily: FONTS.mono }}>
             <span>MAY 10 · 07:30</span>
             <span>· Teresa Yuchengco Aud.</span>
           </div>
-          <div style={{ marginTop: 22, display: 'flex', gap: 10 }}>
+          <div style={{ marginTop: 22, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <Button onClick={() => go('member-performances' as any)} style={{ background: '#fff', color: theme.greenDark, border: '1px solid #fff' }}>
               View details
             </Button>
@@ -149,14 +167,14 @@ export function MemberHome() {
       </div>
 
       {/* Stats row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
         <StatCard label="Attendance rate" value="92%" trend="+4 vs last term" tone="green" />
         <StatCard label="Pending excuses" value={pendingMine} trend={pendingMine > 0 ? 'Awaiting review' : 'All clear'} tone={pendingMine > 0 ? 'amber' : 'green'} />
         <StatCard label="Outstanding fees" value={`₱${outstanding}`} trend={outstanding > 0 ? 'Due April 30' : 'Paid up'} tone={outstanding > 0 ? 'red' : 'green'} />
         <StatCard label="Performances signed" value={app.events.filter(e => e.mySignup).length} trend={`of ${app.events.length} upcoming`} tone="blue" />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: 20 }}>
         {/* Recent attendance */}
         <Card>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
@@ -173,24 +191,24 @@ export function MemberHome() {
               <div
                 key={i}
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: '100px 120px 1fr 90px 110px',
-                  gap: 16,
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: isMobile ? 10 : 16,
                   alignItems: 'center',
                   padding: '12px 14px',
                   background: theme.cream,
                   borderRadius: 10,
                 }}
               >
-                <div>
+                <div style={{ minWidth: isMobile ? 0 : 100, flex: isMobile ? '1 1 100%' : undefined }}>
                   <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 1, color: theme.dim }}>
                     {new Date(a.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()}
                   </div>
                   <div style={{ fontFamily: FONTS.serif, fontSize: 16, fontWeight: 500 }}>{new Date(a.date).toLocaleDateString('en-US', { weekday: 'long' })}</div>
                 </div>
-                <div style={{ fontSize: 12, color: theme.dim }}>{a.type}</div>
-                <div style={{ fontSize: 13, color: a.note ? theme.dim : '#bbb', fontStyle: a.note ? 'italic' : 'normal' }}>{a.note || '—'}</div>
-                <div style={{ fontFamily: FONTS.mono, fontSize: 12 }}>{a.timeIn}</div>
+                <div style={{ fontSize: 12, color: theme.dim, minWidth: 90 }}>{a.type}</div>
+                <div style={{ fontSize: 13, color: a.note ? theme.dim : '#bbb', fontStyle: a.note ? 'italic' : 'normal', flex: isMobile ? '1 1 100%' : '1 1 auto' }}>{a.note || '—'}</div>
+                <div style={{ fontFamily: FONTS.mono, fontSize: 12, minWidth: 70 }}>{a.timeIn}</div>
                 <StatusPill status={a.status} />
               </div>
             ))}
@@ -252,7 +270,7 @@ export function MemberHome() {
                 key={i}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '100px 2fr 1fr 120px',
+                  gridTemplateColumns: isMobile ? '1fr' : '100px 2fr 1fr 120px',
                   gap: 12,
                   padding: 12,
                   background: theme.cream,

@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { useTheme } from '../../App';
 import { FONTS } from '../../theme';
 
@@ -11,15 +11,22 @@ type PageHeaderProps = {
 
 export function PageHeader({ eyebrow, title, subtitle, actions }: PageHeaderProps) {
   const { theme } = useTheme();
+  const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setWidth(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  const isMobile = width < 768;
 
   return (
     <div
       style={{
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'flex-end',
-        paddingBottom: 20,
-        marginBottom: 24,
+        alignItems: isMobile ? 'stretch' : 'flex-end',
+        paddingBottom: isMobile ? 16 : 20,
+        marginBottom: isMobile ? 18 : 24,
         borderBottom: `1px solid ${theme.line}`,
         gap: 16,
         flexWrap: 'wrap',
@@ -30,11 +37,11 @@ export function PageHeader({ eyebrow, title, subtitle, actions }: PageHeaderProp
           <div
             style={{
               fontFamily: FONTS.mono,
-              fontSize: 11,
-              letterSpacing: 2,
+              fontSize: isMobile ? 10 : 11,
+              letterSpacing: isMobile ? 1.6 : 2,
               color: theme.green,
               textTransform: 'uppercase',
-              marginBottom: 8,
+              marginBottom: isMobile ? 6 : 8,
             }}
           >
             {eyebrow}
@@ -43,7 +50,7 @@ export function PageHeader({ eyebrow, title, subtitle, actions }: PageHeaderProp
         <h1
           style={{
             fontFamily: FONTS.serif,
-            fontSize: 42,
+              fontSize: isMobile ? 28 : 42,
             fontWeight: 500,
             margin: 0,
             color: theme.ink,
@@ -57,9 +64,9 @@ export function PageHeader({ eyebrow, title, subtitle, actions }: PageHeaderProp
           <p
             style={{
               fontFamily: FONTS.sans,
-              fontSize: 15,
+              fontSize: isMobile ? 14 : 15,
               color: theme.dim,
-              margin: '10px 0 0 0',
+              margin: `${isMobile ? 8 : 10}px 0 0 0`,
               maxWidth: 620,
             }}
           >
@@ -67,7 +74,7 @@ export function PageHeader({ eyebrow, title, subtitle, actions }: PageHeaderProp
           </p>
         )}
       </div>
-      {actions && <div style={{ display: 'flex', gap: 10 }}>{actions}</div>}
+      {actions && <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', width: isMobile ? '100%' : 'auto' }}>{actions}</div>}
     </div>
   );
 }
