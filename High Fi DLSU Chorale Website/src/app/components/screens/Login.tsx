@@ -35,6 +35,20 @@ type VerifiedUser = {
   isAdmin: boolean;
 };
 
+type RpcErrorLike = { code?: string; message?: string; details?: string | null; hint?: string | null };
+
+function isMissingVerifyPasswordRpcError(error: RpcErrorLike | null | undefined) {
+  if (!error) return false;
+  if (error.code === '42883' || error.code === 'PGRST202') return true;
+
+  const combined = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
+  return combined.includes('verify_member_password') && (
+    combined.includes('not found') ||
+    combined.includes('does not exist') ||
+    combined.includes('could not find')
+  );
+}
+
 export function Login() {
   const { go } = useRouter();
   const { theme } = useTheme();
@@ -292,8 +306,8 @@ export function Login() {
       });
 
       if (pwErr) {
-        if (pwErr.code === '42883') {
-          // RPC not set up yet — force password setup for first-time users
+        if (isMissingVerifyPasswordRpcError(pwErr)) {
+          // RPC missing in DB/schema cache; continue with first-time setup flow.
           setVerifiedUser(user);
           setScreen('setup');
           return;
