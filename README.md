@@ -1,6 +1,6 @@
-# DLSU Chorale Attendance System
+# DLSU Chorale Official Website
 
-Official attendance management system for DLSU Chorale members.
+Official website for DLSU Chorale members and the organization.
 
 ## Overview
 

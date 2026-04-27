@@ -154,7 +154,7 @@ export function Landing() {
               maxWidth: 420,
             }}
           >
-            The DLSU Chorale attendance and member management portal.
+            Welcome to the DLSU Chorale Official Website.
           </p>
 
           <div
