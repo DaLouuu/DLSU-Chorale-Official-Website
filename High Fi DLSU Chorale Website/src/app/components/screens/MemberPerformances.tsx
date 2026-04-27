@@ -16,7 +16,13 @@ import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Chip } from '../ui/Chip';
-import { SOCIAL_EVENTS } from '../../data';
+import { SOCIAL_EVENTS, MEMBERS } from '../../data';
+import {
+  getEventMeta,
+  getEventSignups,
+  removeMemberSignups,
+  upsertEventSignup,
+} from '../../utils/eventSignups';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -50,6 +56,11 @@ type UnifiedEvent = {
   mySignup?: any;
   image?: string;
   forms?: { waiver?: FormConfig; excuse?: FormConfig };
+};
+
+type RoleSignupModalState = {
+  event: UnifiedEvent;
+  options: { committee: string; role: string; limit: number; currentApproved: number }[];
 };
 
 type FilterCategory = 'all' | 'Performance' | 'Social' | 'Competition' | 'Festival' | 'Request';
@@ -178,11 +189,77 @@ function SignUpFormModal({
   );
 }
 
+function NonPerformingRoleModal({
+  data,
+  memberCommittee,
+  onClose,
+  onSubmit,
+}: {
+  data: RoleSignupModalState;
+  memberCommittee: string;
+  onClose: () => void;
+  onSubmit: (selected: { committee: string; role: string }) => void;
+}) {
+  const { theme } = useTheme();
+  const [selected, setSelected] = useState<{ committee: string; role: string } | null>(null);
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(8,32,26,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 31, padding: 24 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: theme.paper, borderRadius: 14, width: '100%', maxWidth: 640, maxHeight: '85vh', overflowY: 'auto', border: `1px solid ${theme.line}` }}>
+        <div style={{ padding: '22px 28px', borderBottom: `1px solid ${theme.line}`, background: theme.cream }}>
+          <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, color: theme.green, textTransform: 'uppercase' }}>
+            Non-performing role signup
+          </div>
+          <h3 style={{ fontFamily: FONTS.serif, fontSize: 22, margin: '6px 0 0', fontWeight: 500 }}>{data.event.name}</h3>
+        </div>
+        <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {data.options.map((opt, idx) => {
+            const full = opt.currentApproved >= opt.limit;
+            const differentCommittee = memberCommittee && memberCommittee !== opt.committee;
+            const active = selected?.committee === opt.committee && selected?.role === opt.role;
+            return (
+              <button
+                key={`${opt.committee}-${opt.role}-${idx}`}
+                onClick={() => !full && setSelected({ committee: opt.committee, role: opt.role })}
+                disabled={full}
+                style={{
+                  border: `1px solid ${active ? theme.green : theme.line}`,
+                  background: active ? theme.greenSoft : theme.paper,
+                  borderRadius: 10,
+                  textAlign: 'left',
+                  padding: '12px 14px',
+                  cursor: full ? 'not-allowed' : 'pointer',
+                  opacity: full ? 0.5 : 1,
+                }}
+              >
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{opt.role}</div>
+                <div style={{ fontSize: 12.5, color: theme.dim, marginTop: 2 }}>
+                  {opt.committee} · {opt.currentApproved}/{opt.limit} filled
+                </div>
+                {differentCommittee && (
+                  <div style={{ marginTop: 6, fontSize: 11.5, color: '#d97706' }}>
+                    Different committee request: requires admin approval.
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ padding: '16px 28px', borderTop: `1px solid ${theme.line}`, display: 'flex', justifyContent: 'space-between', background: theme.cream }}>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button disabled={!selected} onClick={() => selected && onSubmit(selected)}>Submit role signup</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── EventCard ─────────────────────────────────────────────────────────────────
 
 function EventCard({ event: e, theme, onSignUp }: { event: UnifiedEvent; theme: any; onSignUp: () => void }) {
   const cs = CATEGORY_STYLE[e.category] ?? CATEGORY_STYLE.Rehearsal;
   const hasForm = e.forms?.waiver?.enabled || e.forms?.excuse?.enabled;
+  const meta = getEventMeta(String(e.id));
 
   return (
     <Card pad={0} style={{ overflow: 'hidden' }}>
@@ -255,6 +332,16 @@ function EventCard({ event: e, theme, onSignUp }: { event: UnifiedEvent; theme: 
           <div style={{ fontSize: 12.5, color: theme.dim, lineHeight: 1.5, marginBottom: 12 }}>{e.description}</div>
         )}
 
+        {meta.majorEvent.enabled && (
+          <div style={{ padding: 10, background: theme.cream, borderRadius: 8, marginBottom: 12 }}>
+            <div style={{ fontFamily: FONTS.mono, fontSize: 10, letterSpacing: 1, color: theme.dim, textTransform: 'uppercase', marginBottom: 4 }}>Major event settings</div>
+            <div style={{ fontSize: 12.5, color: theme.ink }}>
+              Exams: {meta.majorEvent.examRequired ? 'Required' : 'Not required'}
+              {meta.majorEvent.ensembleType ? ` · Ensemble: ${meta.majorEvent.ensembleType}` : ''}
+            </div>
+          </div>
+        )}
+
         {hasForm && (
           <div style={{ padding: 10, background: theme.amberSoft, border: `1px solid ${theme.amber}`, borderRadius: 8, marginBottom: 12 }}>
             <div style={{ fontFamily: FONTS.mono, fontSize: 10, letterSpacing: 1, color: theme.amber, textTransform: 'uppercase', marginBottom: 3, fontWeight: 600 }}>
@@ -289,7 +376,7 @@ function EventCard({ event: e, theme, onSignUp }: { event: UnifiedEvent; theme: 
             )}
           </div>
           <Button variant={e.mySignup ? 'outline' : 'primary'} onClick={onSignUp}>
-            {e.mySignup ? 'Withdraw' : hasForm ? 'Sign up + forms' : 'Sign up'}
+            {e.mySignup === 'Pending' ? 'Cancel request' : e.mySignup ? 'Withdraw' : hasForm ? 'Sign up + forms' : 'Sign up'}
           </Button>
         </div>
 
@@ -315,6 +402,7 @@ export function MemberPerformances() {
   const [filter, setFilter] = useState<FilterCategory>('all');
   const [timeFilter, setTimeFilter] = useState('upcoming');
   const [signupEvent, setSignupEvent] = useState<UnifiedEvent | null>(null);
+  const [roleSignupData, setRoleSignupData] = useState<RoleSignupModalState | null>(null);
   const [socialSignups, setSocialSignups] = useState<Record<string, boolean>>(
     Object.fromEntries(SOCIAL_EVENTS.map(s => [s.id, !!s.mySignup])),
   );
@@ -331,10 +419,28 @@ export function MemberPerformances() {
       castSize: s.slots,
     }, 'Social')),
   ];
+  const memberRecord = MEMBERS.find(m => m.id === user?.id);
+  const memberCommittee = memberRecord?.committee ?? '';
+  const memberSection = memberRecord?.section ?? '';
+  const memberIsPerforming = (() => {
+    const raw = String(memberRecord?.current_term_stat ?? memberRecord?.membership_status ?? '');
+    if (!raw) return true;
+    return raw.toLowerCase().includes('performing') && !raw.toLowerCase().includes('non-performing');
+  })();
+  const eventsWithSignupState: UnifiedEvent[] = allEvents.map(ev => {
+    const signups = getEventSignups(String(ev.id));
+    const approved = signups.filter(s => s.status === 'approved');
+    const myEntry = signups.find(s => s.memberId === user?.id && s.status !== 'rejected');
+    return {
+      ...ev,
+      signedUp: approved.length > 0 ? approved.length : ev.signedUp,
+      mySignup: myEntry ? (myEntry.status === 'pending' ? 'Pending' : 'Signed up') : ev.mySignup,
+    };
+  });
 
   const today = new Date().toISOString().slice(0, 10);
 
-  const visibleEvents = allEvents
+  const visibleEvents = eventsWithSignupState
     .filter(e => {
       if (filter !== 'all' && e.category !== filter) return false;
       if (timeFilter === 'upcoming') return e.date >= today;
@@ -345,7 +451,7 @@ export function MemberPerformances() {
     .sort((a, b) => a.date.localeCompare(b.date));
 
   const catCounts = (['Performance', 'Social', 'Competition', 'Festival', 'Request'] as FilterCategory[]).reduce(
-    (acc, cat) => ({ ...acc, [cat]: allEvents.filter(e => e.category === cat).length }),
+    (acc, cat) => ({ ...acc, [cat]: eventsWithSignupState.filter(e => e.category === cat).length }),
     {} as Record<FilterCategory, number>,
   );
 
@@ -361,15 +467,37 @@ export function MemberPerformances() {
       return;
     }
     if (e.mySignup) {
-      app.signUpEvent(e.id);
+      removeMemberSignups(String(e.id), user.id);
       app.showToast('Removed from roster');
       if (adminEmail) notifyEventSignup({ adminEmail, memberName: user?.name ?? '', section: user?.section ?? '', eventName: e.name, eventDate: e.date, withdrew: true });
+      return;
+    }
+    const meta = getEventMeta(String(e.id));
+    const roleOptions = meta.roleSlots.map(slot => {
+      const approvedCount = getEventSignups(String(e.id)).filter(
+        s => s.status === 'approved' && s.roleName === slot.role && s.roleCommittee === slot.committee,
+      ).length;
+      return { ...slot, currentApproved: approvedCount };
+    });
+    if (!memberIsPerforming && roleOptions.length > 0) {
+      setRoleSignupData({ event: e, options: roleOptions });
       return;
     }
     if (hasRequiredForm(e)) {
       setSignupEvent(e);
     } else {
-      app.signUpEvent(e.id);
+      upsertEventSignup(String(e.id), {
+        memberId: user.id,
+        memberName: user.name,
+        committee: memberCommittee,
+        section: memberSection,
+        isPerforming: memberIsPerforming,
+        type: 'performing',
+        roleName: null,
+        roleCommittee: null,
+        status: 'approved',
+        createdAt: new Date().toISOString(),
+      });
       app.showToast(`Signed up — ${e.name}`);
       if (adminEmail) notifyEventSignup({ adminEmail, memberName: user?.name ?? '', section: user?.section ?? '', eventName: e.name, eventDate: e.date });
     }
@@ -420,7 +548,7 @@ export function MemberPerformances() {
           .map(f => {
             const cs = f.k !== 'all' ? CATEGORY_STYLE[f.k] : null;
             const active = filter === f.k;
-            const count = f.k === 'all' ? allEvents.length : (catCounts[f.k] ?? 0);
+            const count = f.k === 'all' ? eventsWithSignupState.length : (catCounts[f.k] ?? 0);
             return (
               <button
                 key={f.k}
@@ -463,10 +591,45 @@ export function MemberPerformances() {
           event={signupEvent}
           onClose={() => setSignupEvent(null)}
           onSubmit={() => {
-            app.signUpEvent(signupEvent.id);
+            upsertEventSignup(String(signupEvent.id), {
+              memberId: user.id,
+              memberName: user.name,
+              committee: memberCommittee,
+              section: memberSection,
+              isPerforming: memberIsPerforming,
+              type: 'performing',
+              roleName: null,
+              roleCommittee: null,
+              status: 'approved',
+              createdAt: new Date().toISOString(),
+            });
             app.showToast(`Signed up — ${signupEvent.name}`);
             if (adminEmail) notifyEventSignup({ adminEmail, memberName: user?.name ?? '', section: user?.section ?? '', eventName: signupEvent.name, eventDate: signupEvent.date });
             setSignupEvent(null);
+          }}
+        />
+      )}
+      {roleSignupData && (
+        <NonPerformingRoleModal
+          data={roleSignupData}
+          memberCommittee={memberCommittee}
+          onClose={() => setRoleSignupData(null)}
+          onSubmit={({ committee, role }) => {
+            const requiresApproval = memberCommittee && memberCommittee !== committee;
+            upsertEventSignup(String(roleSignupData.event.id), {
+              memberId: user.id,
+              memberName: user.name,
+              committee: memberCommittee,
+              section: memberSection,
+              isPerforming: false,
+              type: 'non_performing_role',
+              roleName: role,
+              roleCommittee: committee,
+              status: requiresApproval ? 'pending' : 'approved',
+              createdAt: new Date().toISOString(),
+            });
+            setRoleSignupData(null);
+            app.showToast(requiresApproval ? 'Request sent for admin approval.' : `Signed up as ${role}.`);
           }}
         />
       )}

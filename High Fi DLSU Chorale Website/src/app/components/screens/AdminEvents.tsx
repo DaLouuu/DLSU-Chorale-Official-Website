@@ -7,7 +7,14 @@ import { Button } from '../ui/Button';
 import { Chip } from '../ui/Chip';
 import { Icon } from '../ui/Icon';
 import { supabase } from '../../supabase';
-import { EVENTS } from '../../data';
+import { EVENTS, MEMBERS } from '../../data';
+import {
+  EventSignup,
+  getEventMeta,
+  getEventSignups,
+  setEventMeta,
+  updateSignupStatus,
+} from '../../utils/eventSignups';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,6 +52,10 @@ type FormData = {
   signup_deadline: string;
   cast_size: string;
   file_url: string;
+  role_slots_text: string;
+  major_event_enabled: boolean;
+  exam_required: boolean;
+  ensemble_type: string;
 };
 
 type AutoFilledKey = keyof Omit<FormData, 'file_url'>;
@@ -52,6 +63,7 @@ type AutoFilledKey = keyof Omit<FormData, 'file_url'>;
 const EMPTY_FORM: FormData = {
   name: '', type: 'rehearsal', date: '', venue: '',
   call_time: '', attire: '', repertoire: [], signup_deadline: '', cast_size: '', file_url: '',
+  role_slots_text: '', major_event_enabled: false, exam_required: false, ensemble_type: '',
 };
 
 const EVENT_TYPE_LABELS: Record<FormData['type'], string> = {
@@ -178,6 +190,28 @@ function fmtTime(t: string | null) {
 
 function normalizeKey(raw: string): string {
   return raw.toLowerCase().replace(/[\s_-]+/g, '_');
+}
+
+function parseRoleSlotsText(input: string) {
+  // One role per line: Committee | Role | Limit
+  return input
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(line => {
+      const [committee, role, limitRaw] = line.split('|').map(p => p.trim());
+      const limit = Number(limitRaw);
+      return {
+        committee: committee ?? '',
+        role: role ?? '',
+        limit: Number.isFinite(limit) ? limit : 0,
+      };
+    })
+    .filter(row => row.committee && row.role && row.limit > 0);
+}
+
+function roleSlotsToText(slots: { committee: string; role: string; limit: number }[]) {
+  return slots.map(s => `${s.committee} | ${s.role} | ${s.limit}`).join('\n');
 }
 
 const CSV_FIELD_MAP: Record<string, AutoFilledKey> = {
@@ -622,6 +656,98 @@ function ChangeSummaryModal({
   );
 }
 
+function SignupsOverviewModal({
+  event,
+  onClose,
+  onUpdated,
+}: {
+  event: DbEvent;
+  onClose: () => void;
+  onUpdated: () => void;
+}) {
+  const { theme } = useTheme();
+  const signups = getEventSignups(String(event.event_id));
+  const approved = signups.filter(s => s.status === 'approved');
+  const pendingRoleRequests = signups.filter(
+    s => s.status === 'pending' && s.type === 'non_performing_role',
+  );
+  const performingApproved = approved.filter(s => s.isPerforming);
+  const nonPerformingApproved = approved.filter(s => !s.isPerforming);
+
+  const byCommittee = approved.reduce<Record<string, number>>((acc, s) => {
+    const key = s.committee || 'Unspecified';
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
+  const byVoice = performingApproved.reduce<Record<string, number>>((acc, s) => {
+    const key = s.section || 'Unspecified';
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const update = (memberId: number, roleName: string | null, status: 'approved' | 'rejected') => {
+    updateSignupStatus(String(event.event_id), memberId, roleName, status);
+    onUpdated();
+  };
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(8,32,26,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: 24 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: theme.paper, borderRadius: 14, width: '100%', maxWidth: 760, maxHeight: '90vh', overflowY: 'auto', border: `1px solid ${theme.line}` }}>
+        <div style={{ padding: '20px 24px', borderBottom: `1px solid ${theme.line}`, background: theme.cream }}>
+          <div style={{ fontFamily: FONTS.mono, fontSize: 10, letterSpacing: 2, color: theme.green, textTransform: 'uppercase' }}>Event signups</div>
+          <h3 style={{ fontFamily: FONTS.serif, fontSize: 22, margin: '6px 0 0', fontWeight: 500 }}>{displayName(event)}</h3>
+        </div>
+
+        <div style={{ padding: 24, display: 'grid', gap: 18 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
+            <Card><div style={{ fontSize: 12, color: theme.dim }}>Performing (approved)</div><div style={{ fontSize: 26, fontFamily: FONTS.serif }}>{performingApproved.length}</div></Card>
+            <Card><div style={{ fontSize: 12, color: theme.dim }}>Non-performing (approved)</div><div style={{ fontSize: 26, fontFamily: FONTS.serif }}>{nonPerformingApproved.length}</div></Card>
+            <Card><div style={{ fontSize: 12, color: theme.dim }}>Pending cross-committee</div><div style={{ fontSize: 26, fontFamily: FONTS.serif }}>{pendingRoleRequests.length}</div></Card>
+          </div>
+
+          <Card>
+            <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 1.5, color: theme.green, textTransform: 'uppercase', marginBottom: 10 }}>Approved signups by committee</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {Object.entries(byCommittee).map(([k, v]) => <Chip key={k} tone="neutral">{k}: {v}</Chip>)}
+              {Object.keys(byCommittee).length === 0 && <span style={{ fontSize: 12.5, color: theme.dim }}>No approved signups yet.</span>}
+            </div>
+          </Card>
+
+          <Card>
+            <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 1.5, color: theme.green, textTransform: 'uppercase', marginBottom: 10 }}>Performing signups by voice section</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {Object.entries(byVoice).map(([k, v]) => <Chip key={k} tone="green">{k}: {v}</Chip>)}
+              {Object.keys(byVoice).length === 0 && <span style={{ fontSize: 12.5, color: theme.dim }}>No performing signups yet.</span>}
+            </div>
+          </Card>
+
+          <Card>
+            <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 1.5, color: theme.green, textTransform: 'uppercase', marginBottom: 10 }}>Pending cross-committee role requests</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {pendingRoleRequests.length === 0 && <div style={{ fontSize: 12.5, color: theme.dim }}>No pending requests.</div>}
+              {pendingRoleRequests.map((req, idx) => (
+                <div key={`${req.memberId}-${idx}`} style={{ border: `1px solid ${theme.line}`, borderRadius: 8, padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <div style={{ fontSize: 13 }}>
+                    <strong>{req.memberName}</strong> ({req.committee || 'No committee'}) requested <strong>{req.roleName}</strong> under <strong>{req.roleCommittee}</strong>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <Button size="sm" variant="outline" onClick={() => update(req.memberId, req.roleName, 'rejected')}>Reject</Button>
+                    <Button size="sm" onClick={() => update(req.memberId, req.roleName, 'approved')}>Approve</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+
+        <div style={{ padding: '14px 24px', borderTop: `1px solid ${theme.line}`, background: theme.cream, display: 'flex', justifyContent: 'flex-end' }}>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── EventDrawer ──────────────────────────────────────────────────────────────
 
 function EventDrawer({
@@ -651,6 +777,7 @@ function EventDrawer({
   // Pre-fill form when editing
   useEffect(() => {
     if (editing) {
+      const meta = getEventMeta(String(editing.event_id));
       setForm({
         name: editing.name ?? editing.notes ?? '',
         type: (Object.keys(EVENT_TYPE_LABELS).includes(editing.event_type?.toLowerCase() ?? '')
@@ -664,6 +791,10 @@ function EventDrawer({
         signup_deadline: editing.signup_deadline ?? '',
         cast_size: editing.cast_size != null ? String(editing.cast_size) : '',
         file_url: editing.file_url ?? '',
+        role_slots_text: roleSlotsToText(meta.roleSlots),
+        major_event_enabled: meta.majorEvent.enabled,
+        exam_required: meta.majorEvent.examRequired,
+        ensemble_type: meta.majorEvent.ensembleType ?? '',
       });
     } else {
       setForm(EMPTY_FORM);
@@ -725,19 +856,35 @@ function EventDrawer({
     };
 
     let error: any = null;
+    let savedEventId: number | null = editing?.event_id ?? null;
 
     if (editing) {
       const { error: e } = await supabase.from('events').update(payload).eq('event_id', editing.event_id);
       error = e;
     } else {
-      const { error: e } = await supabase.from('events').insert({ ...payload, created_by: profileId });
+      const { data: inserted, error: e } = await supabase
+        .from('events')
+        .insert({ ...payload, created_by: profileId })
+        .select('event_id')
+        .single();
       error = e;
+      savedEventId = inserted?.event_id ?? null;
     }
 
     setSaving(false);
     if (error) {
       setSaveError(error.message.includes('column') ? `DB column missing — run the migration first.\n${error.message}` : error.message);
       return;
+    }
+    if (savedEventId != null) {
+      setEventMeta(String(savedEventId), {
+        roleSlots: parseRoleSlotsText(form.role_slots_text),
+        majorEvent: {
+          enabled: form.major_event_enabled,
+          examRequired: form.exam_required,
+          ensembleType: form.ensemble_type.trim(),
+        },
+      });
     }
     onSaved();
     onClose();
@@ -957,6 +1104,50 @@ function EventDrawer({
               />
             </FormField>
 
+            <FormField
+              label="Non-performing role slots"
+              hint="One per line: Committee | Role | Limit (e.g. Logistics | Stage Manager | 2)"
+            >
+              <textarea
+                value={form.role_slots_text}
+                onChange={e => set('role_slots_text', e.target.value)}
+                rows={4}
+                placeholder={`Logistics | Stage Manager | 2\nPublicity | Booth Manning | 3`}
+                style={{ ...inputStyle(theme, false), resize: 'vertical' }}
+              />
+            </FormField>
+
+            <FormField label="Major production / competition / festival settings">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                  <input
+                    type="checkbox"
+                    checked={form.major_event_enabled}
+                    onChange={e => set('major_event_enabled', e.target.checked)}
+                  />
+                  Mark as major event
+                </label>
+                {form.major_event_enabled && (
+                  <>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                      <input
+                        type="checkbox"
+                        checked={form.exam_required}
+                        onChange={e => set('exam_required', e.target.checked)}
+                      />
+                      Exams required
+                    </label>
+                    <input
+                      value={form.ensemble_type}
+                      onChange={e => set('ensemble_type', e.target.value)}
+                      placeholder="Ensemble format (e.g. Octet, Quartet, SATB chamber)"
+                      style={inputStyle(theme, false)}
+                    />
+                  </>
+                )}
+              </div>
+            </FormField>
+
             {saveError && (
               <div style={{ padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', fontSize: 12.5, color: '#dc2626', whiteSpace: 'pre-wrap' }}>
                 {saveError}
@@ -1028,6 +1219,8 @@ export function AdminEvents() {
   const [filter, setFilter] = useState<FilterType>('all');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<DbEvent | null>(null);
+  const [manageEvent, setManageEvent] = useState<DbEvent | null>(null);
+  const [signupsVersion, setSignupsVersion] = useState(0);
 
   async function load() {
     setLoading(true);
@@ -1143,6 +1336,7 @@ export function AdminEvents() {
                   <th style={thStyle}>Venue</th>
                   <th style={thStyle}>Sign-up deadline</th>
                   <th style={thStyle}>Cast</th>
+                  <th style={thStyle}>Signups</th>
                   <th style={{ ...thStyle, textAlign: 'right' as const }}>Actions</th>
                 </tr>
               </thead>
@@ -1155,6 +1349,14 @@ export function AdminEvents() {
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     onClick={() => openEdit(ev)}
                   >
+                    {(() => {
+                      const signups = getEventSignups(String(ev.event_id));
+                      const approved = signups.filter(s => s.status === 'approved');
+                      const performingCount = approved.filter(s => s.isPerforming).length;
+                      const nonPerformingCount = approved.filter(s => !s.isPerforming).length;
+                      const pendingCount = signups.filter(s => s.status === 'pending').length;
+                      return (
+                        <>
                     <td style={tdStyle}>
                       <div style={{ fontWeight: 500 }}>{displayName(ev)}</div>
                       {ev.attire && <div style={{ fontSize: 11, color: theme.dim, marginTop: 2 }}>{ev.attire}</div>}
@@ -1174,7 +1376,23 @@ export function AdminEvents() {
                     <td style={{ ...tdStyle, fontFamily: FONTS.mono, fontSize: 12 }}>
                       {ev.cast_size != null ? ev.cast_size : '—'}
                     </td>
+                    <td style={{ ...tdStyle }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <span style={{ fontSize: 12, color: theme.ink }}>P: {performingCount} · NP: {nonPerformingCount}</span>
+                        {pendingCount > 0 && <span style={{ fontSize: 11, color: '#d97706' }}>{pendingCount} pending</span>}
+                      </div>
+                    </td>
                     <td style={{ ...tdStyle, textAlign: 'right' }}>
+                      <button
+                        onClick={e => { e.stopPropagation(); setManageEvent(ev); setSignupsVersion(v => v + 1); }}
+                        style={{
+                          background: 'transparent', border: `1px solid ${theme.lineDark}`,
+                          borderRadius: 7, padding: '5px 10px', cursor: 'pointer',
+                          fontSize: 12, color: theme.ink, fontFamily: FONTS.sans, marginRight: 8,
+                        }}
+                      >
+                        Manage
+                      </button>
                       <button
                         onClick={e => { e.stopPropagation(); openEdit(ev); }}
                         style={{
@@ -1187,6 +1405,9 @@ export function AdminEvents() {
                         <Icon name="edit" size={13} /> Edit
                       </button>
                     </td>
+                        </>
+                      );
+                    })()}
                   </tr>
                 ))}
               </tbody>
@@ -1197,6 +1418,16 @@ export function AdminEvents() {
 
       {drawerOpen && (
         <EventDrawer editing={editing} onClose={closeDrawer} onSaved={onSaved} />
+      )}
+      {manageEvent && (
+        <SignupsOverviewModal
+          key={`${manageEvent.event_id}-${signupsVersion}`}
+          event={manageEvent}
+          onClose={() => setManageEvent(null)}
+          onUpdated={() => {
+            setSignupsVersion(v => v + 1);
+          }}
+        />
       )}
     </>
   );
