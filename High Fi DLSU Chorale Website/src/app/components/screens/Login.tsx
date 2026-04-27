@@ -273,6 +273,7 @@ export function Login() {
     e?.preventDefault();
     setError('');
     setNotice('');
+    let failureStage = 'initial validation';
     
     // Prevent attempts if at max
     if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
@@ -282,12 +283,14 @@ export function Login() {
     
     setLoading(true);
     try {
+      failureStage = 'input parsing';
       const schoolId = Number(idNumber.trim());
       if (!email.trim() || !schoolId) {
         setError('Please enter your DLSU email and ID number.');
         return;
       }
 
+      failureStage = 'directory lookup';
       const { data: dir, error: dirErr } = await supabase
         .from('directory')
         .select('school_id, email')
@@ -306,6 +309,7 @@ export function Login() {
         return;
       }
 
+      failureStage = 'profile lookup';
       const { data: profile } = await supabase
         .from('profiles')
         .select('id, is_admin, first_name, last_name, voice_section')
@@ -319,6 +323,7 @@ export function Login() {
 
       let isAdmin = false;
       try {
+        failureStage = 'admin role lookup';
         const { data: r } = await supabase.rpc('get_member_is_admin', { p_school_id: resolvedDir.school_id });
         isAdmin = r === true;
       } catch {}
@@ -336,6 +341,7 @@ export function Login() {
 
       // Check if account is locked before attempting password
       try {
+        failureStage = 'lock status check';
         const { data: lockStatus, error: lockErr } = await supabase.rpc('check_account_locked', {
           p_school_id: resolvedDir.school_id,
         });
@@ -349,6 +355,7 @@ export function Login() {
       } catch {}
 
       // Password check via RPC
+      failureStage = 'password verification';
       const { data: pwCheck, error: pwErr } = await supabase.rpc('verify_member_password', {
         p_school_id: resolvedDir.school_id,
         p_password: loginPw,
@@ -402,16 +409,19 @@ export function Login() {
       }
 
       // Password correct — reset failed attempts then proceed
+      failureStage = 'post-login initialization';
       supabase.rpc('reset_failed_password_attempts', { p_school_id: resolvedDir.school_id }).catch(() => {});
       if (profile?.id) await initializeUserData(profile.id, resolvedDir.school_id);
       const userPayload = { id: resolvedDir.school_id, _uuid: profile?.id ?? null, name, section: profile?.voice_section ?? '', email: email.trim().toLowerCase() };
+      failureStage = 'navigation';
       if (isAdmin) { setVerifiedUser(user); setScreen('role-select'); }
       else {
         saveSession('member', userPayload);
         go('member-home', { role: 'member', user: userPayload });
       }
-    } catch {
-      setError('Something went wrong. Please try again.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError(`Login failed during ${failureStage}. ${message}`);
     } finally {
       setLoading(false);
     }
