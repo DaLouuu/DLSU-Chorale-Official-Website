@@ -336,7 +336,7 @@ export default function App() {
   const [role, setRole] = useState<'member' | 'admin' | null>(null);
   const [user, setUser] = useState<any>(null);
 
-  // Set browser tab title and favicon from the imported logo asset
+  // Set browser tab title and generate a square favicon to avoid stretching.
   useEffect(() => {
     document.title = 'DLSU Chorale Official Website';
     let link = document.querySelector<HTMLLinkElement>("link[rel~='icon']");
@@ -345,8 +345,36 @@ export default function App() {
       link.rel = 'icon';
       document.head.appendChild(link);
     }
-    link.type = 'image/png';
-    link.href = logo as string;
+    const img = new Image();
+    img.onload = () => {
+      const size = 64;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        link.type = 'image/png';
+        link.href = logo as string;
+        return;
+      }
+
+      // Keep the logo aspect ratio and center it inside a square canvas.
+      const ratio = Math.min(size / img.width, size / img.height);
+      const drawWidth = img.width * ratio;
+      const drawHeight = img.height * ratio;
+      const offsetX = (size - drawWidth) / 2;
+      const offsetY = (size - drawHeight) / 2;
+      ctx.clearRect(0, 0, size, size);
+      ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+
+      link.type = 'image/png';
+      link.href = canvas.toDataURL('image/png');
+    };
+    img.onerror = () => {
+      link.type = 'image/png';
+      link.href = logo as string;
+    };
+    img.src = logo as string;
   }, []);
 
   // Load public data + restore persisted session from localStorage
