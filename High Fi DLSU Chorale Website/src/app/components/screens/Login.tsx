@@ -1331,32 +1331,33 @@ export function Login() {
               </button>
             </div>
 
-            <button
-              onClick={() => { setScreen('login'); setVerifiedUser(null); setAdminVerifyExpanded(false); }}
-              style={{
-                marginTop: 20, background: 'transparent', border: 'none',
-                color: theme.dim, fontSize: 12.5, cursor: 'pointer', fontFamily: FONTS.sans, padding: 0,
-              }}
-            >
-              ← Back to sign in
-            </button>
+            <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-start' }}>
+              <button
+                onClick={() => { setScreen('login'); setVerifiedUser(null); setAdminVerifyExpanded(false); }}
+                style={{
+                  background: 'transparent', border: 'none',
+                  color: theme.dim, fontSize: 12.5, cursor: 'pointer', fontFamily: FONTS.sans, padding: 0,
+                }}
+              >
+                ← Back to sign in
+              </button>
 
-            <button
-              onClick={() => go('rfid')}
-              style={{
-                marginTop: 12,
-                background: 'transparent',
-                border: 'none',
-                color: theme.green,
-                fontSize: 12.5,
-                cursor: 'pointer',
-                fontFamily: FONTS.sans,
-                padding: 0,
-                textDecoration: 'underline',
-              }}
-            >
-              Launch attendance kiosk
-            </button>
+              <button
+                onClick={() => go('rfid')}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: theme.green,
+                  fontSize: 12.5,
+                  cursor: 'pointer',
+                  fontFamily: FONTS.sans,
+                  padding: 0,
+                  textDecoration: 'underline',
+                }}
+              >
+                Launch attendance kiosk
+              </button>
+            </div>
           </div>
         </Card>
       </div>

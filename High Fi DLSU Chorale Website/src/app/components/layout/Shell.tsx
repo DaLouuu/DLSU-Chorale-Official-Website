@@ -22,6 +22,7 @@ const MEMBER_NAV = [
   { key: 'member-attendance', label: 'My Attendance', icon: 'clock' },
   { key: 'member-excuses', label: 'Excuse Requests', icon: 'ticket' },
   { key: 'member-performances', label: 'Events', icon: 'music' },
+  { key: 'rfid', label: 'Launch Kiosk', icon: 'check' },
   { key: 'member-music', label: 'Music Library', icon: 'folder' },
   { key: 'member-fees', label: 'Fees & Payments', icon: 'wallet' },
   { key: 'member-announcements', label: 'Announcements', icon: 'megaphone' },
