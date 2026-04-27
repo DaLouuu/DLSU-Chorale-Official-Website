@@ -123,7 +123,7 @@ export function Landing() {
                 textTransform: 'uppercase',
               }}
             >
-              Est. 1977 · Attendance Portal
+              Est. 1977 · Official Website
             </div>
           </div>
         </div>
@@ -194,7 +194,7 @@ export function Landing() {
         {/* Footer note — desktop only */}
         {!isMobile && (
           <div style={{ fontSize: 11, color: theme.dim, fontFamily: FONTS.mono, letterSpacing: 0.3 }}>
-            DLSU Chorale · Attendance System · {new Date().getFullYear()}
+            DLSU Chorale · Official Website · {new Date().getFullYear()}
           </div>
         )}
       </div>

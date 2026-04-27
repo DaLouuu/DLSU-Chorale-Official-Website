@@ -110,7 +110,10 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
 
       <div style={{ padding: 14, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
         <button
-          onClick={() => go('landing')}
+          onClick={() => {
+            try { localStorage.removeItem('chorale_session'); } catch {}
+            go('landing');
+          }}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -139,6 +142,17 @@ function Topbar({ onMenuClick, isMobile }: { onMenuClick?: () => void; isMobile?
   const [searchQuery, setSearchQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const [sessionExpiry, setSessionExpiry] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('chorale_session');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (new Date(parsed.expiresAt) > new Date()) setSessionExpiry(parsed.expiresAt);
+      }
+    } catch {}
+  }, []);
 
   // Close search results when clicking outside
   useEffect(() => {
@@ -407,11 +421,19 @@ function Topbar({ onMenuClick, isMobile }: { onMenuClick?: () => void; isMobile?
         }}
       >
         <Avatar member={user} size={30} />
-        <div style={{ lineHeight: 1.1 }}>
+        <div style={{ lineHeight: 1.2 }}>
           <div style={{ fontSize: 12.5, fontWeight: 500, color: theme.ink }}>{user?.name}</div>
           <div style={{ fontSize: 10.5, color: theme.dim, fontFamily: FONTS.mono, letterSpacing: 0.3 }}>
             {user?.section} · {role === 'admin' ? 'Admin' : 'Member'}
           </div>
+          {sessionExpiry && (
+            <div
+              title={`Session expires ${new Date(sessionExpiry).toLocaleString()}`}
+              style={{ fontSize: 9.5, color: theme.dim, fontFamily: FONTS.mono, letterSpacing: 0.2, marginTop: 2, opacity: 0.7 }}
+            >
+              Until {new Date(sessionExpiry).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </div>
+          )}
         </div>
       </div>
     </div>

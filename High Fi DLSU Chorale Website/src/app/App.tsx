@@ -1,6 +1,7 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { PALETTES, FONTS, ThemeMode, Theme } from './theme';
-import { CURRENT_MEMBER, CURRENT_ADMIN, EXCUSE_REQUESTS, EVENTS, FEE_RECORDS, ANNOUNCEMENTS, initializePublicData } from './data';
+import { CURRENT_MEMBER, CURRENT_ADMIN, EXCUSE_REQUESTS, EVENTS, FEE_RECORDS, ANNOUNCEMENTS, initializePublicData, initializeUserData } from './data';
+import logo from '../imports/dlsu-chorale-logo.png';
 import { Landing } from './components/screens/Landing';
 import { Login } from './components/screens/Login';
 import { Register } from './components/screens/Register';
@@ -337,8 +338,48 @@ export default function App() {
   const [role, setRole] = useState<'member' | 'admin' | null>(null);
   const [user, setUser] = useState<any>(null);
 
+  // Set browser tab title and favicon from the imported logo asset
   useEffect(() => {
-    initializePublicData().finally(() => setReady(true));
+    document.title = 'DLSU Chorale Official Website';
+    let link = document.querySelector<HTMLLinkElement>("link[rel~='icon']");
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.head.appendChild(link);
+    }
+    link.type = 'image/png';
+    link.href = logo as string;
+  }, []);
+
+  // Load public data + restore persisted session from localStorage
+  useEffect(() => {
+    let savedSession: { user: any; role: 'member' | 'admin'; expiresAt: string } | null = null;
+    try {
+      const raw = localStorage.getItem('chorale_session');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (new Date(parsed.expiresAt) > new Date()) {
+          savedSession = parsed;
+        } else {
+          localStorage.removeItem('chorale_session');
+        }
+      }
+    } catch {}
+
+    initializePublicData()
+      .then(async () => {
+        if (savedSession?.user?._uuid && savedSession.user.id) {
+          await initializeUserData(savedSession.user._uuid, savedSession.user.id).catch(() => {});
+        }
+      })
+      .finally(() => {
+        if (savedSession) {
+          setUser(savedSession.user);
+          setRole(savedSession.role);
+          setRoute(savedSession.role === 'admin' ? 'admin-home' : 'member-home');
+        }
+        setReady(true);
+      });
   }, []);
 
   const go = (r: Route, opts: { role?: 'member' | 'admin'; user?: any } = {}) => {

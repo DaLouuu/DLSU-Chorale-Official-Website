@@ -370,6 +370,27 @@ export function AdminHome() {
   const [showBroadcast, setShowBroadcast] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingRehearsal, setEditingRehearsal] = useState<any>(null);
+  const [lockedAccounts, setLockedAccounts] = useState<any[]>([]);
+  const [unlockingId, setUnlockingId] = useState<number | null>(null);
+
+  useEffect(() => {
+    supabase.rpc('get_locked_accounts').then(({ data }) => {
+      if (data && data.length > 0) setLockedAccounts(data);
+    }).catch(() => {});
+  }, []);
+
+  const handleUnlock = async (schoolId: number) => {
+    setUnlockingId(schoolId);
+    try {
+      await supabase.rpc('admin_unlock_account', { p_school_id: schoolId });
+      setLockedAccounts(prev => prev.filter(a => a.school_id !== schoolId));
+      app.showToast('Account unlocked');
+    } catch {
+      app.showToast('Failed to unlock account', 'error');
+    } finally {
+      setUnlockingId(null);
+    }
+  };
   const [rehearsals, setRehearsals] = useState<any[]>(() => {
     const fromEvents = eventsToRehearsals(EVENTS);
     return fromEvents.length > 0 ? fromEvents : (window.REHEARSALS || []);
@@ -490,6 +511,51 @@ export function AdminHome() {
           </>
         }
       />
+
+      {/* Security alert: locked accounts */}
+      {lockedAccounts.length > 0 && (
+        <div style={{
+          marginBottom: 20,
+          background: '#fef2f2',
+          border: '1px solid #fecaca',
+          borderRadius: 12,
+          padding: '14px 18px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 15 }}>🔒</span>
+            <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 1.5, color: '#dc2626', textTransform: 'uppercase' as const }}>
+              Security Alert — {lockedAccounts.length} locked account{lockedAccounts.length !== 1 ? 's' : ''}
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {lockedAccounts.map(acc => {
+              const fullName = [acc.first_name, acc.last_name].filter(Boolean).join(' ') || acc.email || `ID ${acc.school_id}`;
+              const until = new Date(acc.locked_until).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+              return (
+                <div key={acc.school_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, background: '#fff', borderRadius: 8, padding: '10px 14px', border: '1px solid #fecaca', flexWrap: 'wrap' as const }}>
+                  <div>
+                    <div style={{ fontSize: 13.5, fontWeight: 500, color: theme.ink }}>{fullName}</div>
+                    <div style={{ fontSize: 11.5, color: '#dc2626', fontFamily: FONTS.mono, marginTop: 2 }}>
+                      Locked until {until} · {acc.failed_password_attempts} failed attempt{acc.failed_password_attempts !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={unlockingId === acc.school_id}
+                    onClick={() => handleUnlock(acc.school_id)}
+                  >
+                    {unlockingId === acc.school_id ? 'Unlocking…' : 'Unlock'}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
         <StatCard label="Active members" value="64" trend="+3 this term" tone="green" />
