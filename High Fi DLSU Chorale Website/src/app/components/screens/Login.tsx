@@ -6,6 +6,7 @@ import { Button } from '../ui/Button';
 import { Logo } from '../ui/Logo';
 import { supabase } from '../../supabase';
 import { initializeUserData } from '../../data';
+import { Moon, Sun } from 'lucide-react';
 
 function useViewportWidth() {
   const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
@@ -89,7 +90,7 @@ function getPasswordPolicyIssues(password: string, context?: PasswordPolicyConte
 
 export function Login() {
   const { go } = useRouter();
-  const { theme } = useTheme();
+  const { theme, mode, setMode } = useTheme();
   const vw = useViewportWidth();
   const isMobile = vw < 680;
 
@@ -296,6 +297,33 @@ export function Login() {
     boxShadow: '0 24px 80px rgba(8,50,24,0.15)',
     border: `1px solid ${theme.line}`,
   };
+
+  const ThemeToggleButton = () => (
+    <button
+      type="button"
+      onClick={() => setMode(mode === 'light' ? 'dark' : 'light')}
+      style={{
+        position: 'fixed',
+        top: 16,
+        right: 16,
+        zIndex: 100,
+        width: 40,
+        height: 40,
+        borderRadius: '50%',
+        border: `1px solid ${theme.line}`,
+        background: theme.paper,
+        color: theme.ink,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+      }}
+      aria-label={mode === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+      title={mode === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+    >
+      {mode === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+    </button>
+  );
 
   // ── Login submit ──────────────────────────────────────────────────────────
   const submit = async (e?: FormEvent) => {
@@ -725,6 +753,7 @@ export function Login() {
   if (screen === 'setup' && verifiedUser) {
     return (
       <div style={outerWrap}>
+        <ThemeToggleButton />
         <Card pad={0} style={cardStyle}>
           <GreenPanel />
           <form
@@ -954,6 +983,7 @@ export function Login() {
   if (screen === 'forgot') {
     return (
       <div style={outerWrap}>
+        <ThemeToggleButton />
         <Card pad={0} style={cardStyle}>
           <GreenPanel />
           <form
@@ -1159,6 +1189,7 @@ export function Login() {
   if (screen === 'role-select' && verifiedUser) {
     return (
       <div style={{ ...outerWrap, alignItems: 'center' }}>
+        <ThemeToggleButton />
         <Card
           pad={0}
           style={{
@@ -1309,6 +1340,23 @@ export function Login() {
             >
               ← Back to sign in
             </button>
+
+            <button
+              onClick={() => go('rfid')}
+              style={{
+                marginTop: 12,
+                background: 'transparent',
+                border: 'none',
+                color: theme.green,
+                fontSize: 12.5,
+                cursor: 'pointer',
+                fontFamily: FONTS.sans,
+                padding: 0,
+                textDecoration: 'underline',
+              }}
+            >
+              Launch attendance kiosk
+            </button>
           </div>
         </Card>
       </div>
@@ -1320,6 +1368,7 @@ export function Login() {
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div style={outerWrap}>
+      <ThemeToggleButton />
       <Card pad={0} style={cardStyle}>
         <GreenPanel />
 
