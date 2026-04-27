@@ -74,6 +74,8 @@ export function Login() {
 
   // ── Keep-me-logged-in state ───────────────────────────────────────────────
   const [keepLoggedIn, setKeepLoggedIn] = useState(false);
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const MAX_LOGIN_ATTEMPTS = 5;
 
   const SESSION_KEY = 'chorale_session';
   const sessionExpiryDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
@@ -208,6 +210,13 @@ export function Login() {
   const submit = async (e?: FormEvent) => {
     e?.preventDefault();
     setError('');
+    
+    // Prevent attempts if at max
+    if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
+      setError('Too many failed attempts. Your account is temporarily locked. Please try again later or contact an admin.');
+      return;
+    }
+    
     setLoading(true);
     try {
       const schoolId = Number(idNumber.trim());
@@ -284,10 +293,9 @@ export function Login() {
 
       if (pwErr) {
         if (pwErr.code === '42883') {
-          // RPC not set up yet — skip password check for backwards compat
-          if (profile?.id) await initializeUserData(profile.id, resolvedDir.school_id);
-          if (isAdmin) { setVerifiedUser(user); setScreen('role-select'); }
-          else go('member-home', { role: 'member', user: { id: resolvedDir.school_id, _uuid: profile?.id ?? null, name, section: profile?.voice_section ?? '', email: email.trim().toLowerCase() } });
+          // RPC not set up yet — force password setup for first-time users
+          setVerifiedUser(user);
+          setScreen('setup');
           return;
         }
         setError('Password check failed. Please try again.');
@@ -303,6 +311,10 @@ export function Login() {
 
       if (pwCheck === false) {
         // Record failed attempt and show remaining count
+        const newAttempts = loginAttempts + 1;
+        setLoginAttempts(newAttempts);
+        const remaining = MAX_LOGIN_ATTEMPTS - newAttempts;
+        
         try {
           const { data: attemptResult } = await supabase.rpc('record_failed_password_attempt', {
             p_school_id: resolvedDir.school_id,
@@ -310,11 +322,18 @@ export function Login() {
           if (attemptResult?.locked) {
             setError('Too many failed attempts. Your account has been locked for 2 hours. An admin has been notified.');
           } else {
-            const remaining = Math.max(0, 5 - (attemptResult?.attempts ?? 1));
-            setError(`Incorrect password. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before lockout.`);
+            if (remaining <= 0) {
+              setError('Too many failed attempts. Your account has been locked. An admin has been notified.');
+            } else {
+              setError(`Incorrect password. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before lockout.`);
+            }
           }
         } catch {
-          setError('Incorrect password. Please try again.');
+          if (remaining <= 0) {
+            setError('Too many failed attempts. Your account has been locked.');
+          } else {
+            setError(`Incorrect password. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`);
+          }
         }
         return;
       }
@@ -843,8 +862,15 @@ export function Login() {
               />
               {showHideBtn(showLoginPw, () => setShowLoginPw(s => !s))}
             </div>
-            <div style={{ fontSize: 11.5, color: theme.dim, marginTop: 5 }}>
-              First time signing in? You'll be prompted to set a password.
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 5 }}>
+              <div style={{ fontSize: 11.5, color: theme.dim }}>
+                First time signing in? You'll be prompted to set a password.
+              </div>
+              {loginAttempts > 0 && (
+                <div style={{ fontSize: 11.5, color: '#dc2626', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                  {MAX_LOGIN_ATTEMPTS - loginAttempts} attempt{MAX_LOGIN_ATTEMPTS - loginAttempts !== 1 ? 's' : ''} left
+                </div>
+              )}
             </div>
           </div>
 
