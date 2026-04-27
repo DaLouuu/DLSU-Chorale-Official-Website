@@ -20,6 +20,14 @@ export function NotificationBell() {
   const { role, go } = useRouter();
   const [showPanel, setShowPanel] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+
+  useEffect(() => {
+    const handler = () => setVw(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  const isMobile = vw < 768;
 
   // Generate notifications based on context
   const notifications: Notification[] = [];
@@ -154,12 +162,13 @@ export function NotificationBell() {
       {showPanel && (
         <div
           style={{
-            position: 'absolute',
-            top: '100%',
-            right: 0,
-            marginTop: 8,
-            width: 380,
-            maxHeight: 480,
+            position: isMobile ? 'fixed' : 'absolute',
+            top: isMobile ? 76 : '100%',
+            right: isMobile ? 12 : 0,
+            left: isMobile ? 12 : 'auto',
+            marginTop: isMobile ? 0 : 8,
+            width: isMobile ? 'auto' : 380,
+            maxHeight: isMobile ? 'calc(100vh - 92px)' : 480,
             background: theme.paper,
             border: `1px solid ${theme.line}`,
             borderRadius: 12,
@@ -168,14 +177,14 @@ export function NotificationBell() {
             overflow: 'hidden',
           }}
         >
-          <div style={{ padding: '16px 20px', borderBottom: `1px solid ${theme.line}`, background: theme.cream }}>
+          <div style={{ padding: isMobile ? '14px 16px' : '16px 20px', borderBottom: `1px solid ${theme.line}`, background: theme.cream }}>
             <div style={{ fontSize: 16, fontWeight: 500, fontFamily: FONTS.serif }}>Notifications</div>
             <div style={{ fontSize: 12, color: theme.dim, marginTop: 2 }}>
               {unreadCount} unread
             </div>
           </div>
 
-          <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+          <div style={{ maxHeight: isMobile ? 'calc(100vh - 170px)' : 400, overflowY: 'auto' }}>
             {notifications.length === 0 ? (
               <div style={{ padding: 48, textAlign: 'center', color: theme.dim }}>
                 <Icon name="bell" size={36} stroke={theme.dim} />
@@ -190,7 +199,7 @@ export function NotificationBell() {
                     setShowPanel(false);
                   }}
                   style={{
-                    padding: '14px 20px',
+                    padding: isMobile ? '12px 14px' : '14px 20px',
                     borderBottom: `1px solid ${theme.line}`,
                     cursor: 'pointer',
                     background: n.read ? theme.paper : theme.cream,
