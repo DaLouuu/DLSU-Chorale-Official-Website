@@ -44,7 +44,7 @@ type DbEvent = {
 
 type FormData = {
   name: string;
-  type: 'rehearsal' | 'performance' | 'social' | 'competition' | 'festival' | 'request';
+  type: 'social' | 'competition' | 'production' | 'festival' | 'pr';
   date: string;
   venue: string;
   call_time: string;
@@ -62,27 +62,25 @@ type FormData = {
 type AutoFilledKey = keyof Omit<FormData, 'file_url'>;
 
 const EMPTY_FORM: FormData = {
-  name: '', type: 'rehearsal', date: '', venue: '',
+  name: '', type: 'production', date: '', venue: '',
   call_time: '', attire: '', repertoire: [], signup_deadline: '', cast_size: '', file_url: '',
   role_slots_text: '', major_event_enabled: false, exam_required: false, ensemble_type: '',
 };
 
 const EVENT_TYPE_LABELS: Record<FormData['type'], string> = {
-  rehearsal: 'Rehearsal',
-  performance: 'Performance',
   social: 'Social',
   competition: 'Competition',
+  production: 'Production',
   festival: 'Festival',
-  request: 'Request',
+  pr: 'PR',
 };
 
 const EVENT_TYPE_CHIP: Record<string, 'neutral' | 'green' | 'amber' | 'blue' | 'red'> = {
-  performance: 'green',
   social: 'blue',
   competition: 'blue',
+  production: 'green',
   festival: 'amber',
-  request: 'red',
-  rehearsal: 'neutral',
+  pr: 'red',
 };
 
 // ── PDF text extraction ───────────────────────────────────────────────────────
@@ -155,8 +153,8 @@ function parsePrPdf(text: string): Partial<FormData> & { autoFilled: AutoFilledK
     autoFilled.push('call_time');
   }
 
-  // Mark as a "request" type since this is a performance request form
-  if (autoFilled.length > 0) { result.type = 'request'; autoFilled.push('type'); }
+  // Mark as "PR" type since this is a request form.
+  if (autoFilled.length > 0) { result.type = 'pr'; autoFilled.push('type'); }
 
   return { ...result, autoFilled };
 }
@@ -169,12 +167,12 @@ function displayName(ev: DbEvent) {
 
 function displayType(ev: DbEvent) {
   const t = (ev.event_type ?? '').toLowerCase();
-  if (t === 'performance') return 'Performance';
   if (t === 'social') return 'Social';
   if (t === 'competition') return 'Competition';
+  if (t === 'production') return 'Production';
   if (t === 'festival') return 'Festival';
-  if (t === 'request') return 'Request';
-  return 'Rehearsal';
+  if (t === 'pr') return 'PR';
+  return 'Production';
 }
 
 function fmtDate(d: string | null) {
@@ -256,10 +254,10 @@ function rowToForm(row: Record<string, string>): Partial<FormData> & { autoFille
       const v = rawVal.toLowerCase();
       if (v.includes('social')) result.type = 'social';
       else if (v.includes('comp')) result.type = 'competition';
+      else if (v.includes('prod') || v.includes('perf')) result.type = 'production';
       else if (v.includes('fest')) result.type = 'festival';
-      else if (v.includes('req')) result.type = 'request';
-      else if (v.includes('perf')) result.type = 'performance';
-      else result.type = 'rehearsal';
+      else if (v.includes('pr') || v.includes('req')) result.type = 'pr';
+      else result.type = 'production';
     } else if (mapped === 'repertoire') {
       result.repertoire = rawVal.split(/[;|]/).map(s => s.trim()).filter(Boolean);
     } else if (mapped === 'cast_size') {
@@ -272,6 +270,10 @@ function rowToForm(row: Record<string, string>): Partial<FormData> & { autoFille
   }
 
   return { ...result, autoFilled };
+}
+
+function isMajorType(type: FormData['type']) {
+  return type === 'production' || type === 'competition' || type === 'festival';
 }
 
 function getMissingColumnFromError(message: string): string | null {
@@ -315,7 +317,7 @@ async function safeInsertEventRow(payload: Record<string, any>) {
     start_time: payload.call_time ? `${String(payload.call_time).trim()}:00` : null,
     end_time: null,
     notes: payload.name ?? payload.notes ?? null,
-    event_type: payload.event_type ?? 'rehearsal',
+    event_type: payload.event_type ?? 'production',
     is_castable: null,
   };
   const { data, error } = await supabase
@@ -347,7 +349,7 @@ async function safeInsertEventRows(rows: Record<string, any>[]) {
     start_time: r.call_time ? `${String(r.call_time).trim()}:00` : null,
     end_time: null,
     notes: r.name ?? r.notes ?? null,
-    event_type: r.event_type ?? 'rehearsal',
+    event_type: r.event_type ?? 'production',
     is_castable: null,
   }));
   const { error } = await supabase.from('events').insert(legacyRows);
@@ -863,7 +865,7 @@ function EventDrawer({
         name: editing.name ?? editing.notes ?? '',
         type: (Object.keys(EVENT_TYPE_LABELS).includes(editing.event_type?.toLowerCase() ?? '')
           ? editing.event_type!.toLowerCase()
-          : 'rehearsal') as FormData['type'],
+          : 'production') as FormData['type'],
         date: editing.event_date ?? '',
         venue: editing.venue ?? '',
         call_time: (editing.call_time ?? editing.start_time ?? '').replace(/\+.*$/, '').slice(0, 5),
@@ -1194,6 +1196,7 @@ function EventDrawer({
               />
             </FormField>
 
+            {isMajorType(form.type) && (
             <FormField label="Major production / competition / festival settings">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
@@ -1224,6 +1227,7 @@ function EventDrawer({
                 )}
               </div>
             </FormField>
+            )}
 
             {saveError && (
               <div style={{ padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', fontSize: 12.5, color: '#dc2626', whiteSpace: 'pre-wrap' }}>
@@ -1264,7 +1268,7 @@ function mockDbEvents(): DbEvent[] {
     start_time: e.callTime ?? null,
     end_time: null,
     notes: e.description ?? null,
-    event_type: (e.type ?? 'performance').toLowerCase(),
+    event_type: (e.type ?? 'production').toLowerCase(),
     is_castable: null,
     name: e.name ?? null,
     venue: e.venue ?? null,
@@ -1286,7 +1290,7 @@ function mockDbEvents(): DbEvent[] {
 const thStyle = { padding: '13px 16px', textAlign: 'left' as const, fontWeight: 500 };
 const tdStyle = { padding: '11px 16px', verticalAlign: 'middle' as const };
 
-type FilterType = 'all' | 'rehearsal' | 'performance' | 'social' | 'competition' | 'festival' | 'request';
+type FilterType = 'all' | 'social' | 'competition' | 'production' | 'festival' | 'pr';
 
 export function AdminEvents() {
   const { theme } = useTheme();
@@ -1327,19 +1331,17 @@ export function AdminEvents() {
   const filtered = events.filter(ev => {
     if (filter === 'all') return true;
     const t = (ev.event_type ?? '').toLowerCase();
-    if (filter === 'rehearsal') return t === '' || t === 'rehearsal';
     return t === filter;
   });
 
   const byType = (t: string) => events.filter(e => (e.event_type ?? '').toLowerCase() === t).length;
   const counts: Record<FilterType, number> = {
     all: events.length,
-    rehearsal: events.filter(e => { const t = (e.event_type ?? '').toLowerCase(); return t === '' || t === 'rehearsal'; }).length,
-    performance: byType('performance'),
     social: byType('social'),
     competition: byType('competition'),
+    production: byType('production'),
     festival: byType('festival'),
-    request: byType('request'),
+    pr: byType('pr'),
   };
 
   const openCreate = () => { setEditing(null); setDrawerOpen(true); };
@@ -1374,19 +1376,18 @@ export function AdminEvents() {
       <PageHeader
         eyebrow="Admin"
         title="Events"
-        subtitle="Create and manage all rehearsals and performances"
+        subtitle="Create and manage Social, Competition, Production, Festival, and PR events"
         actions={<Button icon="plus" onClick={openCreate}>Create Event</Button>}
       />
 
       {/* Filter tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {filterTab('all', 'All')}
-        {filterTab('rehearsal', 'Rehearsals')}
-        {filterTab('performance', 'Performances')}
         {filterTab('social', 'Social')}
         {filterTab('competition', 'Competitions')}
+        {filterTab('production', 'Productions')}
         {filterTab('festival', 'Festivals')}
-        {filterTab('request', 'Requests')}
+        {filterTab('pr', 'PR')}
       </div>
 
       <Card pad={0}>

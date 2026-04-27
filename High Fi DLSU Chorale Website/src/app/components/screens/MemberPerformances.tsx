@@ -44,7 +44,7 @@ type FormConfig = {
 type UnifiedEvent = {
   id: string;
   name: string;
-  category: 'Performance' | 'Social' | 'Competition' | 'Festival' | 'Request' | 'Rehearsal';
+  category: 'Social' | 'Competition' | 'Production' | 'Festival' | 'PR';
   date: string;
   time: string;
   venue: string;
@@ -64,22 +64,28 @@ type RoleSignupModalState = {
   options: { committee: string; role: string; limit: number; currentApproved: number }[];
 };
 
-type FilterCategory = 'all' | 'Performance' | 'Social' | 'Competition' | 'Festival' | 'Request';
+type FilterCategory = 'all' | 'Social' | 'Competition' | 'Production' | 'Festival' | 'PR';
 
 const CATEGORY_STYLE: Record<string, { bg: string; color: string; tone: 'green' | 'blue' | 'amber' | 'red' | 'neutral' }> = {
-  Performance: { bg: '#dcfce7', color: '#16a34a', tone: 'green' },
   Social:      { bg: '#dbeafe', color: '#2563eb', tone: 'blue' },
   Competition: { bg: '#ede9fe', color: '#7c3aed', tone: 'blue' },
+  Production:  { bg: '#dcfce7', color: '#16a34a', tone: 'green' },
   Festival:    { bg: '#fef3c7', color: '#d97706', tone: 'amber' },
-  Request:     { bg: '#fee2e2', color: '#dc2626', tone: 'red' },
-  Rehearsal:   { bg: '#f3f4f6', color: '#6b7280', tone: 'neutral' },
+  PR:          { bg: '#fee2e2', color: '#dc2626', tone: 'red' },
 };
 
 function normalize(e: any, defaultCategory?: string): UnifiedEvent {
+  const rawType = String(e.type || defaultCategory || '').toLowerCase();
+  const mappedCategory: UnifiedEvent['category'] =
+    rawType === 'social' ? 'Social' :
+    rawType === 'competition' ? 'Competition' :
+    rawType === 'festival' ? 'Festival' :
+    rawType === 'pr' ? 'PR' :
+    'Production';
   return {
     id: String(e.id),
     name: e.name,
-    category: (e.type || defaultCategory || 'Performance') as UnifiedEvent['category'],
+    category: mappedCategory,
     date: e.date,
     time: e.callTime || e.time || '',
     venue: e.venue || '',
@@ -258,7 +264,7 @@ function NonPerformingRoleModal({
 // ── EventCard ─────────────────────────────────────────────────────────────────
 
 function EventCard({ event: e, theme, onSignUp }: { event: UnifiedEvent; theme: any; onSignUp: () => void }) {
-  const cs = CATEGORY_STYLE[e.category] ?? CATEGORY_STYLE.Rehearsal;
+  const cs = CATEGORY_STYLE[e.category] ?? CATEGORY_STYLE.Production;
   const hasForm = e.forms?.waiver?.enabled || e.forms?.excuse?.enabled;
   const meta = getEventMeta(String(e.id));
 
@@ -457,7 +463,7 @@ export function MemberPerformances() {
     })
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  const catCounts = (['Performance', 'Social', 'Competition', 'Festival', 'Request'] as FilterCategory[]).reduce(
+  const catCounts = (['Social', 'Competition', 'Production', 'Festival', 'PR'] as FilterCategory[]).reduce(
     (acc, cat) => ({ ...acc, [cat]: eventsWithSignupState.filter(e => e.category === cat).length }),
     {} as Record<FilterCategory, number>,
   );
@@ -547,11 +553,11 @@ export function MemberPerformances() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
         {([
           { k: 'all', l: 'All' },
-          { k: 'Performance', l: 'Performances' },
           { k: 'Social', l: 'Social' },
           { k: 'Competition', l: 'Competitions' },
+          { k: 'Production', l: 'Productions' },
           { k: 'Festival', l: 'Festivals' },
-          { k: 'Request', l: 'Requests' },
+          { k: 'PR', l: 'PR' },
         ] as { k: FilterCategory; l: string }[])
           .filter(f => f.k === 'all' || (catCounts[f.k] ?? 0) > 0)
           .map(f => {
