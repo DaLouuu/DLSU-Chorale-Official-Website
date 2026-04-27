@@ -285,7 +285,12 @@ function ToastHost({ msg, tone }: { msg: string; tone: string }) {
 }
 
 function Router() {
-  const { route } = useRouter();
+  const { route, role } = useRouter();
+
+  const isAdminRoute = route.startsWith('admin-');
+  if (isAdminRoute && role !== 'admin') {
+    return <Shell><MemberHome /></Shell>;
+  }
 
   if (route === 'landing') return <Landing />;
   if (route === 'login') return <Login />;
