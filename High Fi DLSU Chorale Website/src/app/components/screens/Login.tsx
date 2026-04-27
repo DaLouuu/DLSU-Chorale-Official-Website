@@ -51,6 +51,14 @@ function isMissingVerifyPasswordRpcError(error: RpcErrorLike | null | undefined)
 
 const MIN_PASSWORD_LENGTH = 12;
 const MAX_PASSWORD_LENGTH = 64;
+const SECURITY_QUESTIONS = [
+  'What is your mother\'s maiden name?',
+  'What was the name of your first pet?',
+  'What city were you born in?',
+  'What is your favorite teacher\'s last name?',
+  'What was your childhood nickname?',
+  'What is the name of the street you grew up on?',
+];
 
 type PasswordPolicyContext = {
   schoolId?: number;
@@ -106,13 +114,20 @@ export function Login() {
   const [showMemberPwC, setShowMemberPwC] = useState(false);
   const [showAdminPwNew, setShowAdminPwNew] = useState(false);
   const [showAdminPwNewC, setShowAdminPwNewC] = useState(false);
+  const [setupQuestion1, setSetupQuestion1] = useState('');
+  const [setupAnswer1, setSetupAnswer1] = useState('');
+  const [setupQuestion2, setSetupQuestion2] = useState('');
+  const [setupAnswer2, setSetupAnswer2] = useState('');
   const [setupLoading, setSetupLoading] = useState(false);
   const [setupError, setSetupError] = useState('');
 
   // ── Forgot password state ─────────────────────────────────────────────────
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotIdNumber, setForgotIdNumber] = useState('');
-  const [forgotBirthDate, setForgotBirthDate] = useState('');
+  const [forgotQuestion1, setForgotQuestion1] = useState('');
+  const [forgotAnswer1, setForgotAnswer1] = useState('');
+  const [forgotQuestion2, setForgotQuestion2] = useState('');
+  const [forgotAnswer2, setForgotAnswer2] = useState('');
   const [forgotMemberPw, setForgotMemberPw] = useState('');
   const [forgotMemberPwC, setForgotMemberPwC] = useState('');
   const [forgotAdminPw, setForgotAdminPw] = useState('');
@@ -125,6 +140,20 @@ export function Login() {
   const [showForgotAdminPwC, setShowForgotAdminPwC] = useState(false);
   const [forgotError, setForgotError] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
+  const setupPasswordsMatchAcrossRoles =
+    verifiedUser?.isAdmin === true &&
+    memberPw.length > 0 &&
+    adminPwNew.length > 0 &&
+    memberPw === adminPwNew;
+  const forgotPasswordsMatchAcrossRoles =
+    forgotResetAdmin &&
+    forgotMemberPw.length > 0 &&
+    forgotAdminPw.length > 0 &&
+    forgotMemberPw === forgotAdminPw;
+  const setupQuestionsDuplicated =
+    setupQuestion1.length > 0 &&
+    setupQuestion2.length > 0 &&
+    setupQuestion1 === setupQuestion2;
 
   // ── Admin console verify state ────────────────────────────────────────────
   const [adminVerifyExpanded, setAdminVerifyExpanded] = useState(false);
@@ -410,7 +439,11 @@ export function Login() {
 
       // Password correct — reset failed attempts then proceed
       failureStage = 'post-login initialization';
-      supabase.rpc('reset_failed_password_attempts', { p_school_id: resolvedDir.school_id }).catch(() => {});
+      try {
+        await supabase.rpc('reset_failed_password_attempts', { p_school_id: resolvedDir.school_id });
+      } catch {
+        // Non-blocking: login should continue even if reset fails.
+      }
       if (profile?.id) await initializeUserData(profile.id, resolvedDir.school_id);
       const userPayload = { id: resolvedDir.school_id, _uuid: profile?.id ?? null, name, section: profile?.voice_section ?? '', email: email.trim().toLowerCase() };
       failureStage = 'navigation';
@@ -431,6 +464,12 @@ export function Login() {
   const submitSetup = async (e?: FormEvent) => {
     e?.preventDefault();
     setSetupError('');
+    if (!setupQuestion1 || !setupQuestion2) { setSetupError('Select both security questions.'); return; }
+    if (setupQuestionsDuplicated) { setSetupError('Security questions must be different.'); return; }
+    if (setupAnswer1.trim().length < 2 || setupAnswer2.trim().length < 2) {
+      setSetupError('Provide answers for both security questions.');
+      return;
+    }
     const memberPolicyIssues = getPasswordPolicyIssues(memberPw, {
       schoolId: verifiedUser?.schoolId,
       email: verifiedUser?.email,
@@ -444,6 +483,10 @@ export function Login() {
       });
       if (adminPolicyIssues.length > 0) { setSetupError(adminPolicyIssues[0]); return; }
       if (adminPwNew !== adminPwNewC) { setSetupError('Admin passwords do not match.'); return; }
+      if (memberPw === adminPwNew) {
+        setSetupError('Member and Admin Console passwords must be different.');
+        return;
+      }
     }
 
     setSetupLoading(true);
@@ -461,6 +504,14 @@ export function Login() {
         });
         if (e2) throw e2;
       }
+      const { error: e3 } = await supabase.rpc('set_security_questions', {
+        p_school_id: verifiedUser!.schoolId,
+        p_question_1: setupQuestion1,
+        p_answer_1: setupAnswer1.trim(),
+        p_question_2: setupQuestion2,
+        p_answer_2: setupAnswer2.trim(),
+      });
+      if (e3) throw e3;
 
       if (verifiedUser?.profileUuid) {
         await initializeUserData(verifiedUser.profileUuid, verifiedUser.schoolId);
@@ -486,8 +537,16 @@ export function Login() {
     setForgotError('');
     const normalizedEmail = forgotEmail.trim().toLowerCase();
     const schoolId = Number(forgotIdNumber.trim());
-    if (!normalizedEmail || !schoolId || !forgotBirthDate) {
-      setForgotError('Enter your DLSU email, ID number, and birthday.');
+    if (!normalizedEmail || !schoolId) {
+      setForgotError('Enter your DLSU email and ID number.');
+      return;
+    }
+    if (!forgotQuestion1 || !forgotQuestion2) {
+      setForgotError('Security questions are not set for this account. Contact an admin.');
+      return;
+    }
+    if (forgotAnswer1.trim().length < 2 || forgotAnswer2.trim().length < 2) {
+      setForgotError('Answer both security questions.');
       return;
     }
 
@@ -511,6 +570,10 @@ export function Login() {
         setForgotError('Admin passwords do not match.');
         return;
       }
+      if (forgotMemberPw === forgotAdminPw) {
+        setForgotError('Member and Admin Console passwords must be different.');
+        return;
+      }
     }
 
     setForgotLoading(true);
@@ -529,7 +592,7 @@ export function Login() {
 
       const { data: profile, error: profileErr } = await supabase
         .from('profiles')
-        .select('school_id, bday, is_admin')
+        .select('school_id, is_admin')
         .eq('school_id', schoolId)
         .maybeSingle();
 
@@ -538,9 +601,17 @@ export function Login() {
         return;
       }
 
-      const profileBday = profile.bday ? String(profile.bday).slice(0, 10) : '';
-      if (!profileBday || profileBday !== forgotBirthDate) {
-        setForgotError('The provided birthday does not match our records.');
+      const { data: answersValid, error: verifyErr } = await supabase.rpc('verify_security_answers', {
+        p_school_id: schoolId,
+        p_answer_1: forgotAnswer1.trim(),
+        p_answer_2: forgotAnswer2.trim(),
+      });
+      if (verifyErr) {
+        setForgotError('Security answer verification failed. Please try again.');
+        return;
+      }
+      if (answersValid !== true) {
+        setForgotError('Security answers do not match our records.');
         return;
       }
       if (forgotResetAdmin && profile.is_admin !== true) {
@@ -562,7 +633,11 @@ export function Login() {
         if (adminErr) throw adminErr;
       }
 
-      await supabase.rpc('reset_failed_password_attempts', { p_school_id: schoolId }).catch(() => {});
+      try {
+        await supabase.rpc('reset_failed_password_attempts', { p_school_id: schoolId });
+      } catch {
+        // Non-blocking: password reset already succeeded.
+      }
 
       setScreen('login');
       setNotice('Password reset successful. Please sign in with your new password.');
@@ -571,7 +646,10 @@ export function Login() {
       setLoginPw('');
       setForgotEmail('');
       setForgotIdNumber('');
-      setForgotBirthDate('');
+      setForgotQuestion1('');
+      setForgotAnswer1('');
+      setForgotQuestion2('');
+      setForgotAnswer2('');
       setForgotMemberPw('');
       setForgotMemberPwC('');
       setForgotAdminPw('');
@@ -580,6 +658,7 @@ export function Login() {
       setForgotUserIsAdmin(false);
     } catch {
       setForgotError('Password reset failed. Ensure password RPCs and columns are deployed in Supabase.');
+      if (CAPTCHA_ENABLED) setForgotCaptchaResetNonce(n => n + 1);
     } finally {
       setForgotLoading(false);
     }
@@ -731,6 +810,62 @@ export function Login() {
               </div>
             </div>
 
+            <div style={{
+              padding: '16px 18px',
+              background: theme.cream,
+              borderRadius: 10,
+              border: `1px solid ${theme.line}`,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+            }}>
+              <div style={{ fontFamily: FONTS.mono, fontSize: 10, letterSpacing: 1.5, color: theme.green, textTransform: 'uppercase' as const }}>
+                Account Recovery Questions
+              </div>
+              <p style={{ fontSize: 12, color: theme.dim, margin: 0 }}>
+                You will answer these during forgot password recovery.
+              </p>
+              <div>
+                {fieldLabel('Security question 1')}
+                <select value={setupQuestion1} onChange={e => setSetupQuestion1(e.target.value)} style={inputStyle()}>
+                  <option value="">Select a question…</option>
+                  {SECURITY_QUESTIONS.map(q => <option key={q} value={q}>{q}</option>)}
+                </select>
+              </div>
+              <div>
+                {fieldLabel('Answer 1')}
+                <input
+                  value={setupAnswer1}
+                  onChange={e => setSetupAnswer1(e.target.value)}
+                  placeholder="Your answer"
+                  autoComplete="off"
+                  style={inputStyle()}
+                />
+              </div>
+              <div>
+                {fieldLabel('Security question 2')}
+                <select value={setupQuestion2} onChange={e => setSetupQuestion2(e.target.value)} style={inputStyle(setupQuestionsDuplicated)}>
+                  <option value="">Select a different question…</option>
+                  {SECURITY_QUESTIONS.map(q => <option key={q} value={q}>{q}</option>)}
+                </select>
+              </div>
+              <div>
+                {fieldLabel('Answer 2')}
+                <input
+                  value={setupAnswer2}
+                  onChange={e => setSetupAnswer2(e.target.value)}
+                  placeholder="Your answer"
+                  autoComplete="off"
+                  style={inputStyle()}
+                />
+              </div>
+              {setupQuestionsDuplicated && (
+                <div style={{ fontSize: 11.5, color: '#dc2626', marginTop: 2 }}>
+                  Security questions must be different.
+                </div>
+              )}
+            </div>
+
             {/* Admin password section — only for admin accounts */}
             {verifiedUser.isAdmin && (
               <div style={{
@@ -762,6 +897,11 @@ export function Login() {
                     />
                     {showHideBtn(showAdminPwNew, () => setShowAdminPwNew(s => !s))}
                   </div>
+                  {setupPasswordsMatchAcrossRoles && (
+                    <div style={{ fontSize: 11.5, color: '#dc2626', marginTop: 4 }}>
+                      Member and Admin Console passwords must be different.
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -866,14 +1006,38 @@ export function Login() {
               />
             </div>
 
-            <div>
-              {fieldLabel('Birthday')}
-              <input
-                value={forgotBirthDate}
-                onChange={e => setForgotBirthDate(e.target.value)}
-                type="date"
-                style={inputStyle()}
-              />
+            <div style={{ padding: '16px 18px', background: theme.cream, borderRadius: 10, border: `1px solid ${theme.line}`, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ fontFamily: FONTS.mono, fontSize: 10, letterSpacing: 1.5, color: theme.green, textTransform: 'uppercase' as const }}>
+                Security Verification
+              </div>
+              <div>
+                {fieldLabel('Question 1')}
+                <input value={forgotQuestion1} readOnly placeholder="Enter email and ID first to load question" style={inputStyle()} />
+              </div>
+              <div>
+                {fieldLabel('Answer 1')}
+                <input
+                  value={forgotAnswer1}
+                  onChange={e => setForgotAnswer1(e.target.value)}
+                  placeholder="Your answer"
+                  autoComplete="off"
+                  style={inputStyle()}
+                />
+              </div>
+              <div>
+                {fieldLabel('Question 2')}
+                <input value={forgotQuestion2} readOnly placeholder="Enter email and ID first to load question" style={inputStyle()} />
+              </div>
+              <div>
+                {fieldLabel('Answer 2')}
+                <input
+                  value={forgotAnswer2}
+                  onChange={e => setForgotAnswer2(e.target.value)}
+                  placeholder="Your answer"
+                  autoComplete="off"
+                  style={inputStyle()}
+                />
+              </div>
             </div>
 
             <div style={{ padding: '16px 18px', background: theme.cream, borderRadius: 10, border: `1px solid ${theme.line}`, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -941,6 +1105,11 @@ export function Login() {
                     />
                     {showHideBtn(showForgotAdminPw, () => setShowForgotAdminPw(s => !s))}
                   </div>
+                  {forgotPasswordsMatchAcrossRoles && (
+                    <div style={{ fontSize: 11.5, color: '#dc2626', marginTop: 4 }}>
+                      Member and Admin Console passwords must be different.
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -1284,7 +1453,10 @@ export function Login() {
               const schoolId = Number(idNumber.trim());
               setForgotEmail(normalizedEmail);
               setForgotIdNumber(schoolId ? String(schoolId) : '');
-              setForgotBirthDate('');
+              setForgotQuestion1('');
+              setForgotAnswer1('');
+              setForgotQuestion2('');
+              setForgotAnswer2('');
               setForgotMemberPw('');
               setForgotMemberPwC('');
               setForgotAdminPw('');
@@ -1295,12 +1467,14 @@ export function Login() {
               if (normalizedEmail && schoolId) {
                 const { data: profile } = await supabase
                   .from('profiles')
-                  .select('is_admin')
+                  .select('is_admin, security_question_1, security_question_2')
                   .eq('school_id', schoolId)
                   .maybeSingle();
                 if (profile?.is_admin === true) {
                   setForgotUserIsAdmin(true);
                 }
+                setForgotQuestion1(profile?.security_question_1 ?? '');
+                setForgotQuestion2(profile?.security_question_2 ?? '');
               }
 
               setScreen('forgot');
