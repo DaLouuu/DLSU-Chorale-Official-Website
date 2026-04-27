@@ -281,21 +281,22 @@ function getMissingColumnFromError(message: string): string | null {
 
 async function safeUpdateEventRow(eventId: number, payload: Record<string, any>) {
   const nextPayload = { ...payload };
-  // Retry a few times by removing missing columns from payload.
-  for (let i = 0; i < 8; i++) {
+  // Retry by progressively removing missing columns from payload.
+  for (let i = 0; i < 30; i++) {
     const { error } = await supabase.from('events').update(nextPayload).eq('event_id', eventId);
     if (!error) return { error: null };
     if (!error.message?.includes('column')) return { error };
     const missing = getMissingColumnFromError(error.message);
     if (!missing || !(missing in nextPayload)) return { error };
     delete nextPayload[missing];
+    if (Object.keys(nextPayload).length === 0) break;
   }
   return { error: { message: 'Could not save event due to repeated schema mismatch. Please run migrations.' } };
 }
 
 async function safeInsertEventRow(payload: Record<string, any>) {
   const nextPayload = { ...payload };
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 30; i++) {
     const { data, error } = await supabase
       .from('events')
       .insert(nextPayload)
@@ -306,13 +307,29 @@ async function safeInsertEventRow(payload: Record<string, any>) {
     const missing = getMissingColumnFromError(error.message);
     if (!missing || !(missing in nextPayload)) return { data: null, error };
     delete nextPayload[missing];
+    if (Object.keys(nextPayload).length === 0) break;
   }
-  return { data: null, error: { message: 'Could not save event due to repeated schema mismatch. Please run migrations.' } };
+  // Last fallback for legacy schema: use guaranteed older columns only.
+  const legacyPayload: Record<string, any> = {
+    event_date: payload.event_date ?? payload.date ?? null,
+    start_time: payload.call_time ? `${String(payload.call_time).trim()}:00` : null,
+    end_time: null,
+    notes: payload.name ?? payload.notes ?? null,
+    event_type: payload.event_type ?? 'rehearsal',
+    is_castable: null,
+  };
+  const { data, error } = await supabase
+    .from('events')
+    .insert(legacyPayload)
+    .select('event_id')
+    .single();
+  if (!error) return { data, error: null };
+  return { data: null, error };
 }
 
 async function safeInsertEventRows(rows: Record<string, any>[]) {
   let nextRows = rows.map(r => ({ ...r }));
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 30; i++) {
     const { error } = await supabase.from('events').insert(nextRows);
     if (!error) return { error: null };
     if (!error.message?.includes('column')) return { error };
@@ -323,8 +340,18 @@ async function safeInsertEventRows(rows: Record<string, any>[]) {
       delete copy[missing];
       return copy;
     });
+    if (nextRows.every(r => Object.keys(r).length === 0)) break;
   }
-  return { error: { message: 'Could not save events due to repeated schema mismatch. Please run migrations.' } };
+  const legacyRows = rows.map(r => ({
+    event_date: r.event_date ?? null,
+    start_time: r.call_time ? `${String(r.call_time).trim()}:00` : null,
+    end_time: null,
+    notes: r.name ?? r.notes ?? null,
+    event_type: r.event_type ?? 'rehearsal',
+    is_castable: null,
+  }));
+  const { error } = await supabase.from('events').insert(legacyRows);
+  return { error };
 }
 
 // ── RepertoireInput ──────────────────────────────────────────────────────────
