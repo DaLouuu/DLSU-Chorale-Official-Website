@@ -4,7 +4,6 @@ import { CURRENT_MEMBER, CURRENT_ADMIN, EXCUSE_REQUESTS, EVENTS, FEE_RECORDS, AN
 import logo from '../imports/dlsu-chorale-logo.png';
 import { Landing } from './components/screens/Landing';
 import { Login } from './components/screens/Login';
-import { Register } from './components/screens/Register';
 import { PendingVerification } from './components/screens/PendingVerification';
 import { RFIDKiosk } from './components/screens/RFIDKiosk';
 import { MemberHome } from './components/screens/MemberHome';
@@ -31,7 +30,7 @@ import { AdminEvents } from './components/screens/AdminEvents';
 import { Shell } from './components/layout/Shell';
 
 // Router Context
-type Route = 'landing' | 'login' | 'register' | 'pending' | 'rfid' | 'member-home' | 'admin-home' |
+type Route = 'landing' | 'login' | 'pending' | 'rfid' | 'member-home' | 'admin-home' |
   'member-attendance' | 'member-excuses' | 'member-performances' | 'member-fees' | 'member-announcements' | 'member-profile' | 'member-social' | 'member-music' | 'member-calendar' |
   'admin-attendance' | 'admin-excuses' | 'admin-performances' | 'admin-fees' | 'admin-analytics' | 'admin-members' | 'admin-calendar' | 'admin-social' | 'admin-music' | 'admin-events';
 type RouterContextType = {
@@ -290,7 +289,6 @@ function Router() {
 
   if (route === 'landing') return <Landing />;
   if (route === 'login') return <Login />;
-  if (route === 'register') return <Register />;
   if (route === 'pending') return <PendingVerification />;
   if (route === 'rfid') return <RFIDKiosk />;
 

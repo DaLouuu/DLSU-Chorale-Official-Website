@@ -24,7 +24,7 @@ const FALLBACK_ADMIN_IDS = new Set(
     .filter(Boolean)
 );
 
-type Screen = 'login' | 'setup' | 'role-select';
+type Screen = 'login' | 'setup' | 'forgot' | 'role-select';
 
 type VerifiedUser = {
   schoolId: number;
@@ -49,6 +49,36 @@ function isMissingVerifyPasswordRpcError(error: RpcErrorLike | null | undefined)
   );
 }
 
+const MIN_PASSWORD_LENGTH = 12;
+const MAX_PASSWORD_LENGTH = 64;
+
+type PasswordPolicyContext = {
+  schoolId?: number;
+  email?: string;
+};
+
+function getPasswordPolicyIssues(password: string, context?: PasswordPolicyContext) {
+  const issues: string[] = [];
+  if (password.length < MIN_PASSWORD_LENGTH) issues.push(`Use at least ${MIN_PASSWORD_LENGTH} characters.`);
+  if (password.length > MAX_PASSWORD_LENGTH) issues.push(`Use at most ${MAX_PASSWORD_LENGTH} characters.`);
+  if (!/[a-z]/.test(password)) issues.push('Include at least one lowercase letter.');
+  if (!/[A-Z]/.test(password)) issues.push('Include at least one uppercase letter.');
+  if (!/[0-9]/.test(password)) issues.push('Include at least one number.');
+  if (!/[^A-Za-z0-9]/.test(password)) issues.push('Include at least one special character.');
+  if (/\s/.test(password)) issues.push('Do not use spaces.');
+  if (/(.)\1\1/.test(password)) issues.push('Avoid 3+ repeating characters in a row.');
+
+  const emailLocal = context?.email?.split('@')[0]?.toLowerCase();
+  if (emailLocal && emailLocal.length >= 4 && password.toLowerCase().includes(emailLocal)) {
+    issues.push('Do not include your email username.');
+  }
+  if (context?.schoolId && password.includes(String(context.schoolId))) {
+    issues.push('Do not include your ID number.');
+  }
+
+  return issues;
+}
+
 export function Login() {
   const { go } = useRouter();
   const { theme } = useTheme();
@@ -64,6 +94,7 @@ export function Login() {
   const [loginPw, setLoginPw] = useState('');
   const [showLoginPw, setShowLoginPw] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
 
   // ── Password setup state ──────────────────────────────────────────────────
@@ -77,6 +108,23 @@ export function Login() {
   const [showAdminPwNewC, setShowAdminPwNewC] = useState(false);
   const [setupLoading, setSetupLoading] = useState(false);
   const [setupError, setSetupError] = useState('');
+
+  // ── Forgot password state ─────────────────────────────────────────────────
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotIdNumber, setForgotIdNumber] = useState('');
+  const [forgotBirthDate, setForgotBirthDate] = useState('');
+  const [forgotMemberPw, setForgotMemberPw] = useState('');
+  const [forgotMemberPwC, setForgotMemberPwC] = useState('');
+  const [forgotAdminPw, setForgotAdminPw] = useState('');
+  const [forgotAdminPwC, setForgotAdminPwC] = useState('');
+  const [forgotResetAdmin, setForgotResetAdmin] = useState(false);
+  const [forgotUserIsAdmin, setForgotUserIsAdmin] = useState(false);
+  const [showForgotMemberPw, setShowForgotMemberPw] = useState(false);
+  const [showForgotMemberPwC, setShowForgotMemberPwC] = useState(false);
+  const [showForgotAdminPw, setShowForgotAdminPw] = useState(false);
+  const [showForgotAdminPwC, setShowForgotAdminPwC] = useState(false);
+  const [forgotError, setForgotError] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   // ── Admin console verify state ────────────────────────────────────────────
   const [adminVerifyExpanded, setAdminVerifyExpanded] = useState(false);
@@ -224,6 +272,7 @@ export function Login() {
   const submit = async (e?: FormEvent) => {
     e?.preventDefault();
     setError('');
+    setNotice('');
     
     // Prevent attempts if at max
     if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
@@ -372,11 +421,18 @@ export function Login() {
   const submitSetup = async (e?: FormEvent) => {
     e?.preventDefault();
     setSetupError('');
-
-    if (memberPw.length < 8) { setSetupError('Member password must be at least 8 characters.'); return; }
+    const memberPolicyIssues = getPasswordPolicyIssues(memberPw, {
+      schoolId: verifiedUser?.schoolId,
+      email: verifiedUser?.email,
+    });
+    if (memberPolicyIssues.length > 0) { setSetupError(memberPolicyIssues[0]); return; }
     if (memberPw !== memberPwC) { setSetupError('Member passwords do not match.'); return; }
     if (verifiedUser?.isAdmin) {
-      if (adminPwNew.length < 8) { setSetupError('Admin password must be at least 8 characters.'); return; }
+      const adminPolicyIssues = getPasswordPolicyIssues(adminPwNew, {
+        schoolId: verifiedUser?.schoolId,
+        email: verifiedUser?.email,
+      });
+      if (adminPolicyIssues.length > 0) { setSetupError(adminPolicyIssues[0]); return; }
       if (adminPwNew !== adminPwNewC) { setSetupError('Admin passwords do not match.'); return; }
     }
 
@@ -411,6 +467,111 @@ export function Login() {
       setSetupError('Failed to save password. Please try again.');
     } finally {
       setSetupLoading(false);
+    }
+  };
+
+  // ── Forgot password submit ────────────────────────────────────────────────
+  const submitForgot = async (e?: FormEvent) => {
+    e?.preventDefault();
+    setForgotError('');
+    const normalizedEmail = forgotEmail.trim().toLowerCase();
+    const schoolId = Number(forgotIdNumber.trim());
+    if (!normalizedEmail || !schoolId || !forgotBirthDate) {
+      setForgotError('Enter your DLSU email, ID number, and birthday.');
+      return;
+    }
+
+    const memberPolicyIssues = getPasswordPolicyIssues(forgotMemberPw, {
+      schoolId,
+      email: normalizedEmail,
+    });
+    if (memberPolicyIssues.length > 0) { setForgotError(memberPolicyIssues[0]); return; }
+    if (forgotMemberPw !== forgotMemberPwC) {
+      setForgotError('Member passwords do not match.');
+      return;
+    }
+
+    if (forgotUserIsAdmin && forgotResetAdmin) {
+      const adminPolicyIssues = getPasswordPolicyIssues(forgotAdminPw, {
+        schoolId,
+        email: normalizedEmail,
+      });
+      if (adminPolicyIssues.length > 0) { setForgotError(adminPolicyIssues[0]); return; }
+      if (forgotAdminPw !== forgotAdminPwC) {
+        setForgotError('Admin passwords do not match.');
+        return;
+      }
+    }
+
+    setForgotLoading(true);
+    try {
+      const { data: dir, error: dirErr } = await supabase
+        .from('directory')
+        .select('school_id, email')
+        .eq('email', normalizedEmail)
+        .eq('school_id', schoolId)
+        .maybeSingle();
+
+      if (dirErr || !dir) {
+        setForgotError('We could not verify your account details.');
+        return;
+      }
+
+      const { data: profile, error: profileErr } = await supabase
+        .from('profiles')
+        .select('school_id, bday, is_admin')
+        .eq('school_id', schoolId)
+        .maybeSingle();
+
+      if (profileErr || !profile?.school_id) {
+        setForgotError('We could not verify your account details.');
+        return;
+      }
+
+      const profileBday = profile.bday ? String(profile.bday).slice(0, 10) : '';
+      if (!profileBday || profileBday !== forgotBirthDate) {
+        setForgotError('The provided birthday does not match our records.');
+        return;
+      }
+      if (forgotResetAdmin && profile.is_admin !== true) {
+        setForgotError('This account does not have Admin Console access.');
+        return;
+      }
+
+      const { error: memberErr } = await supabase.rpc('set_member_password', {
+        p_school_id: schoolId,
+        p_password: forgotMemberPw,
+      });
+      if (memberErr) throw memberErr;
+
+      if (profile.is_admin === true && forgotResetAdmin) {
+        const { error: adminErr } = await supabase.rpc('set_admin_password', {
+          p_school_id: schoolId,
+          p_password: forgotAdminPw,
+        });
+        if (adminErr) throw adminErr;
+      }
+
+      await supabase.rpc('reset_failed_password_attempts', { p_school_id: schoolId }).catch(() => {});
+
+      setScreen('login');
+      setNotice('Password reset successful. Please sign in with your new password.');
+      setEmail(normalizedEmail);
+      setIdNumber(String(schoolId));
+      setLoginPw('');
+      setForgotEmail('');
+      setForgotIdNumber('');
+      setForgotBirthDate('');
+      setForgotMemberPw('');
+      setForgotMemberPwC('');
+      setForgotAdminPw('');
+      setForgotAdminPwC('');
+      setForgotResetAdmin(false);
+      setForgotUserIsAdmin(false);
+    } catch {
+      setForgotError('Password reset failed. Ensure password RPCs and columns are deployed in Supabase.');
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -500,6 +661,9 @@ export function Login() {
                 </h2>
                 <p style={{ color: theme.dim, fontSize: 13, margin: '6px 0 0 0' }}>
                   Welcome, {verifiedUser.name.split(' ')[0]}. Choose a password to secure your account.
+                </p>
+                <p style={{ color: theme.dim, fontSize: 12, margin: '8px 0 0 0' }}>
+                  Use 12-64 chars, upper + lower case, number, symbol, no spaces.
                 </p>
               </div>
             </div>
@@ -623,7 +787,183 @@ export function Login() {
 
             <button
               type="button"
-              onClick={() => { setScreen('login'); setVerifiedUser(null); }}
+              onClick={() => { setScreen('login'); setVerifiedUser(null); setSetupError(''); }}
+              style={{ background: 'transparent', border: 'none', color: theme.dim, fontSize: 12.5, cursor: 'pointer', fontFamily: FONTS.sans, padding: 0, textAlign: 'left' as const }}
+            >
+              ← Back to sign in
+            </button>
+          </form>
+        </Card>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Screen: Forgot Password
+  // ─────────────────────────────────────────────────────────────────────────
+  if (screen === 'forgot') {
+    return (
+      <div style={outerWrap}>
+        <Card pad={0} style={cardStyle}>
+          <GreenPanel />
+          <form
+            onSubmit={submitForgot}
+            style={{
+              flex: 1,
+              padding: isMobile ? '28px 24px 32px' : '44px 48px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: isMobile ? 14 : 16,
+              boxSizing: 'border-box',
+              overflowY: 'auto' as const,
+            }}
+          >
+            <div>
+              <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, color: theme.green, textTransform: 'uppercase' as const }}>
+                Account Recovery
+              </div>
+              <h2 style={{ fontFamily: FONTS.serif, fontSize: isMobile ? 24 : 28, margin: '6px 0 0 0', fontWeight: 500 }}>
+                Forgot password
+              </h2>
+              <p style={{ color: theme.dim, fontSize: 13, margin: '6px 0 0 0' }}>
+                Verify your identity, then set a new password.
+              </p>
+              <p style={{ color: theme.dim, fontSize: 12, margin: '8px 0 0 0' }}>
+                Security policy: 12-64 chars, upper + lower case, number, symbol, no spaces.
+              </p>
+            </div>
+
+            <div>
+              {fieldLabel('University email')}
+              <input
+                value={forgotEmail}
+                onChange={e => setForgotEmail(e.target.value)}
+                placeholder="juan_delacruz@dlsu.edu.ph"
+                type="email"
+                autoComplete="email"
+                style={inputStyle()}
+              />
+            </div>
+
+            <div>
+              {fieldLabel('ID number')}
+              <input
+                value={forgotIdNumber}
+                onChange={e => setForgotIdNumber(e.target.value)}
+                placeholder="12012345"
+                inputMode="numeric"
+                style={{ ...inputStyle(), fontFamily: FONTS.mono, letterSpacing: 1 }}
+              />
+            </div>
+
+            <div>
+              {fieldLabel('Birthday')}
+              <input
+                value={forgotBirthDate}
+                onChange={e => setForgotBirthDate(e.target.value)}
+                type="date"
+                style={inputStyle()}
+              />
+            </div>
+
+            <div style={{ padding: '16px 18px', background: theme.cream, borderRadius: 10, border: `1px solid ${theme.line}`, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ fontFamily: FONTS.mono, fontSize: 10, letterSpacing: 1.5, color: theme.green, textTransform: 'uppercase' as const }}>
+                New member password
+              </div>
+
+              <div>
+                {fieldLabel('New password')}
+                <div style={{ position: 'relative' }}>
+                  <input
+                    value={forgotMemberPw}
+                    onChange={e => setForgotMemberPw(e.target.value)}
+                    placeholder="Create a secure password"
+                    type={showForgotMemberPw ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    style={pwInputStyle()}
+                  />
+                  {showHideBtn(showForgotMemberPw, () => setShowForgotMemberPw(s => !s))}
+                </div>
+              </div>
+
+              <div>
+                {fieldLabel('Confirm password')}
+                <div style={{ position: 'relative' }}>
+                  <input
+                    value={forgotMemberPwC}
+                    onChange={e => setForgotMemberPwC(e.target.value)}
+                    placeholder="Re-enter password"
+                    type={showForgotMemberPwC ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    style={pwInputStyle(forgotMemberPwC.length > 0 && forgotMemberPw !== forgotMemberPwC)}
+                  />
+                  {showHideBtn(showForgotMemberPwC, () => setShowForgotMemberPwC(s => !s))}
+                </div>
+              </div>
+            </div>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: theme.ink, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={forgotResetAdmin}
+                onChange={e => setForgotResetAdmin(e.target.checked)}
+                style={{ width: 16, height: 16, accentColor: theme.green }}
+              />
+              I also need to reset my Admin Console password
+            </label>
+
+            {forgotResetAdmin && (
+              <div style={{ padding: '16px 18px', background: theme.cream, borderRadius: 10, border: `1px solid ${theme.line}`, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ fontFamily: FONTS.mono, fontSize: 10, letterSpacing: 1.5, color: '#c9a84c', textTransform: 'uppercase' as const }}>
+                  New admin password
+                </div>
+
+                <div>
+                  {fieldLabel('Admin password')}
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      value={forgotAdminPw}
+                      onChange={e => setForgotAdminPw(e.target.value)}
+                      placeholder="Create a secure admin password"
+                      type={showForgotAdminPw ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      style={pwInputStyle()}
+                    />
+                    {showHideBtn(showForgotAdminPw, () => setShowForgotAdminPw(s => !s))}
+                  </div>
+                </div>
+
+                <div>
+                  {fieldLabel('Confirm admin password')}
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      value={forgotAdminPwC}
+                      onChange={e => setForgotAdminPwC(e.target.value)}
+                      placeholder="Re-enter admin password"
+                      type={showForgotAdminPwC ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      style={pwInputStyle(forgotAdminPwC.length > 0 && forgotAdminPw !== forgotAdminPwC)}
+                    />
+                    {showHideBtn(showForgotAdminPwC, () => setShowForgotAdminPwC(s => !s))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {forgotError && <ErrorBox msg={forgotError} />}
+
+            <Button
+              size="lg"
+              type="submit"
+              disabled={forgotLoading}
+              style={{ justifyContent: 'center', width: '100%', opacity: forgotLoading ? 0.7 : 1 }}
+            >
+              {forgotLoading ? 'Resetting…' : 'Reset password'}
+            </Button>
+
+            <button
+              type="button"
+              onClick={() => { setScreen('login'); setForgotError(''); }}
               style={{ background: 'transparent', border: 'none', color: theme.dim, fontSize: 12.5, cursor: 'pointer', fontFamily: FONTS.sans, padding: 0, textAlign: 'left' as const }}
             >
               ← Back to sign in
@@ -878,7 +1218,7 @@ export function Login() {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 5 }}>
               <div style={{ fontSize: 11.5, color: theme.dim }}>
-                First time signing in? You'll be prompted to set a password.
+                First-time users will be prompted to set a secure password.
               </div>
               {loginAttempts > 0 && (
                 <div style={{ fontSize: 11.5, color: '#dc2626', fontWeight: 500, whiteSpace: 'nowrap' }}>
@@ -906,6 +1246,15 @@ export function Login() {
             )}
           </div>
 
+          {notice && (
+            <div style={{
+              fontSize: 13, color: '#14532d',
+              background: '#ecfdf3', border: '1px solid #86efac',
+              borderRadius: 8, padding: '10px 14px', fontFamily: FONTS.sans,
+            }}>
+              {notice}
+            </div>
+          )}
           {error && <ErrorBox msg={error} />}
 
           <Button
@@ -917,15 +1266,39 @@ export function Login() {
             {loading ? 'Signing in…' : 'Sign in'}
           </Button>
 
-          <div style={{ fontSize: 12, color: theme.dim, textAlign: 'center' }}>
-            Need an account?{' '}
-            <a
-              onClick={() => go('register')}
-              style={{ color: theme.green, cursor: 'pointer', textDecoration: 'underline' }}
-            >
-              Register as a new member
-            </a>
-          </div>
+          <button
+            type="button"
+            onClick={async () => {
+              setForgotError('');
+              const normalizedEmail = email.trim().toLowerCase();
+              const schoolId = Number(idNumber.trim());
+              setForgotEmail(normalizedEmail);
+              setForgotIdNumber(schoolId ? String(schoolId) : '');
+              setForgotBirthDate('');
+              setForgotMemberPw('');
+              setForgotMemberPwC('');
+              setForgotAdminPw('');
+              setForgotAdminPwC('');
+              setForgotResetAdmin(false);
+              setForgotUserIsAdmin(false);
+
+              if (normalizedEmail && schoolId) {
+                const { data: profile } = await supabase
+                  .from('profiles')
+                  .select('is_admin')
+                  .eq('school_id', schoolId)
+                  .maybeSingle();
+                if (profile?.is_admin === true) {
+                  setForgotUserIsAdmin(true);
+                }
+              }
+
+              setScreen('forgot');
+            }}
+            style={{ background: 'transparent', border: 'none', color: theme.green, cursor: 'pointer', textDecoration: 'underline', fontSize: 12.5, padding: 0, textAlign: 'left' as const, fontFamily: FONTS.sans }}
+          >
+            Forgot password?
+          </button>
         </form>
       </Card>
     </div>
