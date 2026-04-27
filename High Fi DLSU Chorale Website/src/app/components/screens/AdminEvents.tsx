@@ -276,6 +276,61 @@ function isMajorType(type: FormData['type']) {
   return type === 'production' || type === 'competition' || type === 'festival';
 }
 
+function toDbStartTime(raw: string | null | undefined) {
+  const v = (raw ?? '').trim();
+  if (!v) return '18:00:00+08';
+  return `${v}:00+08`;
+}
+
+function mapFormToEventRow(
+  source: FormData,
+  opts?: { profileId?: string | null; includeCreatedBy?: boolean; includeUpdatedBy?: boolean },
+) {
+  const profileId = opts?.profileId ?? null;
+  const normalizedStartTime = toDbStartTime(source.call_time);
+  return {
+    // Legacy events schema columns (ground truth in current DB)
+    event_date: source.date,
+    start_time: normalizedStartTime,
+    end_time: normalizedStartTime,
+    notes: source.name,
+    event_type: source.type,
+    is_castable: null,
+    // Newer columns (kept for forward compatibility; stripped automatically if absent)
+    name: source.name,
+    venue: source.venue || null,
+    call_time: source.call_time || null,
+    attire: source.attire || null,
+    repertoire: source.repertoire.length > 0 ? source.repertoire : null,
+    signup_deadline: source.signup_deadline || null,
+    cast_size: source.cast_size ? parseInt(source.cast_size, 10) : null,
+    file_url: source.file_url || null,
+    ...(opts?.includeUpdatedBy ? { updated_by: profileId } : {}),
+    ...(opts?.includeCreatedBy ? { created_by: profileId } : {}),
+  } as Record<string, any>;
+}
+
+function mapEventRowToForm(row: DbEvent, meta: EventMeta): FormData {
+  return {
+    name: row.name ?? row.notes ?? '',
+    type: (Object.keys(EVENT_TYPE_LABELS).includes(row.event_type?.toLowerCase() ?? '')
+      ? row.event_type!.toLowerCase()
+      : 'production') as FormData['type'],
+    date: row.event_date ?? '',
+    venue: row.venue ?? '',
+    call_time: (row.call_time ?? row.start_time ?? '').replace(/\+.*$/, '').slice(0, 5),
+    attire: row.attire ?? '',
+    repertoire: row.repertoire ?? [],
+    signup_deadline: row.signup_deadline ?? '',
+    cast_size: row.cast_size != null ? String(row.cast_size) : '',
+    file_url: row.file_url ?? '',
+    role_slots_text: roleSlotsToText(meta.roleSlots),
+    major_event_enabled: meta.majorEvent.enabled,
+    exam_required: meta.majorEvent.examRequired,
+    ensemble_type: meta.majorEvent.ensembleType ?? '',
+  };
+}
+
 function getMissingColumnFromError(message: string): string | null {
   const quoted = message.match(/'([^']+)'/);
   return quoted?.[1] ?? null;
@@ -861,24 +916,7 @@ function EventDrawer({
   useEffect(() => {
     if (editing) {
       const meta = getEventMeta(String(editing.event_id));
-      setForm({
-        name: editing.name ?? editing.notes ?? '',
-        type: (Object.keys(EVENT_TYPE_LABELS).includes(editing.event_type?.toLowerCase() ?? '')
-          ? editing.event_type!.toLowerCase()
-          : 'production') as FormData['type'],
-        date: editing.event_date ?? '',
-        venue: editing.venue ?? '',
-        call_time: (editing.call_time ?? editing.start_time ?? '').replace(/\+.*$/, '').slice(0, 5),
-        attire: editing.attire ?? '',
-        repertoire: editing.repertoire ?? [],
-        signup_deadline: editing.signup_deadline ?? '',
-        cast_size: editing.cast_size != null ? String(editing.cast_size) : '',
-        file_url: editing.file_url ?? '',
-        role_slots_text: roleSlotsToText(meta.roleSlots),
-        major_event_enabled: meta.majorEvent.enabled,
-        exam_required: meta.majorEvent.examRequired,
-        ensemble_type: meta.majorEvent.ensembleType ?? '',
-      });
+      setForm(mapEventRowToForm(editing, meta));
     } else {
       setForm(EMPTY_FORM);
     }
@@ -923,20 +961,7 @@ function EventDrawer({
     setSaveError(null);
     const profileId = await getProfileUuid();
 
-    const payload: Record<string, any> = {
-      name: form.name,
-      event_type: form.type,
-      event_date: form.date,
-      venue: form.venue || null,
-      call_time: form.call_time || null,
-      attire: form.attire || null,
-      repertoire: form.repertoire.length > 0 ? form.repertoire : null,
-      signup_deadline: form.signup_deadline || null,
-      cast_size: form.cast_size ? parseInt(form.cast_size, 10) : null,
-      file_url: form.file_url || null,
-      notes: form.name,
-      updated_by: profileId,
-    };
+    const payload = mapFormToEventRow(form, { profileId, includeUpdatedBy: true });
 
     let error: any = null;
     let savedEventId: number | null = editing?.event_id ?? null;
@@ -945,7 +970,8 @@ function EventDrawer({
       const { error: e } = await safeUpdateEventRow(editing.event_id, payload);
       error = e;
     } else {
-      const { data: inserted, error: e } = await safeInsertEventRow({ ...payload, created_by: profileId });
+      const createPayload = mapFormToEventRow(form, { profileId, includeCreatedBy: true, includeUpdatedBy: true });
+      const { data: inserted, error: e } = await safeInsertEventRow(createPayload);
       error = e;
       savedEventId = inserted?.event_id ?? null;
     }
@@ -997,17 +1023,7 @@ function EventDrawer({
     setSaveError(null);
     const profileId = await getProfileUuid();
 
-    const rows = forms.map(f => ({
-      name: f.name, event_type: f.type, event_date: f.date,
-      venue: f.venue || null, call_time: f.call_time || null,
-      attire: f.attire || null,
-      repertoire: f.repertoire.length > 0 ? f.repertoire : null,
-      signup_deadline: f.signup_deadline || null,
-      cast_size: f.cast_size ? parseInt(f.cast_size, 10) : null,
-      file_url: form.file_url || null,
-      notes: f.name,
-      created_by: profileId,
-    }));
+    const rows = forms.map(f => mapFormToEventRow(f, { profileId, includeCreatedBy: true, includeUpdatedBy: true }));
 
     const { error } = await safeInsertEventRows(rows);
     setSaving(false);
