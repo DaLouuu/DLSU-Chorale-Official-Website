@@ -45,6 +45,12 @@ function PaymentDetailsModal({ payment, onClose, onApprove, onReject }: { paymen
 
   if (!payment) return null;
 
+  const fallbackProofUrl = typeof payment.paymentData?.proofFileName === 'string' &&
+    /^(https?:\/\/|data:image\/|\/)/i.test(payment.paymentData.proofFileName)
+    ? payment.paymentData.proofFileName
+    : null;
+  const proofImage = payment.paymentData?.proofDataUrl || fallbackProofUrl;
+
   return (
     <div
       onClick={onClose}
@@ -111,10 +117,10 @@ function PaymentDetailsModal({ payment, onClose, onApprove, onReject }: { paymen
 
             <div>
               <div style={{ fontSize: 11, fontFamily: FONTS.mono, letterSpacing: 1, color: theme.dim, textTransform: 'uppercase', marginBottom: 4 }}>Proof of Payment</div>
-              {payment.paymentData?.proofDataUrl ? (
+              {proofImage ? (
                 <div style={{ borderRadius: 8, border: `1px solid ${theme.line}`, overflow: 'hidden' }}>
                   <img
-                    src={payment.paymentData.proofDataUrl}
+                    src={proofImage}
                     alt="Proof of payment"
                     style={{ width: '100%', maxHeight: 320, objectFit: 'contain', display: 'block', background: theme.cream }}
                   />
