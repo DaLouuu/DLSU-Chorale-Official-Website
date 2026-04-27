@@ -3,7 +3,7 @@ import { useRouter, useTheme } from '../../App';
 import { FONTS } from '../../theme';
 import logo from '../../../imports/dlsu-chorale-logo.png';
 import b2b2 from '../../../imports/choir-b2b-2.png';
-import { Moon, Sun, Calendar, LogIn } from 'lucide-react';
+import { Moon, Sun, LogIn } from 'lucide-react';
 
 function useViewportWidth() {
   const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
@@ -165,30 +165,6 @@ export function Landing() {
               flexWrap: 'wrap',
             }}
           >
-            <button
-              onClick={() => go('rfid')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: isSmall ? '12px 20px' : '14px 28px',
-                fontSize: isSmall ? 14 : 15,
-                height: isSmall ? 46 : 52,
-                borderRadius: 10,
-                fontWeight: 500,
-                fontFamily: FONTS.sans,
-                cursor: 'pointer',
-                letterSpacing: 0.1,
-                whiteSpace: 'nowrap',
-                background: theme.green,
-                color: '#fff',
-                border: `1px solid ${theme.green}`,
-              }}
-            >
-              <Calendar size={isSmall ? 17 : 19} />
-              Mark Attendance
-            </button>
-
             <button
               onClick={() => go('login')}
               style={{

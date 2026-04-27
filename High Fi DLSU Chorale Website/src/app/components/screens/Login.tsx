@@ -117,6 +117,7 @@ export function Login() {
 
       const userPayload = {
         id: resolvedDir.school_id,
+        _uuid: profile?.id ?? null,
         name,
         section: profile?.voice_section ?? '',
         email: email.trim().toLowerCase(),

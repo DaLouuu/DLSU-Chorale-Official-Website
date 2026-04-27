@@ -37,6 +37,7 @@ const ADMIN_NAV = [
   { key: 'admin-fees', label: 'Fee Management', icon: 'wallet' },
   { key: 'admin-analytics', label: 'Analytics', icon: 'chart' },
   { key: 'admin-members', label: 'Members', icon: 'users' },
+  { key: 'rfid', label: 'Launch Kiosk', icon: 'check' },
 ];
 
 function Sidebar({ onClose }: { onClose?: () => void }) {

@@ -104,9 +104,22 @@ function PaymentDetailsModal({ payment, onClose, onApprove, onReject }: { paymen
 
             <div>
               <div style={{ fontSize: 11, fontFamily: FONTS.mono, letterSpacing: 1, color: theme.dim, textTransform: 'uppercase', marginBottom: 4 }}>Proof of Payment</div>
-              <div style={{ padding: 12, background: theme.cream, borderRadius: 8, border: `1px solid ${theme.line}`, fontSize: 13 }}>
-                {payment.paymentData?.proofFileName || 'No file uploaded'}
-              </div>
+              {payment.paymentData?.proofDataUrl ? (
+                <div style={{ borderRadius: 8, border: `1px solid ${theme.line}`, overflow: 'hidden' }}>
+                  <img
+                    src={payment.paymentData.proofDataUrl}
+                    alt="Proof of payment"
+                    style={{ width: '100%', maxHeight: 320, objectFit: 'contain', display: 'block', background: theme.cream }}
+                  />
+                  <div style={{ padding: '8px 12px', fontSize: 12, color: theme.dim, borderTop: `1px solid ${theme.line}`, fontFamily: FONTS.mono }}>
+                    {payment.paymentData.proofFileName}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ padding: 12, background: theme.cream, borderRadius: 8, border: `1px solid ${theme.line}`, fontSize: 13, color: theme.dim }}>
+                  {payment.paymentData?.proofFileName || 'No file uploaded'}
+                </div>
+              )}
             </div>
           </div>
         </div>

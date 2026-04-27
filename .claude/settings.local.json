@@ -33,7 +33,8 @@
       "Bash(docker exec *)",
       "Bash(git check-ignore *)",
       "Bash(npx tsc *)",
-      "Bash(./node_modules/.bin/tsc --noEmit)"
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(node_modules/.bin/tsc --noEmit)"
     ]
   }
 }

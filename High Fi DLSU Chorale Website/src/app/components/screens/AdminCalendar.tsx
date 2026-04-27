@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme, useApp } from '../../App';
+import { supabase } from '../../supabase';
+import { EVENTS } from '../../data';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
 import { Calendar } from '../ui/Calendar';
@@ -319,41 +321,76 @@ function RehearsalModal({ rehearsal, onClose, onSave, onDelete }: any) {
   );
 }
 
+function eventsToRehearsals(evs: typeof EVENTS): any[] {
+  return evs
+    .filter(ev => ev.type === 'Rehearsal')
+    .map(ev => ({
+      id: String(ev._eventId ?? ev.id),
+      _eventId: ev._eventId ?? null,
+      date: ev.date,
+      type: ev.name ?? 'Full Rehearsal',
+      section: '',
+      time: ev.callTime ?? '18:00',
+      endTime: '21:00',
+      venue: ev.venue ?? 'Music Studio A',
+      notes: ev.description ?? '',
+    }));
+}
+
 export function AdminCalendar() {
   const { theme } = useTheme();
   const app = useApp();
   const [showModal, setShowModal] = useState(false);
   const [editingRehearsal, setEditingRehearsal] = useState<any>(null);
-  const [rehearsals, setRehearsals] = useState<any[]>(window.REHEARSALS || []);
+  const [rehearsals, setRehearsals] = useState<any[]>(() => {
+    const fromEvents = eventsToRehearsals(EVENTS);
+    return fromEvents.length > 0 ? fromEvents : (window.REHEARSALS || []);
+  });
 
-  const handleSave = (data: any) => {
+  // Keep window.REHEARSALS in sync for the Calendar UI component
+  useEffect(() => { window.REHEARSALS = rehearsals; }, [rehearsals]);
+
+  const toSupabaseRow = (data: any) => ({
+    event_date: data.date,
+    event_type: 'rehearsal',
+    name: data.type,
+    start_time: data.time ? `${data.time}:00` : null,
+    end_time: data.endTime ? `${data.endTime}:00` : null,
+    venue: data.venue || null,
+    notes: data.notes || null,
+  });
+
+  const handleSave = async (data: any) => {
     if (editingRehearsal) {
-      // Single edit
       const next = rehearsals.map(r => r.id === editingRehearsal.id ? { ...r, ...data } : r);
       setRehearsals(next);
-      window.REHEARSALS = next;
+      if (editingRehearsal._eventId) {
+        await supabase.from('events').update(toSupabaseRow(data)).eq('event_id', editingRehearsal._eventId);
+      }
       app.showToast('Rehearsal updated');
     } else if (Array.isArray(data)) {
-      // Multiple new rehearsals
-      const newOnes = data.map((d, i) => ({ ...d, id: `r${Date.now()}_${i}` }));
-      const next = [...rehearsals, ...newOnes];
-      setRehearsals(next);
-      window.REHEARSALS = next;
-      app.showToast(`${newOnes.length} rehearsal${newOnes.length !== 1 ? 's' : ''} added`);
+      const inserted: any[] = [];
+      for (let i = 0; i < data.length; i++) {
+        const { data: row } = await supabase.from('events').insert(toSupabaseRow(data[i])).select('event_id').single();
+        inserted.push({ ...data[i], id: String(row?.event_id ?? `r${Date.now()}_${i}`), _eventId: row?.event_id ?? null });
+      }
+      setRehearsals(prev => [...prev, ...inserted]);
+      app.showToast(`${inserted.length} rehearsal${inserted.length !== 1 ? 's' : ''} added`);
     } else {
-      // Single new rehearsal
-      const next = [...rehearsals, { ...data, id: `r${Date.now()}` }];
-      setRehearsals(next);
-      window.REHEARSALS = next;
+      const { data: row } = await supabase.from('events').insert(toSupabaseRow(data)).select('event_id').single();
+      const newR = { ...data, id: String(row?.event_id ?? `r${Date.now()}`), _eventId: row?.event_id ?? null };
+      setRehearsals(prev => [...prev, newR]);
       app.showToast('Rehearsal added');
     }
     setEditingRehearsal(null);
   };
 
-  const handleDelete = (id: string) => {
-    const next = rehearsals.filter(r => r.id !== id);
-    setRehearsals(next);
-    window.REHEARSALS = next;
+  const handleDelete = async (id: string) => {
+    const r = rehearsals.find(x => x.id === id);
+    if (r?._eventId) {
+      await supabase.from('events').delete().eq('event_id', r._eventId);
+    }
+    setRehearsals(prev => prev.filter(x => x.id !== id));
     app.showToast('Rehearsal deleted', 'error');
   };
 

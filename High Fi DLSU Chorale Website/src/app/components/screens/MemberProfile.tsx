@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useTheme, useApp } from '../../App';
 import { supabase } from '../../supabase';
 import { FONTS } from '../../theme';
@@ -11,11 +11,6 @@ import { Field } from '../ui/Field';
 import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
 
-declare global {
-  interface Window {
-    CLASS_SCHEDULES: any[];
-  }
-}
 
 function WeeklyDigestModal({ onClose }: { onClose: () => void }) {
   const { theme } = useTheme();
@@ -495,6 +490,39 @@ export function MemberProfile() {
   const [pronouns, setPronouns] = useState('');
   const [performingStatus, setPerformingStatus] = useState<'performing' | 'non-performing'>('performing');
   const [memberStatus, setMemberStatus] = useState<'active' | 'inactive' | 'loa'>('active');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [userSchedule, setUserSchedule] = useState<{ term: string; classes: any[] } | null>(null);
+
+  const profileUuid: string | null = (user as any)?._uuid ?? (user as any)?.profileUuid ?? null;
+
+  // Load persisted profile data from Supabase on mount
+  useEffect(() => {
+    if (!profileUuid) return;
+    supabase
+      .from('profiles')
+      .select('avatar_url, pronouns, current_term_stat, membership_status, class_schedule')
+      .eq('id', profileUuid)
+      .single()
+      .then(({ data }) => {
+        if (!data) return;
+        if (data.avatar_url) {
+          setProfilePic(data.avatar_url);
+          try { localStorage.setItem(`avatar_${user.id}`, data.avatar_url); } catch {}
+        }
+        if (data.pronouns) setPronouns(data.pronouns);
+        if (data.current_term_stat) {
+          const val = (data.current_term_stat as string).toLowerCase();
+          if (val === 'performing' || val === 'non-performing') setPerformingStatus(val as 'performing' | 'non-performing');
+        }
+        if (data.membership_status) {
+          const val = (data.membership_status as string).toLowerCase();
+          if (val === 'active' || val === 'inactive' || val === 'loa') setMemberStatus(val as 'active' | 'inactive' | 'loa');
+        }
+        if (data.class_schedule) {
+          setUserSchedule(data.class_schedule as { term: string; classes: any[] });
+        }
+      });
+  }, [profileUuid]);
 
   const [notifications, setNotifications] = useState(() => {
     try { return JSON.parse(localStorage.getItem('pref_notifications') || '{}'); } catch {}
@@ -507,8 +535,6 @@ export function MemberProfile() {
     try { localStorage.setItem('pref_notifications', JSON.stringify(next)); } catch {}
   };
 
-  if (!window.CLASS_SCHEDULES) window.CLASS_SCHEDULES = [];
-  const userSchedule = window.CLASS_SCHEDULES?.find(s => s.memberId === user.id);
 
   const handleProfilePicChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -523,6 +549,9 @@ export function MemberProfile() {
         const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
         if (picPath && picPath !== path) {
           supabase.storage.from('avatars').remove([picPath]);
+        }
+        if (profileUuid) {
+          await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', profileUuid);
         }
         setProfilePic(publicUrl);
         setPicPath(path);
@@ -549,18 +578,39 @@ export function MemberProfile() {
       setPicPath(null);
       try { localStorage.removeItem(`avatar_path_${user.id}`); } catch {}
     }
+    if (profileUuid) {
+      await supabase.from('profiles').update({ avatar_url: null }).eq('id', profileUuid);
+    }
     setProfilePic(null);
     try { localStorage.removeItem(`avatar_${user.id}`); } catch {}
     app.showToast('Profile picture removed');
   };
 
-  const handleSaveSchedule = (scheduleData: any) => {
-    if (userSchedule) {
-      window.CLASS_SCHEDULES = window.CLASS_SCHEDULES.map(s =>
-        s.memberId === user.id ? { ...s, ...scheduleData } : s
-      );
-    } else {
-      window.CLASS_SCHEDULES = [...window.CLASS_SCHEDULES, { memberId: user.id, ...scheduleData }];
+  const handleSaveProfileDetails = async () => {
+    if (!profileUuid) { app.showToast('Unable to save — profile ID missing', 'error'); return; }
+    setSavingProfile(true);
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        pronouns,
+        current_term_stat: performingStatus === 'performing' ? 'Performing' : 'Non-Performing',
+        membership_status: memberStatus.charAt(0).toUpperCase() + memberStatus.slice(1),
+      })
+      .eq('id', profileUuid);
+    setSavingProfile(false);
+    if (error) { app.showToast('Failed to save profile', 'error'); }
+    else { app.showToast('Profile saved'); }
+  };
+
+  const handleSaveSchedule = async (scheduleData: any) => {
+    const next = { term: scheduleData.term, classes: scheduleData.classes };
+    setUserSchedule(next);
+    if (profileUuid) {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ class_schedule: next })
+        .eq('id', profileUuid);
+      if (error) { app.showToast('Failed to save schedule', 'error'); return; }
     }
     app.showToast('Class schedule updated');
   };
@@ -709,6 +759,13 @@ export function MemberProfile() {
 
             <Field label="Emergency contact name" placeholder="e.g. Maria Marquez" />
             <Field label="Emergency contact #" placeholder="e.g. +63 917 xxx xxxx" />
+          </div>
+
+          {/* Save profile details */}
+          <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+            <Button icon="check" onClick={handleSaveProfileDetails} disabled={savingProfile}>
+              {savingProfile ? 'Saving…' : 'Save Changes'}
+            </Button>
           </div>
 
           {/* Notifications */}

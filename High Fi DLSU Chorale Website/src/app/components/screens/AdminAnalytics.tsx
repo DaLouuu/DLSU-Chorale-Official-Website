@@ -5,6 +5,7 @@ import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { supabase } from '../../supabase';
+import { downloadCSV, todayStamp } from '../../utils/exportCsv';
 
 // ── Static fallback data for excuse/attendance charts ──────────────────────
 const MONTHLY_DATA = [
@@ -227,6 +228,52 @@ export function AdminAnalytics() {
     load();
   }, []);
 
+  const handleExportCSV = () => {
+    if (!stats) return;
+    const blank: (string | number)[] = ['', ''];
+    const rows: (string | number)[][] = [
+      ['DLSU Chorale — Analytics Export', todayStamp()],
+      blank,
+      ['MEMBERSHIP OVERVIEW', ''],
+      ['Metric', 'Value'],
+      ['Total Members', stats.total],
+      ['Active', stats.active],
+      ['Inactive / LOA', stats.inactive],
+      ['Avg GPA (last term)', stats.avgGpa ?? 'N/A'],
+      ['Avg Terms Left', stats.avgTermsLeft ?? 'N/A'],
+      ['Birthdays This Month', stats.birthdaysThisMonth],
+      blank,
+      ['BY VOICE SECTION', ''],
+      ['Section', 'Count'],
+      ...Object.entries(stats.bySection).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, v]),
+      blank,
+      ['BY PERFORMING STATUS', ''],
+      ['Status', 'Count'],
+      ...Object.entries(stats.byTermStat).map(([k, v]) => [k, v]),
+      blank,
+      ['BY COMMITTEE', ''],
+      ['Committee', 'Count'],
+      ...Object.entries(stats.byCommittee).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, v]),
+      blank,
+      ['BY COLLEGE', ''],
+      ['College', 'Count'],
+      ...Object.entries(stats.byCollege).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, v]),
+      blank,
+      ['BY COURSE', ''],
+      ['Course Code', 'Count'],
+      ...Object.entries(stats.byCourse).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, v]),
+      blank,
+      ['BY ENTRY COHORT YEAR', ''],
+      ['Year', 'Count'],
+      ...Object.entries(stats.byCohortYear).sort((a, b) => Number(a[0]) - Number(b[0])).map(([k, v]) => [k, v]),
+      blank,
+      ['BY LONGEVITY', ''],
+      ['Bracket', 'Count'],
+      ...Object.entries(stats.byLongevity).map(([k, v]) => [k, v]),
+    ];
+    downloadCSV(`chorale-analytics-${todayStamp()}`, rows);
+  };
+
   const maxBar = Math.max(...MONTHLY_DATA.flatMap(m => [m.Soprano, m.Alto, m.Tenor, m.Bass]));
   const chartColors: Record<string, string> = { Soprano: '#B04A5F', Alto: '#9B6B2F', Tenor: '#2C5B8E', Bass: '#1B5E20' };
   const SECTIONS = ['Soprano', 'Alto', 'Tenor', 'Bass'];
@@ -240,7 +287,7 @@ export function AdminAnalytics() {
         eyebrow="Analytics"
         title="Analytics"
         subtitle="Membership overview, academic profile, attendance trends, and more."
-        actions={<Button variant="outline" icon="download">Download PDF</Button>}
+        actions={<Button variant="outline" icon="download" onClick={handleExportCSV} disabled={!stats}>Export CSV</Button>}
       />
 
       {loading ? (

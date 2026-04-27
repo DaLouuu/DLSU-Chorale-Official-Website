@@ -186,6 +186,17 @@ function PaymentModal({
   const [referenceNumber, setReferenceNumber] = useState('');
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofFileName, setProofFileName] = useState('');
+  const [proofDataUrl, setProofDataUrl] = useState<string | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setProofFile(file);
+    setProofFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = ev => setProofDataUrl(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,6 +207,7 @@ function PaymentModal({
       receiverAccount,
       referenceNumber,
       proofFileName,
+      proofDataUrl,
       amount: fee.amount,
     });
   };
@@ -338,13 +350,7 @@ function PaymentModal({
               <input
                 type="file"
                 accept="image/*,.pdf"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    setProofFile(file);
-                    setProofFileName(file.name);
-                  }
-                }}
+                onChange={handleFileChange}
                 required
                 style={{
                   position: 'absolute',

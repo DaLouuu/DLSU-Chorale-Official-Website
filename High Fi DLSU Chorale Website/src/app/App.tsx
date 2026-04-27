@@ -102,6 +102,7 @@ type AppStateContextType = {
   payFee: (id: string, paymentData?: any) => void;
   approvePayment: (id: string) => void;
   rejectPayment: (id: string, reason?: string) => void;
+  addAnnouncement: (announcement: any) => void;
 };
 
 const AppStateContext = createContext<AppStateContextType | null>(null);
@@ -123,6 +124,7 @@ export const useApp = () => {
       payFee: (_id: string, _paymentData?: any) => {},
       approvePayment: (_id: string) => {},
       rejectPayment: (_id: string, _reason?: string) => {},
+      addAnnouncement: () => {},
     };
   }
   return ctx;
@@ -132,7 +134,7 @@ function AppStateProvider({ children }: { children: ReactNode }) {
   const [excuses, setExcuses] = useState(EXCUSE_REQUESTS);
   const [events, setEvents] = useState(EVENTS);
   const [fees, setFees] = useState(FEE_RECORDS);
-  const [announcements] = useState(ANNOUNCEMENTS);
+  const [announcements, setAnnouncements] = useState(ANNOUNCEMENTS);
   const [toast, setToast] = useState<{ msg: string; tone: string; id: number } | null>(null);
 
   const showToast = (msg: string, tone = 'success') => {
@@ -223,6 +225,15 @@ function AppStateProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  const addAnnouncement = (announcement: any) => {
+    const newAnnouncement = {
+      ...announcement,
+      id: `a${Date.now()}`,
+      date: new Date().toISOString().slice(0, 10),
+    };
+    setAnnouncements(prev => [newAnnouncement, ...prev]);
+  };
+
   return (
     <AppStateContext.Provider
       value={{
@@ -238,6 +249,7 @@ function AppStateProvider({ children }: { children: ReactNode }) {
         payFee,
         approvePayment,
         rejectPayment,
+        addAnnouncement,
       }}
     >
       {children}

@@ -10,6 +10,7 @@ import { StatusPill } from '../ui/Chip';
 import { Icon } from '../ui/Icon';
 import { MEMBERS, EVENTS, REHEARSAL_EVENTS } from '../../data';
 import { supabase } from '../../supabase';
+import { downloadCSV } from '../../utils/exportCsv';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -176,6 +177,22 @@ export function AdminAttendance() {
     });
   }
 
+  const handleExport = () => {
+    const eventCols = weekEvents.map(ev =>
+      `${new Date(ev.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} (${ev.type.slice(0, 5)})`
+    );
+    const header = ['Name', 'Student ID', 'Section', ...eventCols, 'Attendance Rate'];
+    const rows = members
+      .map(m => {
+        const statuses = getStatuses(m);
+        const presentCount = statuses.filter(s => s === 'present').length;
+        const rate = weekEvents.length > 0 ? `${Math.round((presentCount / weekEvents.length) * 100)}%` : '—';
+        return [m.name, m.id, m.section, ...statuses, rate];
+      });
+    const filename = `attendance-${week.start}-to-${week.end}-${section === 'All' ? 'all-sections' : section.toLowerCase()}`;
+    downloadCSV(filename, [header, ...rows]);
+  };
+
   const navBtn = {
     width: 30, height: 30,
     background: theme.paper, border: `1px solid ${theme.line}`, borderRadius: 8,
@@ -192,7 +209,7 @@ export function AdminAttendance() {
         actions={
           <>
             <Button variant="outline" icon="filter" onClick={() => setShowFilters(true)}>Filters</Button>
-            <Button variant="outline" icon="download">Export</Button>
+            <Button variant="outline" icon="download" onClick={handleExport}>Export</Button>
           </>
         }
       />

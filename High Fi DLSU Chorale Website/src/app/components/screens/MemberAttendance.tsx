@@ -6,6 +6,7 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { StatusPill } from '../ui/Chip';
 import { ATTENDANCE_LOG } from '../../data';
+import { downloadCSV, todayStamp } from '../../utils/exportCsv';
 
 function StatCard({ label, value, trend, tone = 'neutral' }: any) {
   const { theme } = useTheme();
@@ -33,6 +34,16 @@ export function MemberAttendance() {
   const [filter, setFilter] = useState('All');
   const { theme } = useTheme();
 
+  const handleExportCSV = () => {
+    const rows: (string | number)[][] = [
+      ['Date', 'Type', 'Status', 'Time In', 'Note'],
+      ...ATTENDANCE_LOG
+        .filter(a => filter === 'All' || a.type === filter.slice(0, -1))
+        .map(a => [a.date, a.type, a.status, a.timeIn, a.note || '']),
+    ];
+    downloadCSV(`my-attendance-${todayStamp()}`, rows);
+  };
+
   const log = useMemo(() => ATTENDANCE_LOG.filter(a => filter === 'All' || a.type === filter.slice(0, -1)), [filter]);
   const counts = useMemo(() => {
     const c = { present: 0, late: 0, absent: 0, excused: 0 };
@@ -57,7 +68,7 @@ export function MemberAttendance() {
         title="My Attendance"
         subtitle="Complete attendance record across all rehearsals and performances this term."
         actions={
-          <Button variant="outline" icon="download">
+          <Button variant="outline" icon="download" onClick={handleExportCSV}>
             Export CSV
           </Button>
         }

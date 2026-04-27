@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useTheme, useApp } from '../../App';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
@@ -8,13 +8,31 @@ import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
 import { Calendar } from '../ui/Calendar';
 import { Field } from '../ui/Field';
-import { FEE_SUMMARIES, MEMBERS } from '../../data';
+import { FEE_SUMMARIES, MEMBERS, EVENTS } from '../../data';
+import { downloadCSV, todayStamp } from '../../utils/exportCsv';
+import { supabase } from '../../supabase';
 
 declare global {
   interface Window {
     REHEARSALS: any[];
     CLASS_SCHEDULES: any[];
   }
+}
+
+function eventsToRehearsals(evs: typeof EVENTS): any[] {
+  return evs
+    .filter(ev => ev.type === 'Rehearsal')
+    .map(ev => ({
+      id: String((ev as any)._eventId ?? ev.id),
+      _eventId: (ev as any)._eventId ?? null,
+      date: ev.date,
+      type: ev.name ?? 'Full Rehearsal',
+      section: '',
+      time: (ev as any).callTime ?? '18:00',
+      endTime: '21:00',
+      venue: ev.venue ?? 'Music Studio A',
+      notes: (ev as any).description ?? '',
+    }));
 }
 
 type ScheduleMode = 'single' | 'multiple' | 'weekly';
@@ -35,16 +53,15 @@ function generateWeeklyDates(startDate: string, endDate: string, days: string[])
   return dates;
 }
 
-function BroadcastNoticeModal({ onClose }: { onClose: () => void }) {
+function BroadcastNoticeModal({ onClose, onBroadcast }: { onClose: () => void; onBroadcast: (data: { title: string; body: string; pinned: boolean; recipients: string }) => void }) {
   const { theme } = useTheme();
-  const app = useApp();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [pinned, setPinned] = useState(false);
   const [recipients, setRecipients] = useState('all');
 
   const handleBroadcast = () => {
-    app.showToast(`Notice broadcast to ${recipients === 'all' ? 'all members' : recipients}`);
+    onBroadcast({ title, body, pinned, recipients });
     onClose();
   };
 
@@ -324,6 +341,16 @@ function StatCard({ label, value, trend, tone = 'neutral' }: any) {
   );
 }
 
+const toSupabaseRow = (data: any) => ({
+  event_date: data.date,
+  event_type: 'rehearsal',
+  name: data.type,
+  start_time: data.time ? `${data.time}:00` : null,
+  end_time: data.endTime ? `${data.endTime}:00` : null,
+  venue: data.venue || null,
+  notes: data.notes || null,
+});
+
 export function AdminHome() {
   const { user } = useRouter();
   const { theme } = useTheme();
@@ -331,39 +358,49 @@ export function AdminHome() {
   const [showBroadcast, setShowBroadcast] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingRehearsal, setEditingRehearsal] = useState<any>(null);
-  const [rehearsals, setRehearsals] = useState<any[]>(window.REHEARSALS || []);
+  const [rehearsals, setRehearsals] = useState<any[]>(() => {
+    const fromEvents = eventsToRehearsals(EVENTS);
+    return fromEvents.length > 0 ? fromEvents : (window.REHEARSALS || []);
+  });
+
+  useEffect(() => { window.REHEARSALS = rehearsals; }, [rehearsals]);
 
   const pending = app.excuses.filter(e => e.status === 'Pending');
   const outstanding = FEE_SUMMARIES.reduce((s, f) => s + f.outstanding, 0);
   const activeEvents = app.events.filter(e => new Date(e.date) > new Date('2026-04-24'));
 
-  window.REHEARSALS = rehearsals;
-
-  const handleSave = (data: any) => {
+  const handleSave = async (data: any) => {
     if (editingRehearsal) {
-      const next = rehearsals.map(r => r.id === editingRehearsal.id ? { ...r, ...data } : r);
-      setRehearsals(next);
-      window.REHEARSALS = next;
+      const updated = { ...editingRehearsal, ...data };
+      if (editingRehearsal._eventId) {
+        await supabase.from('events').update(toSupabaseRow(data)).eq('id', editingRehearsal._eventId);
+      }
+      setRehearsals(prev => prev.map(r => r.id === editingRehearsal.id ? updated : r));
       app.showToast('Rehearsal updated');
     } else if (Array.isArray(data)) {
-      const newOnes = data.map((d, i) => ({ ...d, id: `r${Date.now()}_${i}` }));
-      const next = [...rehearsals, ...newOnes];
-      setRehearsals(next);
-      window.REHEARSALS = next;
+      const newOnes: any[] = [];
+      for (let i = 0; i < data.length; i++) {
+        const d = data[i];
+        const { data: row } = await supabase.from('events').insert(toSupabaseRow(d)).select('id').single();
+        newOnes.push({ ...d, id: row?.id ?? `r${Date.now()}_${i}`, _eventId: row?.id ?? null });
+      }
+      setRehearsals(prev => [...prev, ...newOnes]);
       app.showToast(`${newOnes.length} rehearsal${newOnes.length !== 1 ? 's' : ''} added`);
     } else {
-      const next = [...rehearsals, { ...data, id: `r${Date.now()}` }];
-      setRehearsals(next);
-      window.REHEARSALS = next;
+      const { data: row } = await supabase.from('events').insert(toSupabaseRow(data)).select('id').single();
+      const newOne = { ...data, id: row?.id ?? `r${Date.now()}`, _eventId: row?.id ?? null };
+      setRehearsals(prev => [...prev, newOne]);
       app.showToast('Rehearsal added');
     }
     setEditingRehearsal(null);
   };
 
-  const handleDelete = (id: string) => {
-    const next = rehearsals.filter(r => r.id !== id);
-    setRehearsals(next);
-    window.REHEARSALS = next;
+  const handleDelete = async (id: string) => {
+    const target = rehearsals.find(r => r.id === id);
+    if (target?._eventId) {
+      await supabase.from('events').delete().eq('id', target._eventId);
+    }
+    setRehearsals(prev => prev.filter(r => r.id !== id));
     app.showToast('Rehearsal deleted', 'error');
   };
 
@@ -391,6 +428,39 @@ export function AdminHome() {
     .filter((r: any) => new Date(r.date) >= new Date())
     .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
+  const handleWeeklyReport = () => {
+    const blank: (string | number)[] = ['', '', ''];
+    const rows: (string | number)[][] = [
+      ['DLSU Chorale — Weekly Admin Report', todayStamp(), ''],
+      blank,
+      ['PENDING EXCUSE REQUESTS', '', ''],
+      ['Member', 'Date', 'Reason', 'Type'],
+      ...pending.map((e: any) => [e.memberName ?? e.memberId ?? '—', e.date ?? '—', e.reason ?? '—', e.type ?? '—']),
+      ...(pending.length === 0 ? [['No pending requests', '', '']] : []),
+      blank,
+      ['OUTSTANDING FEES', '', ''],
+      ['Member', 'Outstanding (₱)', 'Total Fees (₱)'],
+      ...FEE_SUMMARIES
+        .filter(f => f.outstanding > 0)
+        .map(f => {
+          const member = MEMBERS.find(m => m.id === f.memberId);
+          return [member?.name ?? `ID ${f.memberId}`, f.outstanding, f.total];
+        }),
+      ...(FEE_SUMMARIES.filter(f => f.outstanding > 0).length === 0 ? [['No outstanding fees', '', '']] : []),
+      blank,
+      ['UPCOMING EVENTS', '', ''],
+      ['Name', 'Date', 'Type'],
+      ...activeEvents.map((e: any) => [e.name ?? '—', e.date ?? '—', e.type ?? '—']),
+      ...(activeEvents.length === 0 ? [['No upcoming events', '', '']] : []),
+      blank,
+      ['UPCOMING REHEARSALS', '', ''],
+      ['Date', 'Time', 'Venue'],
+      ...upcoming.slice(0, 10).map((r: any) => [r.date ?? '—', r.callTime ?? r.time ?? '—', r.venue ?? '—']),
+      ...(upcoming.length === 0 ? [['No upcoming rehearsals', '', '']] : []),
+    ];
+    downloadCSV(`weekly-report-${todayStamp()}`, rows);
+  };
+
   return (
     <>
       <PageHeader
@@ -403,7 +473,7 @@ export function AdminHome() {
         subtitle="Everything happening across the Chorale — at a glance."
         actions={
           <>
-            <Button variant="outline" icon="download">Weekly report</Button>
+            <Button variant="outline" icon="download" onClick={handleWeeklyReport}>Weekly report</Button>
             <Button icon="megaphone" onClick={() => setShowBroadcast(true)}>Broadcast notice</Button>
           </>
         }
@@ -544,7 +614,59 @@ export function AdminHome() {
         )}
       </Card>
 
-      {showBroadcast && <BroadcastNoticeModal onClose={() => setShowBroadcast(false)} />}
+      {/* ── Recent Announcements section ── */}
+      <div style={{ marginTop: 40, paddingTop: 32, borderTop: `1px solid ${theme.line}` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20 }}>
+          <div>
+            <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, color: theme.green, textTransform: 'uppercase' }}>Admin Console</div>
+            <h2 style={{ fontFamily: FONTS.serif, fontSize: 28, margin: '4px 0 0', fontWeight: 500 }}>Recent Announcements</h2>
+          </div>
+          <Button icon="megaphone" onClick={() => setShowBroadcast(true)}>New announcement</Button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {app.announcements.length === 0 && (
+            <div style={{ padding: '32px 0', textAlign: 'center', color: theme.dim }}>No announcements yet.</div>
+          )}
+          {app.announcements.slice(0, 5).map((a: any) => (
+            <Card key={a.id} style={{ padding: '16px 20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    {a.pinned && (
+                      <span style={{ fontSize: 10, fontFamily: FONTS.mono, letterSpacing: 1, background: theme.amberSoft, color: theme.amber, padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase' }}>
+                        Pinned
+                      </span>
+                    )}
+                    <span style={{ fontWeight: 600, fontSize: 14 }}>{a.title}</span>
+                  </div>
+                  <div style={{ fontSize: 13, color: theme.dim, lineHeight: 1.5 }}>{a.body}</div>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontFamily: FONTS.mono, fontSize: 11, color: theme.dim }}>{a.date}</div>
+                  <div style={{ fontSize: 12, color: theme.dim, marginTop: 2 }}>{a.author}</div>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {showBroadcast && (
+        <BroadcastNoticeModal
+          onClose={() => setShowBroadcast(false)}
+          onBroadcast={(data) => {
+            app.addAnnouncement({
+              title: data.title,
+              body: data.body,
+              pinned: data.pinned,
+              author: user.name,
+              recipients: data.recipients,
+            });
+            app.showToast(`Notice broadcast to ${data.recipients === 'all' ? 'all members' : data.recipients}`);
+          }}
+        />
+      )}
       {showModal && (
         <RehearsalModal
           rehearsal={editingRehearsal}

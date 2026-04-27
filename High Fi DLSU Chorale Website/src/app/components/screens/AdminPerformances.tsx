@@ -9,6 +9,7 @@ import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
 import { Field } from '../ui/Field';
 import { MEMBERS } from '../../data';
+import { downloadCSV } from '../../utils/exportCsv';
 
 type FormField = {
   id: string;
@@ -408,6 +409,17 @@ export function AdminPerformances() {
     app.showToast(`Event created: ${event.name}`);
   };
 
+  const handleExportRoster = () => {
+    if (!displayEv) return;
+    const participants = MEMBERS.slice(0, displayEv.signedUp);
+    const rows = [
+      ['Name', 'Student ID', 'Voice Section', 'Status'],
+      ...participants.map((m: any) => [m.name, m.id, m.section || '', 'Confirmed']),
+    ];
+    const safeName = displayEv.name.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+    downloadCSV(`${safeName}-roster-${displayEv.date}`, rows);
+  };
+
   if (!displayEv) return null;
 
   return (
@@ -521,7 +533,7 @@ export function AdminPerformances() {
 
             <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
               <Button icon="mail" onClick={() => setShowMessage(true)}>Message participants</Button>
-              <Button variant="outline" icon="download">Export roster CSV</Button>
+              <Button variant="outline" icon="download" onClick={handleExportRoster}>Export roster CSV</Button>
               <Button variant="outline">Lock roster</Button>
             </div>
 

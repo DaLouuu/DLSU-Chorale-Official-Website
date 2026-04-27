@@ -16,17 +16,6 @@ function useViewportWidth() {
   return width;
 }
 
-function Stat({ label, value, of }: { label: string; value: string | number; of?: string | number }) {
-  return (
-    <div>
-      <div style={{ fontFamily: FONTS.mono, fontSize: 10, letterSpacing: 1.5, opacity: 0.7, textTransform: 'uppercase' }}>{label}</div>
-      <div style={{ fontFamily: FONTS.serif, fontSize: 26, lineHeight: 1, marginTop: 4 }}>
-        {value}
-        {of && <span style={{ fontSize: 13, opacity: 0.5 }}> / {of}</span>}
-      </div>
-    </div>
-  );
-}
 
 export function RFIDKiosk() {
   const { go } = useRouter();
@@ -35,37 +24,56 @@ export function RFIDKiosk() {
   const isMobile = vw < 768;
   const isSmall = vw < 480;
 
-  const [state, setState] = useState<'idle' | 'success' | 'error'>('idle');
+  const [state, setState] = useState<'idle' | 'success' | 'error' | 'locked'>('idle');
   const [memberName, setMemberName] = useState('');
   const [wordInput, setWordInput] = useState('');
   const [checkedInMember, setCheckedInMember] = useState<string | null>(null);
-  const [attendanceCount, setAttendanceCount] = useState(38);
+  const [failCount, setFailCount] = useState(0);
+  const [lockSeconds, setLockSeconds] = useState(0);
 
+  const MAX_ATTEMPTS = 3;
+  const LOCK_DURATION = 30;
   const correctWord = 'ASCEND';
-  const totalExpected = 64;
+
+  useEffect(() => {
+    if (lockSeconds <= 0) return;
+    const t = setTimeout(() => {
+      setLockSeconds(s => {
+        if (s <= 1) { setState('idle'); setFailCount(0); }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [lockSeconds]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (state === 'locked') return;
 
-    if (wordInput.toUpperCase() !== correctWord) {
-      setState('error');
-      setTimeout(() => setState('idle'), 2000);
-      return;
-    }
+    const nameVal = memberName.trim();
+    const wordVal = wordInput.trim().toUpperCase();
 
+    const wordOk = wordVal === correctWord;
     const member = MEMBERS.find(m =>
-      m.name.toLowerCase() === memberName.trim().toLowerCase() ||
-      String(m.id) === memberName.trim()
+      m.name.toLowerCase() === nameVal.toLowerCase() ||
+      String(m.id) === nameVal
     );
 
-    if (!member) {
-      setState('error');
-      setTimeout(() => setState('idle'), 2000);
+    if (!wordOk || !member) {
+      const next = failCount + 1;
+      setFailCount(next);
+      if (next >= MAX_ATTEMPTS) {
+        setState('locked');
+        setLockSeconds(LOCK_DURATION);
+      } else {
+        setState('error');
+        setTimeout(() => setState('idle'), 2000);
+      }
       return;
     }
 
+    setFailCount(0);
     setCheckedInMember(member.name);
-    setAttendanceCount(prev => prev + 1);
     setState('success');
     setTimeout(() => {
       setState('idle');
@@ -127,31 +135,21 @@ export function RFIDKiosk() {
               </div>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontFamily: FONTS.mono, fontSize: 9, letterSpacing: 1.5, opacity: 0.6, textTransform: 'uppercase' }}>
-                Checked in
-              </div>
-              <div style={{ fontFamily: FONTS.serif, fontSize: 20, lineHeight: 1 }}>
-                {attendanceCount}<span style={{ fontSize: 12, opacity: 0.5 }}> / {totalExpected}</span>
-              </div>
-            </div>
-            <button
-              onClick={() => go('landing')}
-              style={{
-                padding: '8px 14px',
-                background: 'transparent',
-                color: 'rgba(255,255,255,0.7)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                borderRadius: 8,
-                fontSize: 12,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              ← Exit
-            </button>
-          </div>
+          <button
+            onClick={() => go('admin-home')}
+            style={{
+              padding: '8px 14px',
+              background: 'transparent',
+              color: 'rgba(255,255,255,0.7)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              borderRadius: 8,
+              fontSize: 12,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            ← Exit
+          </button>
         </div>
       ) : (
         /* Desktop: side rail */
@@ -186,23 +184,9 @@ export function RFIDKiosk() {
               </div>
               <div style={{ fontSize: 13, opacity: 0.75, marginTop: 4 }}>Music Studio A · 18:00 call</div>
             </div>
-            <div
-              style={{
-                marginTop: 28,
-                paddingTop: 22,
-                borderTop: '1px solid rgba(255,255,255,0.15)',
-                display: 'grid',
-                gap: 14,
-              }}
-            >
-              <Stat label="Checked in" value={attendanceCount} of={totalExpected} />
-              <Stat label="On time" value="32" />
-              <Stat label="Late" value="6" />
-              <Stat label="Remaining" value={totalExpected - attendanceCount} />
-            </div>
           </div>
           <button
-            onClick={() => go('landing')}
+            onClick={() => go('admin-home')}
             style={{
               width: '100%',
               padding: 10,
@@ -391,32 +375,31 @@ export function RFIDKiosk() {
         {state === 'error' && (
           <div style={{ textAlign: 'center', padding: '20px 0' }}>
             <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <div
-                style={{
-                  width: isSmall ? 90 : 110,
-                  height: isSmall ? 90 : 110,
-                  borderRadius: '50%',
-                  background: theme.redSoft,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
+              <div style={{ width: isSmall ? 90 : 110, height: isSmall ? 90 : 110, borderRadius: '50%', background: theme.redSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="alert" size={isSmall ? 44 : 54} stroke={theme.red} />
               </div>
             </div>
-            <h2
-              style={{
-                fontFamily: FONTS.serif,
-                fontSize: isSmall ? 28 : isMobile ? 36 : 42,
-                margin: '20px 0 6px',
-                fontWeight: 500,
-              }}
-            >
+            <h2 style={{ fontFamily: FONTS.serif, fontSize: isSmall ? 28 : isMobile ? 36 : 42, margin: '20px 0 6px', fontWeight: 500 }}>
               Incorrect Information
             </h2>
             <div style={{ fontSize: 14, opacity: 0.8, maxWidth: 360, margin: '0 auto' }}>
-              Either your name/ID or the word of the day is incorrect. Please try again.
+              Name/ID or word of the day is wrong. {MAX_ATTEMPTS - failCount} attempt{MAX_ATTEMPTS - failCount !== 1 ? 's' : ''} remaining.
+            </div>
+          </div>
+        )}
+
+        {state === 'locked' && (
+          <div style={{ textAlign: 'center', padding: '20px 0' }}>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <div style={{ width: isSmall ? 90 : 110, height: isSmall ? 90 : 110, borderRadius: '50%', background: theme.redSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="alert" size={isSmall ? 44 : 54} stroke={theme.red} />
+              </div>
+            </div>
+            <h2 style={{ fontFamily: FONTS.serif, fontSize: isSmall ? 28 : isMobile ? 36 : 42, margin: '20px 0 6px', fontWeight: 500 }}>
+              Too Many Attempts
+            </h2>
+            <div style={{ fontSize: 14, opacity: 0.8, maxWidth: 360, margin: '0 auto' }}>
+              This kiosk is locked. Please wait {lockSeconds} second{lockSeconds !== 1 ? 's' : ''} before trying again.
             </div>
           </div>
         )}
