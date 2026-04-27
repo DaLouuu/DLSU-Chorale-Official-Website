@@ -12,6 +12,7 @@ import {
   EventSignup,
   getEventMeta,
   getEventSignups,
+  initializeEventSignups,
   setEventMeta,
   updateSignupStatus,
 } from '../../utils/eventSignups';
@@ -1242,7 +1243,10 @@ export function AdminEvents() {
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    initializeEventSignups().then(() => setSignupsVersion(v => v + 1));
+  }, []);
 
   const filtered = events.filter(ev => {
     if (filter === 'all') return true;
@@ -1265,7 +1269,7 @@ export function AdminEvents() {
   const openCreate = () => { setEditing(null); setDrawerOpen(true); };
   const openEdit = (ev: DbEvent) => { setEditing(ev); setDrawerOpen(true); };
   const closeDrawer = () => { setDrawerOpen(false); setEditing(null); };
-  const onSaved = () => { load(); };
+  const onSaved = () => { load(); setSignupsVersion(v => v + 1); };
 
   const filterTab = (key: FilterType, label: string) => (
     <button

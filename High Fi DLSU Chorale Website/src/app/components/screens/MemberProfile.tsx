@@ -14,6 +14,13 @@ import { Icon } from '../ui/Icon';
 
 function WeeklyDigestModal({ onClose }: { onClose: () => void }) {
   const { theme } = useTheme();
+  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setVw(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  const isMobile = vw < 640;
   const weekData = [
     { date: '2026-04-24', status: 'present', time: '18:02' },
     { date: '2026-04-22', status: 'late', time: '18:24' },
@@ -29,15 +36,15 @@ function WeeklyDigestModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(8,32,26,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 24 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: theme.paper, borderRadius: 14, width: 600, maxHeight: '85vh', overflowY: 'auto', border: `1px solid ${theme.line}` }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: theme.paper, borderRadius: 14, width: isMobile ? '100%' : 600, maxHeight: '85vh', overflowY: 'auto', border: `1px solid ${theme.line}` }}>
         <div style={{ padding: '22px 28px', borderBottom: `1px solid ${theme.line}`, background: theme.cream }}>
           <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, color: theme.green, textTransform: 'uppercase' }}>Weekly Attendance Digest</div>
           <h3 style={{ fontFamily: FONTS.serif, fontSize: 24, margin: '6px 0 0', fontWeight: 500 }}>April 17-24, 2026</h3>
           <p style={{ fontSize: 13, color: theme.dim, margin: '6px 0 0' }}>Your attendance summary for this week</p>
         </div>
 
-        <div style={{ padding: 28 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 24 }}>
+        <div style={{ padding: isMobile ? 18 : 28 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 14, marginBottom: 24 }}>
             <div style={{ padding: 16, background: theme.greenSoft, borderRadius: 10 }}>
               <div style={{ fontFamily: FONTS.mono, fontSize: 10, letterSpacing: 1, color: theme.greenDeep, textTransform: 'uppercase' }}>Present</div>
               <div style={{ fontFamily: FONTS.serif, fontSize: 32, fontWeight: 500, color: theme.greenDeep, marginTop: 4 }}>{stats.present}</div>
@@ -236,6 +243,13 @@ function MilitaryTimePicker({
 
 function ClassScheduleModal({ schedule, onClose, onSave }: any) {
   const { theme } = useTheme();
+  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setVw(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  const isMobile = vw < 768;
   const [formData, setFormData] = useState(
     schedule || { term: 'Term 3 2025-2026', classes: [] }
   );
@@ -333,7 +347,7 @@ function ClassScheduleModal({ schedule, onClose, onSave }: any) {
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(8,32,26,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 24 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: theme.paper, borderRadius: 14, width: 700, maxHeight: '85vh', overflowY: 'auto', border: `1px solid ${theme.line}` }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: theme.paper, borderRadius: 14, width: isMobile ? '100%' : 700, maxHeight: '85vh', overflowY: 'auto', border: `1px solid ${theme.line}` }}>
         <div style={{ padding: '22px 28px', borderBottom: `1px solid ${theme.line}`, background: theme.cream }}>
           <h3 style={{ fontFamily: FONTS.serif, fontSize: 24, margin: 0, fontWeight: 500 }}>
             {schedule ? 'Edit Class Schedule' : 'Add Class Schedule'}
@@ -341,7 +355,7 @@ function ClassScheduleModal({ schedule, onClose, onSave }: any) {
           <p style={{ fontSize: 13, color: theme.dim, margin: '6px 0 0' }}>Add your classes to see schedule conflicts with choir events</p>
         </div>
 
-        <div style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ padding: isMobile ? 18 : 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Field label="Academic Term" value={formData.term} onChange={e => setFormData({ ...formData, term: e.target.value })} placeholder="e.g. Term 3 2025-2026" />
 
           {formData.classes.length > 0 && (
@@ -349,7 +363,7 @@ function ClassScheduleModal({ schedule, onClose, onSave }: any) {
               <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>Current Classes</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {formData.classes.map((cls: any, i: number) => (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 130px auto', gap: 12, padding: 12, background: theme.cream, borderRadius: 8, alignItems: 'center', fontSize: 13 }}>
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '80px 1fr 130px auto', gap: 10, padding: 12, background: theme.cream, borderRadius: 8, alignItems: 'center', fontSize: 13 }}>
                     <div style={{ fontFamily: FONTS.mono, fontWeight: 600, color: theme.green }}>{cls.code}</div>
                     <div>
                       <div style={{ fontWeight: 500 }}>{cls.name}</div>
@@ -406,7 +420,7 @@ function ClassScheduleModal({ schedule, onClose, onSave }: any) {
             )}
 
             {/* Code + name */}
-            <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: 12, marginBottom: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '100px 1fr', gap: 12, marginBottom: 12 }}>
               <input value={newClass.code} onChange={e => setNewClass({ ...newClass, code: e.target.value })} placeholder="Code" style={modalInput} />
               <input value={newClass.name} onChange={e => setNewClass({ ...newClass, name: e.target.value })} placeholder="Class Name" style={modalInput} />
             </div>
@@ -428,7 +442,7 @@ function ClassScheduleModal({ schedule, onClose, onSave }: any) {
             </div>
 
             {/* Time pickers (military) + room */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
               <MilitaryTimePicker
                 label="Start Time"
                 value={newClass.startTime}
@@ -474,6 +488,13 @@ export function MemberProfile() {
   const { theme } = useTheme();
   const app = useApp();
   const m = user;
+  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setVw(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  const isMobile = vw < 768;
 
   const [showDigest, setShowDigest] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -659,10 +680,10 @@ export function MemberProfile() {
   return (
     <>
       <PageHeader eyebrow="Profile" title="My Profile" subtitle="Personal details and emergency contact information." />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr', gap: 20 }}>
 
         {/* Avatar card */}
-        <Card style={{ textAlign: 'center', padding: 32 }}>
+        <Card style={{ textAlign: 'center', padding: isMobile ? 22 : 32 }}>
           <div
             style={{ position: 'relative', width: 110, margin: '0 auto', cursor: uploading ? 'wait' : 'pointer' }}
             onMouseEnter={() => setPicHover(true)}
@@ -718,7 +739,7 @@ export function MemberProfile() {
         {/* Details card */}
         <Card>
           <h3 style={{ fontFamily: FONTS.serif, fontSize: 20, margin: '0 0 14px', fontWeight: 500 }}>Member details</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14 }}>
             <Field label="Student ID" value={m.id} readOnly />
             <Field label="Year level" value={m.year} readOnly />
             <Field label="Committee" value={m.committee} readOnly />
@@ -755,14 +776,14 @@ export function MemberProfile() {
             </div>
 
             {/* Spacer to keep grid aligned */}
-            <div />
+            {!isMobile && <div />}
 
             <Field label="Emergency contact name" placeholder="e.g. Maria Marquez" />
             <Field label="Emergency contact #" placeholder="e.g. +63 917 xxx xxxx" />
           </div>
 
           {/* Save profile details */}
-          <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ marginTop: 16, display: 'flex', justifyContent: isMobile ? 'stretch' : 'flex-end' }}>
             <Button icon="check" onClick={handleSaveProfileDetails} disabled={savingProfile}>
               {savingProfile ? 'Saving…' : 'Save Changes'}
             </Button>
@@ -772,15 +793,15 @@ export function MemberProfile() {
           <div style={{ marginTop: 20, paddingTop: 18, borderTop: `1px solid ${theme.line}` }}>
             <h4 style={{ fontFamily: FONTS.serif, fontSize: 17, margin: 0, fontWeight: 500 }}>Notifications</h4>
             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, flexWrap: 'wrap' }}>
                 <input type="checkbox" checked={!!notifications.excuseDecision} onChange={e => setNotif({ excuseDecision: e.target.checked })} />
                 Email me when an excuse is decided
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, flexWrap: 'wrap' }}>
                 <input type="checkbox" checked={!!notifications.rehearsalReminder} onChange={e => setNotif({ rehearsalReminder: e.target.checked })} />
                 Remind me 1h before rehearsals
               </label>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', flexDirection: isMobile ? 'column' : 'row', gap: 8 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
                   <input type="checkbox" checked={!!notifications.weeklyDigest} onChange={e => setNotif({ weeklyDigest: e.target.checked })} />
                   Weekly attendance digest
@@ -798,7 +819,7 @@ export function MemberProfile() {
 
       {/* Class schedule card */}
       <Card style={{ marginTop: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', flexDirection: isMobile ? 'column' : 'row', gap: 12, marginBottom: 16 }}>
           <div>
             <h3 style={{ fontFamily: FONTS.serif, fontSize: 20, margin: 0, fontWeight: 500 }}>Class Schedule</h3>
             <div style={{ fontSize: 12, color: theme.dim, marginTop: 4 }}>
@@ -813,7 +834,7 @@ export function MemberProfile() {
         {userSchedule && userSchedule.classes.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {userSchedule.classes.map((cls: any, i: number) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '100px 2fr 1fr 130px 80px', gap: 12, padding: 12, background: theme.cream, borderRadius: 8, fontSize: 13, alignItems: 'center' }}>
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '100px 2fr 1fr 130px 80px', gap: 8, padding: 12, background: theme.cream, borderRadius: 8, fontSize: 13, alignItems: 'center' }}>
                 <div style={{ fontFamily: FONTS.mono, fontWeight: 600, color: theme.green }}>{cls.code}</div>
                 <div>{cls.name}</div>
                 <div style={{ fontSize: 12, color: theme.dim }}>{cls.days.join(', ')}</div>

@@ -21,10 +21,17 @@ type AnnouncementCardProps = {
 
 function AnnouncementCard({ a, variant = 'paper' }: AnnouncementCardProps) {
   const { theme } = useTheme();
+  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setVw(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  const isMobile = vw < 640;
 
   return (
     <Card variant={variant}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6, flexDirection: isMobile ? 'column' : 'row', gap: 4 }}>
         <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 1, color: theme.dim, textTransform: 'uppercase' }}>{a.date}</div>
         <div style={{ fontSize: 11.5, color: theme.dim }}>{a.author}</div>
       </div>

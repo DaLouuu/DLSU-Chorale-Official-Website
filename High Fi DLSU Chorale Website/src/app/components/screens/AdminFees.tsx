@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme, useApp } from '../../App';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
@@ -35,6 +35,13 @@ declare global {
 
 function PaymentDetailsModal({ payment, onClose, onApprove, onReject }: { payment: any; onClose: () => void; onApprove: () => void; onReject: () => void }) {
   const { theme } = useTheme();
+  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setVw(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  const isMobile = vw < 768;
 
   if (!payment) return null;
 
@@ -57,7 +64,7 @@ function PaymentDetailsModal({ payment, onClose, onApprove, onReject }: { paymen
         style={{
           background: theme.paper,
           borderRadius: 14,
-          width: 600,
+          width: isMobile ? '100%' : 600,
           maxHeight: '85vh',
           overflowY: 'auto',
           border: `1px solid ${theme.line}`,
@@ -74,7 +81,7 @@ function PaymentDetailsModal({ payment, onClose, onApprove, onReject }: { paymen
         </div>
 
         <div style={{ padding: 28 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20, marginBottom: 20 }}>
             <div>
               <div style={{ fontSize: 11, fontFamily: FONTS.mono, letterSpacing: 1, color: theme.dim, textTransform: 'uppercase' }}>Amount</div>
               <div style={{ fontFamily: FONTS.serif, fontSize: 28, fontWeight: 500, marginTop: 4 }}>₱{payment.amount}</div>
@@ -159,6 +166,13 @@ const tdStyle = { padding: '12px 16px', verticalAlign: 'middle' as const };
 export function AdminFees() {
   const app = useApp();
   const { theme } = useTheme();
+  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setVw(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  const isMobile = vw < 768;
   const [tab, setTab] = useState('members');
   const [selectedPayment, setSelectedPayment] = useState<any | null>(null);
 
@@ -179,7 +193,7 @@ export function AdminFees() {
         }
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 22 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 16, marginBottom: 22 }}>
         <StatCard
           label="Total outstanding"
           value={`₱${window.FEE_SUMMARIES.reduce((s, f) => s + f.outstanding, 0).toLocaleString()}`}
@@ -190,7 +204,7 @@ export function AdminFees() {
         <StatCard label="Top debtor" value="₱750" trend="Lorenzo Aquino (Bass)" tone="amber" />
       </div>
 
-      <div style={{ display: 'flex', gap: 0, marginBottom: 18, borderBottom: `1px solid ${theme.line}` }}>
+      <div style={{ display: 'flex', gap: 0, marginBottom: 18, borderBottom: `1px solid ${theme.line}`, overflowX: 'auto' }}>
         {[
           { k: 'pending', l: `Pending (${pendingPayments.length})` },
           { k: 'members', l: 'By member' },
@@ -227,7 +241,8 @@ export function AdminFees() {
               <div style={{ marginTop: 6, fontSize: 13 }}>No pending payments to review.</div>
             </div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 760 }}>
               <thead>
                 <tr
                   style={{
@@ -304,13 +319,15 @@ export function AdminFees() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </Card>
       )}
 
       {tab === 'members' && (
         <Card pad={0}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 760 }}>
             <thead>
               <tr
                 style={{
@@ -367,6 +384,7 @@ export function AdminFees() {
               })}
             </tbody>
           </table>
+          </div>
         </Card>
       )}
 
@@ -378,7 +396,7 @@ export function AdminFees() {
                 key={r.id}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '1fr 140px 140px 100px',
+                  gridTemplateColumns: isMobile ? '1fr' : '1fr 140px 140px 100px',
                   gap: 14,
                   padding: '16px 0',
                   alignItems: 'center',

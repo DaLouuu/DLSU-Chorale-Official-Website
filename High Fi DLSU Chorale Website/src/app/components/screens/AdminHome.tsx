@@ -55,6 +55,7 @@ function generateWeeklyDates(startDate: string, endDate: string, days: string[])
 
 function BroadcastNoticeModal({ onClose, onBroadcast }: { onClose: () => void; onBroadcast: (data: { title: string; body: string; pinned: boolean; recipients: string }) => void }) {
   const { theme } = useTheme();
+  const isMobile = useViewportWidth() < 768;
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [pinned, setPinned] = useState(false);
@@ -80,14 +81,14 @@ function BroadcastNoticeModal({ onClose, onBroadcast }: { onClose: () => void; o
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(8,32,26,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 24 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: theme.paper, borderRadius: 14, width: 650, maxHeight: '85vh', overflowY: 'auto', border: `1px solid ${theme.line}` }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: theme.paper, borderRadius: 14, width: isMobile ? '100%' : 650, maxHeight: '85vh', overflowY: 'auto', border: `1px solid ${theme.line}` }}>
         <div style={{ padding: '22px 28px', borderBottom: `1px solid ${theme.line}`, background: theme.cream }}>
           <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, color: theme.green, textTransform: 'uppercase' }}>Admin Console</div>
           <h3 style={{ fontFamily: FONTS.serif, fontSize: 24, margin: '6px 0 0', fontWeight: 500 }}>Broadcast notice</h3>
           <p style={{ fontSize: 13, color: theme.dim, margin: '6px 0 0' }}>Send an announcement to all members or specific sections.</p>
         </div>
 
-        <div style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ padding: isMobile ? 18 : 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Field label="Notice title" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Rehearsal schedule update" />
 
           <div>
@@ -123,7 +124,7 @@ function BroadcastNoticeModal({ onClose, onBroadcast }: { onClose: () => void; o
           </div>
         </div>
 
-        <div style={{ padding: '16px 28px', borderTop: `1px solid ${theme.line}`, display: 'flex', justifyContent: 'space-between', gap: 10, background: theme.cream }}>
+        <div style={{ padding: isMobile ? '14px 18px' : '16px 28px', borderTop: `1px solid ${theme.line}`, display: 'flex', justifyContent: 'space-between', gap: 10, background: theme.cream, flexWrap: 'wrap' }}>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button icon="megaphone" onClick={handleBroadcast} disabled={!title || !body}>Broadcast notice</Button>
         </div>
@@ -134,6 +135,7 @@ function BroadcastNoticeModal({ onClose, onBroadcast }: { onClose: () => void; o
 
 function RehearsalModal({ rehearsal, onClose, onSave, onDelete }: any) {
   const { theme } = useTheme();
+  const isMobile = useViewportWidth() < 768;
   const [mode, setMode] = useState<ScheduleMode>('single');
 
   const [type, setType] = useState(rehearsal?.type ?? 'Full Rehearsal');
@@ -193,16 +195,16 @@ function RehearsalModal({ rehearsal, onClose, onSave, onDelete }: any) {
           <h3 style={{ fontFamily: FONTS.serif, fontSize: 24, margin: 0, fontWeight: 500 }}>{isEditing ? 'Edit Rehearsal' : 'Add Rehearsal'}</h3>
         </div>
 
-        <div style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div style={{ padding: isMobile ? 18 : 28, display: 'flex', flexDirection: 'column', gap: 18 }}>
           {!isEditing && (
             <div>
               <div style={{ fontSize: 11.5, fontFamily: FONTS.mono, letterSpacing: 1, color: theme.dim, textTransform: 'uppercase', marginBottom: 8 }}>Scheduling Mode</div>
-              <div style={{ display: 'flex', gap: 0, border: `1px solid ${theme.line}`, borderRadius: 10, overflow: 'hidden' }}>
+              <div style={{ display: 'flex', gap: 0, border: `1px solid ${theme.line}`, borderRadius: 10, overflow: 'hidden', flexDirection: isMobile ? 'column' : 'row' }}>
                 {([['single', 'Single date'], ['multiple', 'Multiple dates'], ['weekly', 'Weekly recurring']] as const).map(([m, label]) => (
                   <button
                     key={m}
                     onClick={() => setMode(m)}
-                    style={{ flex: 1, padding: '10px 8px', border: 'none', background: mode === m ? theme.green : theme.paper, color: mode === m ? '#fff' : theme.ink, fontSize: 13, fontFamily: FONTS.sans, cursor: 'pointer', borderRight: m !== 'weekly' ? `1px solid ${theme.line}` : 'none' }}
+                    style={{ flex: 1, padding: '10px 8px', border: 'none', background: mode === m ? theme.green : theme.paper, color: mode === m ? '#fff' : theme.ink, fontSize: 13, fontFamily: FONTS.sans, cursor: 'pointer', borderRight: !isMobile && m !== 'weekly' ? `1px solid ${theme.line}` : 'none', borderTop: isMobile && m !== 'single' ? `1px solid ${theme.line}` : 'none' }}
                   >
                     {label}
                   </button>
@@ -211,7 +213,7 @@ function RehearsalModal({ rehearsal, onClose, onSave, onDelete }: any) {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: type === 'Sectional' ? '1fr 1fr' : '1fr', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (type === 'Sectional' ? '1fr 1fr' : '1fr'), gap: 14 }}>
             <div>
               <label style={{ fontSize: 11.5, fontFamily: FONTS.mono, letterSpacing: 1, color: theme.dim, textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>Type</label>
               <select value={type} onChange={e => setType(e.target.value)} style={modalInput}>
@@ -235,7 +237,7 @@ function RehearsalModal({ rehearsal, onClose, onSave, onDelete }: any) {
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14 }}>
             <Field label="Start Time" type="time" value={time} onChange={(e: any) => setTime(e.target.value)} />
             <Field label="End Time" type="time" value={endTime} onChange={(e: any) => setEndTime(e.target.value)} />
           </div>
@@ -250,7 +252,7 @@ function RehearsalModal({ rehearsal, onClose, onSave, onDelete }: any) {
               <div style={{ fontSize: 11.5, fontFamily: FONTS.mono, letterSpacing: 1, color: theme.dim, textTransform: 'uppercase', marginBottom: 8 }}>
                 Dates ({multipleDates.length} selected)
               </div>
-              <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 10, flexDirection: isMobile ? 'column' : 'row' }}>
                 <input type="date" value={dateInput} onChange={e => setDateInput(e.target.value)} style={{ ...modalInput, flex: 1 }} />
                 <Button variant="outline" onClick={() => { if (dateInput && !multipleDates.includes(dateInput)) { setMultipleDates(prev => [...prev, dateInput].sort()); setDateInput(''); } }} disabled={!dateInput || multipleDates.includes(dateInput)}>Add</Button>
               </div>
@@ -269,7 +271,7 @@ function RehearsalModal({ rehearsal, onClose, onSave, onDelete }: any) {
 
           {!isEditing && mode === 'weekly' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14 }}>
                 <Field label="Start Date" type="date" value={recurStart} onChange={(e: any) => setRecurStart(e.target.value)} />
                 <Field label="End Date" type="date" value={recurEnd} onChange={(e: any) => setRecurEnd(e.target.value)} />
               </div>
@@ -310,7 +312,7 @@ function RehearsalModal({ rehearsal, onClose, onSave, onDelete }: any) {
           </div>
         </div>
 
-        <div style={{ padding: '16px 28px', borderTop: `1px solid ${theme.line}`, display: 'flex', justifyContent: 'space-between', gap: 10, background: theme.cream }}>
+        <div style={{ padding: isMobile ? '14px 18px' : '16px 28px', borderTop: `1px solid ${theme.line}`, display: 'flex', justifyContent: 'space-between', gap: 10, background: theme.cream, flexWrap: 'wrap' }}>
           <div>
             {isEditing && (
               <Button variant="outline" onClick={() => { onDelete(rehearsal.id); onClose(); }} style={{ color: theme.red, borderColor: theme.red }}>Delete</Button>

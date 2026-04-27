@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme, useApp } from '../../App';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
@@ -16,6 +16,13 @@ declare global {
 
 function MusicItemModal({ item, category, onClose, onSave, onDelete }: any) {
   const { theme } = useTheme();
+  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setVw(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  const isMobile = vw < 768;
   const [formData, setFormData] = useState(
     item || {
       title: '',
@@ -58,7 +65,7 @@ function MusicItemModal({ item, category, onClose, onSave, onDelete }: any) {
         style={{
           background: theme.paper,
           borderRadius: 14,
-          width: 650,
+          width: isMobile ? '100%' : 650,
           maxHeight: '85vh',
           overflowY: 'auto',
           border: `1px solid ${theme.line}`,
@@ -73,7 +80,7 @@ function MusicItemModal({ item, category, onClose, onSave, onDelete }: any) {
           </p>
         </div>
 
-        <div style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ padding: isMobile ? 18 : 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Field
             label="Title"
             value={formData.title}
@@ -167,6 +174,13 @@ function MusicItemModal({ item, category, onClose, onSave, onDelete }: any) {
 
 function CategoryModal({ category, onClose, onSave, onDelete }: any) {
   const { theme } = useTheme();
+  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setVw(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  const isMobile = vw < 640;
   const [name, setName] = useState(category?.category || '');
 
   const modalInput = {
@@ -201,7 +215,7 @@ function CategoryModal({ category, onClose, onSave, onDelete }: any) {
         style={{
           background: theme.paper,
           borderRadius: 14,
-          width: 500,
+          width: isMobile ? '100%' : 500,
           border: `1px solid ${theme.line}`,
         }}
       >
@@ -261,6 +275,13 @@ function CategoryModal({ category, onClose, onSave, onDelete }: any) {
 export function AdminMusicLibrary() {
   const { theme } = useTheme();
   const app = useApp();
+  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setVw(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  const isMobile = vw < 768;
   const [musicLibrary, setMusicLibrary] = useState(window.MUSIC_LIBRARY || []);
   const [showItemModal, setShowItemModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -370,7 +391,7 @@ export function AdminMusicLibrary() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         {musicLibrary.map((cat: any) => (
           <div key={cat.id}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', flexDirection: isMobile ? 'column' : 'row', gap: 10, marginBottom: 14 }}>
               <div>
                 <h3 style={{ fontFamily: FONTS.serif, fontSize: 22, margin: 0, fontWeight: 500 }}>
                   {cat.category}
@@ -379,7 +400,7 @@ export function AdminMusicLibrary() {
                   {cat.items.length} {cat.items.length === 1 ? 'item' : 'items'}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <Button
                   size="sm"
                   variant="outline"
@@ -418,7 +439,7 @@ export function AdminMusicLibrary() {
                       key={i}
                       style={{
                         display: 'grid',
-                        gridTemplateColumns: 'auto 1fr auto auto auto',
+                        gridTemplateColumns: isMobile ? '1fr' : 'auto 1fr auto auto auto',
                         gap: 16,
                         alignItems: 'center',
                         padding: '16px 20px',

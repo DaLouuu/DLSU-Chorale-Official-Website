@@ -20,6 +20,7 @@ import { SOCIAL_EVENTS, MEMBERS } from '../../data';
 import {
   getEventMeta,
   getEventSignups,
+  initializeEventSignups,
   removeMemberSignups,
   upsertEventSignup,
 } from '../../utils/eventSignups';
@@ -409,6 +410,11 @@ export function MemberPerformances() {
   const [socialCounts, setSocialCounts] = useState<Record<string, number>>(
     Object.fromEntries(SOCIAL_EVENTS.map(s => [s.id, s.signedUp])),
   );
+  const [signupsVersion, setSignupsVersion] = useState(0);
+
+  useEffect(() => {
+    initializeEventSignups().then(() => setSignupsVersion(v => v + 1));
+  }, []);
 
   const allEvents: UnifiedEvent[] = [
     ...app.events.map(e => normalize(e)),
@@ -427,6 +433,7 @@ export function MemberPerformances() {
     if (!raw) return true;
     return raw.toLowerCase().includes('performing') && !raw.toLowerCase().includes('non-performing');
   })();
+  void signupsVersion;
   const eventsWithSignupState: UnifiedEvent[] = allEvents.map(ev => {
     const signups = getEventSignups(String(ev.id));
     const approved = signups.filter(s => s.status === 'approved');
@@ -468,6 +475,7 @@ export function MemberPerformances() {
     }
     if (e.mySignup) {
       removeMemberSignups(String(e.id), user.id);
+      setSignupsVersion(v => v + 1);
       app.showToast('Removed from roster');
       if (adminEmail) notifyEventSignup({ adminEmail, memberName: user?.name ?? '', section: user?.section ?? '', eventName: e.name, eventDate: e.date, withdrew: true });
       return;
@@ -498,6 +506,7 @@ export function MemberPerformances() {
         status: 'approved',
         createdAt: new Date().toISOString(),
       });
+      setSignupsVersion(v => v + 1);
       app.showToast(`Signed up — ${e.name}`);
       if (adminEmail) notifyEventSignup({ adminEmail, memberName: user?.name ?? '', section: user?.section ?? '', eventName: e.name, eventDate: e.date });
     }
@@ -603,6 +612,7 @@ export function MemberPerformances() {
               status: 'approved',
               createdAt: new Date().toISOString(),
             });
+            setSignupsVersion(v => v + 1);
             app.showToast(`Signed up — ${signupEvent.name}`);
             if (adminEmail) notifyEventSignup({ adminEmail, memberName: user?.name ?? '', section: user?.section ?? '', eventName: signupEvent.name, eventDate: signupEvent.date });
             setSignupEvent(null);
@@ -628,6 +638,7 @@ export function MemberPerformances() {
               status: requiresApproval ? 'pending' : 'approved',
               createdAt: new Date().toISOString(),
             });
+            setSignupsVersion(v => v + 1);
             setRoleSignupData(null);
             app.showToast(requiresApproval ? 'Request sent for admin approval.' : `Signed up as ${role}.`);
           }}

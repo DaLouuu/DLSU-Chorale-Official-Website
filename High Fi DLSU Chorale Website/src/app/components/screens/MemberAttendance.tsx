@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter, useTheme } from '../../App';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
@@ -33,6 +33,13 @@ function LegendDot({ color, label }: { color: string; label: string }) {
 export function MemberAttendance() {
   const [filter, setFilter] = useState('All');
   const { theme } = useTheme();
+  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setVw(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  const isMobile = vw < 768;
 
   const handleExportCSV = () => {
     const rows: (string | number)[][] = [
@@ -74,14 +81,14 @@ export function MemberAttendance() {
         }
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
         <StatCard label="Present" value={counts.present} trend="on time" tone="green" />
         <StatCard label="Late" value={counts.late} trend="₱50 each" tone="amber" />
         <StatCard label="Absent" value={counts.absent} trend="unexcused · ₱150" tone="red" />
         <StatCard label="Excused" value={counts.excused} trend="no fee" tone="blue" />
       </div>
 
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, overflowX: 'auto', paddingBottom: 4 }}>
         {['All', 'Rehearsals', 'Performances'].map(f => (
           <button
             key={f}
@@ -102,11 +109,11 @@ export function MemberAttendance() {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1fr', gap: 20 }}>
         <Card>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
             <h3 style={{ fontFamily: FONTS.serif, fontSize: 22, margin: 0, fontWeight: 500 }}>April 2026</h3>
-            <div style={{ display: 'flex', gap: 14, fontSize: 11, color: theme.dim, fontFamily: FONTS.mono, letterSpacing: 0.5, textTransform: 'uppercase' }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 11, color: theme.dim, fontFamily: FONTS.mono, letterSpacing: 0.5, textTransform: 'uppercase' }}>
               <LegendDot color={theme.green} label="Present" />
               <LegendDot color={theme.amber} label="Late" />
               <LegendDot color={theme.red} label="Absent" />
@@ -150,7 +157,7 @@ export function MemberAttendance() {
           <h3 style={{ fontFamily: FONTS.serif, fontSize: 22, margin: '0 0 14px', fontWeight: 500 }}>Log ({log.length})</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 440, overflow: 'auto' }}>
             {log.map((a, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '70px 1fr 90px', gap: 12, alignItems: 'center', padding: '10px 12px', borderRadius: 8, background: theme.cream }}>
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '70px 1fr 90px', gap: 10, alignItems: 'center', padding: '10px 12px', borderRadius: 8, background: theme.cream }}>
                 <div>
                   <div style={{ fontFamily: FONTS.mono, fontSize: 10, color: theme.dim, letterSpacing: 0.5 }}>
                     {new Date(a.date).toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}
@@ -163,7 +170,9 @@ export function MemberAttendance() {
                   </div>
                   <div style={{ fontSize: 11.5, color: theme.dim, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.note || '—'}</div>
                 </div>
-                <StatusPill status={a.status} />
+                <div style={{ justifySelf: isMobile ? 'flex-start' : 'auto' }}>
+                  <StatusPill status={a.status} />
+                </div>
               </div>
             ))}
           </div>

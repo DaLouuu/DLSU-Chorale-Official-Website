@@ -57,7 +57,7 @@ export function MemberFees() {
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: 20 }}>
         <div>
           <Card variant={outstanding > 0 ? 'paper' : 'green'} style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'flex-end', gap: 12, flexWrap: 'wrap' }}>
               <div>
                 <div
                   style={{
@@ -73,7 +73,7 @@ export function MemberFees() {
                 <div
                   style={{
                     fontFamily: FONTS.serif,
-                    fontSize: 56,
+                    fontSize: isMobile ? 42 : 56,
                     fontWeight: 500,
                     lineHeight: 1,
                     color: outstanding > 0 ? theme.red : theme.greenDeep,
@@ -107,10 +107,10 @@ export function MemberFees() {
                   key={f.id}
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: '90px 1fr 120px 90px 100px',
+                    gridTemplateColumns: isMobile ? '1fr' : '90px 1fr 120px 90px 100px',
                     gap: 14,
                     alignItems: 'center',
-                    padding: '14px 0',
+                    padding: isMobile ? '12px 0' : '14px 0',
                     borderTop: i === 0 ? 'none' : `1px solid ${theme.line}`,
                   }}
                 >
@@ -455,7 +455,7 @@ function PaymentModal({
             </div>
           </div>
 
-          <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
             <Button variant="outline" onClick={onClose} type="button">
               Cancel
             </Button>
