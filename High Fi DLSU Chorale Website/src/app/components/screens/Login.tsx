@@ -41,8 +41,12 @@ export function Login() {
 
   const [email, setEmail] = useState('');
   const [idNumber, setIdNumber] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const orgPassword = (import.meta.env.VITE_ORG_PASSWORD as string) ?? '';
 
   // Role selection step — set when account is confirmed admin
   const [pendingAdmin, setPendingAdmin] = useState<PendingUser | null>(null);
@@ -56,6 +60,10 @@ export function Login() {
       const schoolId = Number(idNumber.trim());
       if (!email.trim() || !schoolId) {
         setError('Please enter your DLSU email and ID number.');
+        return;
+      }
+      if (orgPassword && !password) {
+        setError('Please enter your password.');
         return;
       }
 
@@ -80,6 +88,12 @@ export function Login() {
 
       if (dirErr || !resolvedDir) {
         setError('Invalid email or ID number. Please check your credentials.');
+        return;
+      }
+
+      // Password check against org passphrase (if configured via VITE_ORG_PASSWORD)
+      if (orgPassword && password !== orgPassword) {
+        setError('Incorrect password. Please try again.');
         return;
       }
 
@@ -386,16 +400,35 @@ export function Login() {
             boxSizing: 'border-box',
           }}
         >
-          <div>
-            <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, color: theme.green, textTransform: 'uppercase' }}>
-              Member Portal
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+            <div>
+              <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, color: theme.green, textTransform: 'uppercase' }}>
+                Member Portal
+              </div>
+              <h2 style={{ fontFamily: FONTS.serif, fontSize: isMobile ? 26 : 32, margin: '6px 0 0 0', fontWeight: 500 }}>
+                Sign in
+              </h2>
+              <p style={{ color: theme.dim, fontSize: 13.5, margin: '6px 0 0 0' }}>
+                Enter your DLSU email, ID number, and password.
+              </p>
             </div>
-            <h2 style={{ fontFamily: FONTS.serif, fontSize: isMobile ? 26 : 32, margin: '6px 0 0 0', fontWeight: 500 }}>
-              Sign in
-            </h2>
-            <p style={{ color: theme.dim, fontSize: 13.5, margin: '6px 0 0 0' }}>
-              Enter your DLSU email and ID number to continue.
-            </p>
+            <button
+              type="button"
+              onClick={() => go('landing')}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: theme.dim,
+                fontSize: 12.5,
+                cursor: 'pointer',
+                fontFamily: FONTS.sans,
+                padding: '4px 0',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              ← Home
+            </button>
           </div>
 
           <div>
@@ -450,6 +483,58 @@ export function Login() {
                 boxSizing: 'border-box',
               }}
             />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 11.5, fontFamily: FONTS.mono, letterSpacing: 1, color: theme.dim, textTransform: 'uppercase' }}>
+              Password {!orgPassword && <span style={{ fontSize: 10, color: theme.dim, textTransform: 'none', letterSpacing: 0 }}>(not required — not yet configured)</span>}
+            </label>
+            <div style={{ position: 'relative', marginTop: 6 }}>
+              <input
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder={orgPassword ? 'Enter your password' : 'No password set up yet'}
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                disabled={!orgPassword}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '12px 44px 12px 14px',
+                  border: `1px solid ${theme.lineDark}`,
+                  borderRadius: 10,
+                  fontSize: 14,
+                  fontFamily: FONTS.sans,
+                  background: orgPassword ? theme.paper : theme.cream,
+                  color: theme.ink,
+                  outline: 'none',
+                  boxSizing: 'border-box' as const,
+                  opacity: orgPassword ? 1 : 0.5,
+                }}
+              />
+              {orgPassword && (
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(s => !s)}
+                  style={{
+                    position: 'absolute',
+                    right: 12,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: theme.dim,
+                    fontSize: 11,
+                    fontFamily: FONTS.mono,
+                    letterSpacing: 0.5,
+                    padding: 4,
+                  }}
+                >
+                  {showPassword ? 'HIDE' : 'SHOW'}
+                </button>
+              )}
+            </div>
           </div>
 
           {error && (

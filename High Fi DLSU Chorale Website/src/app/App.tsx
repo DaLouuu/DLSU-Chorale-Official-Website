@@ -163,7 +163,7 @@ function AppStateProvider({ children }: { children: ReactNode }) {
         e.id === id
           ? {
               ...e,
-              signedUp: e.signedUp + (e.mySignup ? -1 : 1),
+              signedUp: Math.max(0, e.signedUp + (e.mySignup ? -1 : 1)),
               mySignup: e.mySignup ? null : 'Signed up',
             }
           : e

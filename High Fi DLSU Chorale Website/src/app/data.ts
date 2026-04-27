@@ -468,6 +468,22 @@ export async function initializePublicData(): Promise<void> {
         mySignup: null,
         file_url: ev.file_url ?? null,
       }));
+
+      // Sync rehearsals to window so Calendar UI shows DB data on all screens
+      const rehearsalRows = EVENTS.filter(ev => ev.type === 'Rehearsal');
+      if (rehearsalRows.length > 0) {
+        (window as any).REHEARSALS = rehearsalRows.map(ev => ({
+          id: String((ev as any)._eventId ?? ev.id),
+          _eventId: (ev as any)._eventId ?? null,
+          date: ev.date,
+          type: ev.name ?? 'Full Rehearsal',
+          section: '',
+          time: (ev as any).callTime ?? '18:00',
+          endTime: '21:00',
+          venue: ev.venue ?? '',
+          notes: ev.description ?? '',
+        }));
+      }
     }
 
     // 3. All excuse requests joined with profiles (admin view needs all)

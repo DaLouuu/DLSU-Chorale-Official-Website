@@ -173,7 +173,7 @@ function RehearsalModal({ rehearsal, onClose, onSave, onDelete }: any) {
     return false;
   };
 
-  const modalInput: React.CSSProperties = {
+  const modalInput = {
     width: '100%',
     padding: '11px 14px',
     border: `1px solid ${theme.lineDark}`,
@@ -351,10 +351,22 @@ const toSupabaseRow = (data: any) => ({
   notes: data.notes || null,
 });
 
+function useViewportWidth() {
+  const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setWidth(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return width;
+}
+
 export function AdminHome() {
   const { user } = useRouter();
   const { theme } = useTheme();
   const app = useApp();
+  const vw = useViewportWidth();
+  const isMobile = vw < 768;
   const [showBroadcast, setShowBroadcast] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingRehearsal, setEditingRehearsal] = useState<any>(null);
@@ -444,7 +456,7 @@ export function AdminHome() {
         .filter(f => f.outstanding > 0)
         .map(f => {
           const member = MEMBERS.find(m => m.id === f.memberId);
-          return [member?.name ?? `ID ${f.memberId}`, f.outstanding, f.total];
+          return [member?.name ?? `ID ${f.memberId}`, f.outstanding, f.outstanding + (f as any).paid];
         }),
       ...(FEE_SUMMARIES.filter(f => f.outstanding > 0).length === 0 ? [['No outstanding fees', '', '']] : []),
       blank,
@@ -479,14 +491,14 @@ export function AdminHome() {
         }
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
         <StatCard label="Active members" value="64" trend="+3 this term" tone="green" />
         <StatCard label="Pending excuses" value={pending.length} trend="requires review" tone="amber" />
         <StatCard label="Outstanding fees" value={`₱${outstanding.toLocaleString()}`} trend={`across ${FEE_SUMMARIES.filter(f => f.outstanding > 0).length} members`} tone="red" />
         <StatCard label="Upcoming events" value={activeEvents.length} trend="next: BCFC in 16d" tone="blue" />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: 20 }}>
         <Card>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18 }}>
             <div>
@@ -629,25 +641,27 @@ export function AdminHome() {
             <div style={{ padding: '32px 0', textAlign: 'center', color: theme.dim }}>No announcements yet.</div>
           )}
           {app.announcements.slice(0, 5).map((a: any) => (
-            <Card key={a.id} style={{ padding: '16px 20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    {a.pinned && (
-                      <span style={{ fontSize: 10, fontFamily: FONTS.mono, letterSpacing: 1, background: theme.amberSoft, color: theme.amber, padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase' }}>
-                        Pinned
-                      </span>
-                    )}
-                    <span style={{ fontWeight: 600, fontSize: 14 }}>{a.title}</span>
+            <div key={a.id}>
+              <Card style={{ padding: '16px 20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      {a.pinned && (
+                        <span style={{ fontSize: 10, fontFamily: FONTS.mono, letterSpacing: 1, background: theme.amberSoft, color: theme.amber, padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase' }}>
+                          Pinned
+                        </span>
+                      )}
+                      <span style={{ fontWeight: 600, fontSize: 14 }}>{a.title}</span>
+                    </div>
+                    <div style={{ fontSize: 13, color: theme.dim, lineHeight: 1.5 }}>{a.body}</div>
                   </div>
-                  <div style={{ fontSize: 13, color: theme.dim, lineHeight: 1.5 }}>{a.body}</div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontFamily: FONTS.mono, fontSize: 11, color: theme.dim }}>{a.date}</div>
+                    <div style={{ fontSize: 12, color: theme.dim, marginTop: 2 }}>{a.author}</div>
+                  </div>
                 </div>
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontFamily: FONTS.mono, fontSize: 11, color: theme.dim }}>{a.date}</div>
-                  <div style={{ fontSize: 12, color: theme.dim, marginTop: 2 }}>{a.author}</div>
-                </div>
-              </div>
-            </Card>
+              </Card>
+            </div>
           ))}
         </div>
       </div>

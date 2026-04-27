@@ -1,5 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme, useApp, useRouter } from '../../App';
+
+function useViewportWidth() {
+  const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setWidth(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return width;
+}
 import { notifyEventSignup } from '../../utils/email';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
@@ -299,6 +309,8 @@ export function MemberPerformances() {
   const app = useApp();
   const { theme } = useTheme();
   const { user } = useRouter();
+  const vw = useViewportWidth();
+  const isMobile = vw < 768;
   const adminEmail = import.meta.env.VITE_ADMIN_EMAIL as string ?? '';
   const [filter, setFilter] = useState<FilterCategory>('all');
   const [timeFilter, setTimeFilter] = useState('upcoming');
@@ -439,7 +451,7 @@ export function MemberPerformances() {
           No events found.
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 18 }}>
           {visibleEvents.map(e => (
             <EventCard key={e.id} event={e} theme={theme} onSignUp={() => handleSignUp(e)} />
           ))}

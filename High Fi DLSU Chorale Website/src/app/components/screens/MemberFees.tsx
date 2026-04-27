@@ -1,6 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme, useApp, useRouter } from '../../App';
 import { FONTS } from '../../theme';
+
+function useViewportWidth() {
+  const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setWidth(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return width;
+}
 import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -33,6 +43,8 @@ export function MemberFees() {
   const app = useApp();
   const { theme } = useTheme();
   const { user } = useRouter();
+  const vw = useViewportWidth();
+  const isMobile = vw < 768;
   const fees = app.fees as FeeRecord[];
   const outstanding = fees.filter(f => f.status === 'unpaid').reduce((s, f) => s + f.amount, 0);
   const paid = fees.filter(f => f.status === 'paid').reduce((s, f) => s + f.amount, 0);
@@ -42,7 +54,7 @@ export function MemberFees() {
     <>
       <PageHeader eyebrow="Module 8" title="Fees & Payments" subtitle="Outstanding balances, payment history, and the current fee schedule." />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: 20 }}>
         <div>
           <Card variant={outstanding > 0 ? 'paper' : 'green'} style={{ marginBottom: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
@@ -179,7 +191,11 @@ function PaymentModal({
   onSubmit: (data: any) => void;
 }) {
   const { theme } = useTheme();
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
+  const vw = useViewportWidth();
+  const isMobile = vw < 640;
+  const today = new Date().toISOString().slice(0, 10);
+
+  const [paymentDate, setPaymentDate] = useState(today);
   const [senderAccount, setSenderAccount] = useState('');
   const [senderAccountName, setSenderAccountName] = useState(user?.name || '');
   const [receiverAccount, setReceiverAccount] = useState('0917-123-4567 (GCash - Isabela Cruz)');
@@ -187,6 +203,7 @@ function PaymentModal({
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofFileName, setProofFileName] = useState('');
   const [proofDataUrl, setProofDataUrl] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -196,10 +213,45 @@ function PaymentModal({
     const reader = new FileReader();
     reader.onload = ev => setProofDataUrl(ev.target?.result as string);
     reader.readAsDataURL(file);
+    setErrors(prev => { const n = { ...prev }; delete n.proofFile; return n; });
+  };
+
+  const validate = () => {
+    const errs: Record<string, string> = {};
+    if (!paymentDate) {
+      errs.paymentDate = 'Payment date is required.';
+    } else if (paymentDate > today) {
+      errs.paymentDate = 'Payment date cannot be in the future.';
+    }
+    if (!senderAccountName.trim()) {
+      errs.senderAccountName = 'Account name is required.';
+    } else if (senderAccountName.trim().split(/\s+/).length < 2) {
+      errs.senderAccountName = 'Please enter your full name (first and last).';
+    }
+    const cleanAccount = senderAccount.replace(/[-\s]/g, '');
+    if (!senderAccount.trim()) {
+      errs.senderAccount = 'Account number or mobile is required.';
+    } else if (cleanAccount.length < 7) {
+      errs.senderAccount = 'Enter a valid account number or mobile number.';
+    }
+    if (!referenceNumber.trim()) {
+      errs.referenceNumber = 'Reference / transaction number is required.';
+    } else if (referenceNumber.trim().length < 4) {
+      errs.referenceNumber = 'Reference number is too short.';
+    }
+    if (!proofFileName) {
+      errs.proofFile = 'Please upload your proof of payment.';
+    }
+    return errs;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const errs = validate();
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
     onSubmit({
       paymentDate,
       senderAccount,
@@ -211,6 +263,9 @@ function PaymentModal({
       amount: fee.amount,
     });
   };
+
+  // Suppress unused variable warning
+  void proofFile;
 
   const inputStyle = {
     width: '100%',
@@ -255,7 +310,8 @@ function PaymentModal({
           background: theme.paper,
           color: theme.ink,
           borderRadius: 14,
-          width: 680,
+          width: isMobile ? '100%' : 680,
+          maxWidth: '100%',
           maxHeight: '90vh',
           overflowY: 'auto',
           border: `1px solid ${theme.line}`,
@@ -275,11 +331,18 @@ function PaymentModal({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} style={{ padding: 28 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <form onSubmit={handleSubmit} style={{ padding: isMobile ? 20 : 28 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
             <div>
               <label style={labelStyle}>Payment Date *</label>
-              <input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} required style={inputStyle} />
+              <input
+                type="date"
+                value={paymentDate}
+                max={today}
+                onChange={(e) => { setPaymentDate(e.target.value); setErrors(prev => { const n = { ...prev }; delete n.paymentDate; return n; }); }}
+                style={{ ...inputStyle, borderColor: errors.paymentDate ? theme.red : theme.lineDark }}
+              />
+              {errors.paymentDate && <div style={{ fontSize: 11.5, color: theme.red, marginTop: 4 }}>{errors.paymentDate}</div>}
             </div>
             <div>
               <label style={labelStyle}>Amount</label>
@@ -292,11 +355,11 @@ function PaymentModal({
             <input
               type="text"
               value={senderAccountName}
-              onChange={(e) => setSenderAccountName(e.target.value)}
+              onChange={(e) => { setSenderAccountName(e.target.value); setErrors(prev => { const n = { ...prev }; delete n.senderAccountName; return n; }); }}
               placeholder="Full name as shown in your account"
-              required
-              style={inputStyle}
+              style={{ ...inputStyle, borderColor: errors.senderAccountName ? theme.red : theme.lineDark }}
             />
+            {errors.senderAccountName && <div style={{ fontSize: 11.5, color: theme.red, marginTop: 4 }}>{errors.senderAccountName}</div>}
           </div>
 
           <div style={{ marginTop: 16 }}>
@@ -304,11 +367,11 @@ function PaymentModal({
             <input
               type="text"
               value={senderAccount}
-              onChange={(e) => setSenderAccount(e.target.value)}
+              onChange={(e) => { setSenderAccount(e.target.value); setErrors(prev => { const n = { ...prev }; delete n.senderAccount; return n; }); }}
               placeholder="e.g., 0917-123-4567 or account number"
-              required
-              style={inputStyle}
+              style={{ ...inputStyle, borderColor: errors.senderAccount ? theme.red : theme.lineDark }}
             />
+            {errors.senderAccount && <div style={{ fontSize: 11.5, color: theme.red, marginTop: 4 }}>{errors.senderAccount}</div>}
           </div>
 
           <div style={{ marginTop: 16 }}>
@@ -318,7 +381,6 @@ function PaymentModal({
               value={receiverAccount}
               onChange={(e) => setReceiverAccount(e.target.value)}
               placeholder="Finance officer account details"
-              required
               style={inputStyle}
             />
           </div>
@@ -328,18 +390,18 @@ function PaymentModal({
             <input
               type="text"
               value={referenceNumber}
-              onChange={(e) => setReferenceNumber(e.target.value)}
+              onChange={(e) => { setReferenceNumber(e.target.value); setErrors(prev => { const n = { ...prev }; delete n.referenceNumber; return n; }); }}
               placeholder="e.g., GCash ref #, bank transaction ID"
-              required
-              style={inputStyle}
+              style={{ ...inputStyle, borderColor: errors.referenceNumber ? theme.red : theme.lineDark }}
             />
+            {errors.referenceNumber && <div style={{ fontSize: 11.5, color: theme.red, marginTop: 4 }}>{errors.referenceNumber}</div>}
           </div>
 
           <div style={{ marginTop: 16 }}>
             <label style={labelStyle}>Proof of Payment (Screenshot/Receipt) *</label>
             <div
               style={{
-                border: `2px dashed ${theme.line}`,
+                border: `2px dashed ${errors.proofFile ? theme.red : theme.line}`,
                 borderRadius: 10,
                 padding: 20,
                 textAlign: 'center',
@@ -351,7 +413,6 @@ function PaymentModal({
                 type="file"
                 accept="image/*,.pdf"
                 onChange={handleFileChange}
-                required
                 style={{
                   position: 'absolute',
                   inset: 0,
@@ -370,6 +431,7 @@ function PaymentModal({
               </div>
               <div style={{ fontSize: 11, color: theme.dim, marginTop: 4 }}>PNG, JPG, or PDF up to 10MB</div>
             </div>
+            {errors.proofFile && <div style={{ fontSize: 11.5, color: theme.red, marginTop: 4 }}>{errors.proofFile}</div>}
           </div>
 
           <div
