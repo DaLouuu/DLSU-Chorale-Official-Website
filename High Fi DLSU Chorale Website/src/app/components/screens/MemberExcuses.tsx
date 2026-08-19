@@ -24,6 +24,9 @@ export function MemberExcuses() {
   const [eventType, setEventType] = useState('Rehearsal');
   const [reason, setReason] = useState('');
   const [eta, setEta] = useState('');
+  const [docFileName, setDocFileName] = useState('');
+  const [docDataUrl, setDocDataUrl] = useState<string | null>(null);
+  const [docError, setDocError] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   useEffect(() => {
@@ -32,6 +35,22 @@ export function MemberExcuses() {
     return () => window.removeEventListener('resize', handler);
   }, []);
   const isMobile = vw < 768;
+
+  const MAX_DOC_SIZE = 10 * 1024 * 1024; // 10MB
+
+  const handleDocChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_DOC_SIZE) {
+      setDocError('File is too large — max 10MB.');
+      return;
+    }
+    setDocError('');
+    setDocFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = ev => setDocDataUrl(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
 
   const submit = () => {
     if (!reason.trim()) {
@@ -51,6 +70,8 @@ export function MemberExcuses() {
       reason,
       eventType,
       eta: eta || undefined,
+      documentFileName: docFileName || undefined,
+      documentDataUrl: docDataUrl || undefined,
     });
     app.showToast("Excuse submitted — your Section Head will review it.");
     const adminEmail = import.meta.env.VITE_ADMIN_EMAIL as string ?? '';
@@ -58,6 +79,9 @@ export function MemberExcuses() {
     setSubmitted(true);
     setReason('');
     setEta('');
+    setDocFileName('');
+    setDocDataUrl(null);
+    setDocError('');
     setTimeout(() => {
       setSubmitted(false);
       setTab('mine');
@@ -154,6 +178,40 @@ export function MemberExcuses() {
               />
             </div>
 
+            <div style={{ marginTop: 14 }}>
+              <label style={{ fontSize: 11.5, fontFamily: FONTS.mono, letterSpacing: 1, color: theme.dim, textTransform: 'uppercase' }}>
+                Supporting document {type === 'Excused Absent' ? '(recommended)' : '(optional)'}
+              </label>
+              <div
+                style={{
+                  marginTop: 6,
+                  border: `2px dashed ${docError ? theme.red : theme.line}`,
+                  borderRadius: 10,
+                  padding: 18,
+                  textAlign: 'center',
+                  background: theme.cream,
+                  position: 'relative',
+                }}
+              >
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={handleDocChange}
+                  style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%' }}
+                />
+                <Icon name="file" size={24} stroke={theme.dim} />
+                <div style={{ marginTop: 8, fontSize: 13, color: theme.ink }}>
+                  {docFileName ? (
+                    <span style={{ fontWeight: 500, color: theme.green }}>{docFileName}</span>
+                  ) : (
+                    'Click to upload or drag and drop — e.g. medical cert, excuse letter'
+                  )}
+                </div>
+                <div style={{ fontSize: 11, color: theme.dim, marginTop: 4 }}>PNG, JPG, or PDF up to 10MB</div>
+              </div>
+              {docError && <div style={{ fontSize: 11.5, color: theme.red, marginTop: 4 }}>{docError}</div>}
+            </div>
+
             <div style={{ marginTop: 18, padding: 14, background: theme.cream, border: `1px solid ${theme.line}`, borderRadius: 10, fontSize: 12.5, color: theme.dim, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <Icon name="bell" size={14} stroke={theme.amber} />
               <div>
@@ -246,6 +304,16 @@ export function MemberExcuses() {
                     {e.eta && <Chip tone="neutral">ETA {e.eta}</Chip>}
                   </div>
                   <div style={{ fontSize: 13, color: theme.dim, lineHeight: 1.5 }}>{e.reason}</div>
+                  {e.documentDataUrl && (
+                    <a
+                      href={e.documentDataUrl}
+                      download={e.documentFileName || 'attachment'}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, color: theme.green, textDecoration: 'none' }}
+                    >
+                      <Icon name="file" size={13} stroke={theme.green} />
+                      {e.documentFileName || 'View attachment'}
+                    </a>
+                  )}
                   {e.notes && (
                     <div style={{ marginTop: 10, padding: '8px 12px', background: theme.cream, borderLeft: `3px solid ${theme.green}`, borderRadius: 4, fontSize: 12.5 }}>
                       <strong>{e.approvedBy}:</strong> {e.notes}

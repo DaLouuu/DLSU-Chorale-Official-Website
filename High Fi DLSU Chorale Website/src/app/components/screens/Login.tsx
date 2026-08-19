@@ -238,11 +238,11 @@ export function Login() {
     display: 'block' as const,
     width: '100%',
     padding: '12px 14px',
-    border: `1px solid ${hasError ? '#fca5a5' : theme.lineDark}`,
+    border: `1px solid ${hasError ? theme.red : theme.lineDark}`,
     borderRadius: 10,
     fontSize: 14,
     fontFamily: FONTS.sans,
-    background: hasError ? '#fef2f2' : theme.paper,
+    background: hasError ? theme.redSoft : theme.paper,
     color: theme.ink,
     outline: 'none',
     boxSizing: 'border-box' as const,
@@ -278,8 +278,8 @@ export function Login() {
 
   const ErrorBox = ({ msg }: { msg: string }) => (
     <div style={{
-      fontSize: 13, color: '#dc2626',
-      background: '#fef2f2', border: '1px solid #fecaca',
+      fontSize: 13, color: theme.red,
+      background: theme.redSoft, border: `1px solid ${theme.red}`,
       borderRadius: 8, padding: '10px 14px', fontFamily: FONTS.sans,
     }}>
       {msg}
@@ -637,23 +637,11 @@ export function Login() {
       setForgotError('Enter your DLSU email and ID number.');
       return;
     }
-    if (forgotHasProfile === false) {
-      setForgotError('We could not find an account with that email and ID number.');
-      return;
-    }
-    if (forgotNeedsQuestionSetup) {
-      if (!forgotNewQuestion1 || !forgotNewQuestion2) {
-        setForgotError('Choose two security questions to set up for future resets.');
-        return;
-      }
-      if (forgotNewQuestionsDuplicated) {
-        setForgotError('Security questions must be different.');
-        return;
-      }
-    } else if (!forgotQuestion1 || !forgotQuestion2) {
-      setForgotError('Security questions are not set for this account. Contact an admin.');
-      return;
-    }
+    // Answer length is checked up front regardless of mode — everything else
+    // that depends on "does this account have security questions yet" is
+    // re-verified fresh inside the try block below, rather than trusted from
+    // the debounced background fetch, so a slow/incomplete fetch can't leave
+    // the submit using stale info.
     if (forgotAnswer1.trim().length < 2 || forgotAnswer2.trim().length < 2) {
       setForgotError('Answer both security questions.');
       return;
@@ -701,7 +689,7 @@ export function Login() {
 
       const { data: profile, error: profileErr } = await supabase
         .from('profiles')
-        .select('school_id, is_admin')
+        .select('school_id, is_admin, security_question_1, security_question_2')
         .eq('school_id', schoolId)
         .maybeSingle();
 
@@ -710,7 +698,22 @@ export function Login() {
         return;
       }
 
-      if (forgotNeedsQuestionSetup) {
+      // Authoritative, fetched fresh right now — not the debounced background
+      // check — so a slow network or fast-typing user can't hit a stale branch.
+      const needsQuestionSetupNow = !profile.security_question_1 && !profile.security_question_2;
+      setForgotHasProfile(true);
+      setForgotQuestion1(profile.security_question_1 ?? '');
+      setForgotQuestion2(profile.security_question_2 ?? '');
+
+      if (needsQuestionSetupNow) {
+        if (!forgotNewQuestion1 || !forgotNewQuestion2) {
+          setForgotError('Choose two security questions to set up for future resets.');
+          return;
+        }
+        if (forgotNewQuestion1 === forgotNewQuestion2) {
+          setForgotError('Security questions must be different.');
+          return;
+        }
         // No security questions on file yet — this is a first-time reset, so
         // set what was just chosen instead of verifying against nothing.
         const { error: setQErr } = await supabase.rpc('set_security_questions', {
@@ -935,7 +938,7 @@ export function Login() {
                   {showHideBtn(showMemberPwC, () => setShowMemberPwC(s => !s))}
                 </div>
                 {memberPwC.length > 0 && memberPw !== memberPwC && (
-                  <div style={{ fontSize: 11.5, color: '#dc2626', marginTop: 4 }}>Passwords do not match</div>
+                  <div style={{ fontSize: 11.5, color: theme.red, marginTop: 4 }}>Passwords do not match</div>
                 )}
               </div>
             </div>
@@ -990,7 +993,7 @@ export function Login() {
                 />
               </div>
               {setupQuestionsDuplicated && (
-                <div style={{ fontSize: 11.5, color: '#dc2626', marginTop: 2 }}>
+                <div style={{ fontSize: 11.5, color: theme.red, marginTop: 2 }}>
                   Security questions must be different.
                 </div>
               )}
@@ -1029,7 +1032,7 @@ export function Login() {
                   </div>
                   <PasswordHint password={adminPwNew} context={{ schoolId: verifiedUser.schoolId, email: verifiedUser.email }} />
                   {setupPasswordsMatchAcrossRoles && (
-                    <div style={{ fontSize: 11.5, color: '#dc2626', marginTop: 4 }}>
+                    <div style={{ fontSize: 11.5, color: theme.red, marginTop: 4 }}>
                       Member and Admin Console passwords must be different.
                     </div>
                   )}
@@ -1049,7 +1052,7 @@ export function Login() {
                     {showHideBtn(showAdminPwNewC, () => setShowAdminPwNewC(s => !s))}
                   </div>
                   {adminPwNewC.length > 0 && adminPwNew !== adminPwNewC && (
-                    <div style={{ fontSize: 11.5, color: '#dc2626', marginTop: 4 }}>Passwords do not match</div>
+                    <div style={{ fontSize: 11.5, color: theme.red, marginTop: 4 }}>Passwords do not match</div>
                   )}
                 </div>
               </div>
@@ -1190,7 +1193,7 @@ export function Login() {
                 />
               </div>
               {forgotNeedsQuestionSetup && forgotNewQuestionsDuplicated && (
-                <div style={{ fontSize: 11.5, color: '#dc2626', marginTop: 2 }}>
+                <div style={{ fontSize: 11.5, color: theme.red, marginTop: 2 }}>
                   Security questions must be different.
                 </div>
               )}
@@ -1262,7 +1265,7 @@ export function Login() {
                     {showHideBtn(showForgotAdminPw, () => setShowForgotAdminPw(s => !s))}
                   </div>
                   {forgotPasswordsMatchAcrossRoles && (
-                    <div style={{ fontSize: 11.5, color: '#dc2626', marginTop: 4 }}>
+                    <div style={{ fontSize: 11.5, color: theme.red, marginTop: 4 }}>
                       Member and Admin Console passwords must be different.
                     </div>
                   )}
@@ -1469,7 +1472,19 @@ export function Login() {
               </button>
 
               <button
-                onClick={() => go('rfid')}
+                onClick={() => {
+                  // Launching straight from role-select used to call go('rfid')
+                  // with no role/user and no saved session — "Exit kiosk"
+                  // (which assumes an admin session) then had nothing to return
+                  // to, and refreshing while on the kiosk lost the session
+                  // entirely. Establish the same admin session the "Enter Admin
+                  // Console" button does, minus the separate admin-password
+                  // re-check, since identity was already verified to get here.
+                  if (!verifiedUser) return;
+                  const adminPayload = { id: verifiedUser.schoolId, _uuid: verifiedUser.profileUuid, name: verifiedUser.name, section: verifiedUser.section, email: verifiedUser.email };
+                  saveSession('admin', adminPayload);
+                  go('rfid', { role: 'admin', user: adminPayload });
+                }}
                 style={{
                   background: 'transparent',
                   border: 'none',
@@ -1576,7 +1591,7 @@ export function Login() {
                 First-time users will be prompted to set a secure password.
               </div>
               {loginAttempts > 0 && (
-                <div style={{ fontSize: 11.5, color: '#dc2626', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: 11.5, color: theme.red, fontWeight: 500, whiteSpace: 'nowrap' }}>
                   {MAX_LOGIN_ATTEMPTS - loginAttempts} attempt{MAX_LOGIN_ATTEMPTS - loginAttempts !== 1 ? 's' : ''} left
                 </div>
               )}

@@ -7,6 +7,7 @@ import { Button } from '../ui/Button';
 import { Avatar } from '../ui/Avatar';
 import { SectionTag } from '../ui/SectionTag';
 import { Chip, StatusPill } from '../ui/Chip';
+import { Icon } from '../ui/Icon';
 import { MEMBERS } from '../../data';
 import { supabase } from '../../supabase';
 import { notifyExcuseDecision } from '../../utils/email';
@@ -135,6 +136,16 @@ export function AdminExcuses() {
                       {e.eta && <Chip tone="neutral" icon="clock">ETA {e.eta}</Chip>}
                     </div>
                     <div style={{ fontSize: 13, color: theme.ink, lineHeight: 1.5, marginBottom: 4 }}>{e.reason}</div>
+                    {e.documentDataUrl && (
+                      <a
+                        href={e.documentDataUrl}
+                        download={e.documentFileName || 'attachment'}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 4, fontSize: 12, color: theme.green, textDecoration: 'none' }}
+                      >
+                        <Icon name="file" size={13} stroke={theme.green} />
+                        {e.documentFileName || 'View attachment'}
+                      </a>
+                    )}
                     <div style={{ fontSize: 11, color: theme.dim, fontFamily: FONTS.mono, letterSpacing: 0.3 }}>
                       FOR {e.date} · FILED {e.submittedAt?.slice(0, 10)}
                     </div>

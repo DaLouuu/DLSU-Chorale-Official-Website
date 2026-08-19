@@ -69,6 +69,14 @@ function ThemeProvider({ children }: { children: ReactNode }) {
   });
   const theme = PALETTES[mode];
 
+  // Expose the current mode on the document root so plain CSS (scrollbars,
+  // native form control theming) can key off it — everything else in this
+  // app is themed via inline styles, which a stylesheet can't reach.
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', mode);
+    document.documentElement.style.colorScheme = mode;
+  }, [mode]);
+
   const handleSetMode = (m: ThemeMode) => {
     try { localStorage.setItem('chorale-theme', m); } catch {}
     setMode(m);

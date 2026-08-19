@@ -6,6 +6,12 @@ import { Icon } from '../ui/Icon';
 import { Logo } from '../ui/Logo';
 import { MEMBERS } from '../../data';
 
+declare global {
+  interface Window {
+    REHEARSALS: any[];
+  }
+}
+
 function useViewportWidth() {
   const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   useEffect(() => {
@@ -16,13 +22,33 @@ function useViewportWidth() {
   return width;
 }
 
+// The rehearsal happening today, or the next upcoming one if none is today —
+// sourced from window.REHEARSALS, the same live list AdminHome's "Upcoming
+// Rehearsals & Sectionals" widget manages, so admin edits show up here too.
+function getCurrentOrNextRehearsal() {
+  const list = typeof window !== 'undefined' ? window.REHEARSALS : undefined;
+  if (!list || list.length === 0) return null;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const sorted = [...list].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  return sorted.find(r => r.date >= todayStr) ?? sorted[sorted.length - 1] ?? null;
+}
+
+function rehearsalTitle(r: any) {
+  if (r.type === 'Sectional' && r.section) return `${r.section} sectional`;
+  if (r.type === 'Sectional') return 'Sectional rehearsal';
+  return 'Full ensemble rehearsal';
+}
+
 
 export function RFIDKiosk() {
-  const { go } = useRouter();
+  const { go, role } = useRouter();
   const { theme } = useTheme();
+  const exitRoute = role === 'admin' ? 'admin-home' : role === 'member' ? 'member-home' : 'landing';
   const vw = useViewportWidth();
   const isMobile = vw < 768;
   const isSmall = vw < 480;
+  const [rehearsal] = useState(() => getCurrentOrNextRehearsal());
+  const todayStr = new Date().toISOString().slice(0, 10);
 
   const [state, setState] = useState<'idle' | 'success' | 'error' | 'locked'>('idle');
   const [memberName, setMemberName] = useState('');
@@ -136,7 +162,7 @@ export function RFIDKiosk() {
             </div>
           </div>
           <button
-            onClick={() => go('admin-home')}
+            onClick={() => go(exitRoute as any)}
             style={{
               padding: '8px 14px',
               background: 'transparent',
@@ -177,16 +203,20 @@ export function RFIDKiosk() {
             </div>
             <div style={{ marginTop: 32 }}>
               <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, opacity: 0.6, textTransform: 'uppercase' }}>
-                Rehearsal
+                {rehearsal ? (rehearsal.date === todayStr ? "Today's " : 'Next ') + (rehearsal.type ?? 'Rehearsal') : 'Rehearsal'}
               </div>
               <div style={{ fontFamily: FONTS.serif, fontSize: 22, marginTop: 8, lineHeight: 1.15 }}>
-                SATB full ensemble
+                {rehearsal ? rehearsalTitle(rehearsal) : 'No rehearsal scheduled'}
               </div>
-              <div style={{ fontSize: 13, opacity: 0.75, marginTop: 4 }}>Music Studio A · 18:00 call</div>
+              <div style={{ fontSize: 13, opacity: 0.75, marginTop: 4 }}>
+                {rehearsal
+                  ? `${rehearsal.venue ?? 'Venue TBA'} · ${rehearsal.time ?? '—'} call${rehearsal.date !== todayStr ? ` · ${new Date(rehearsal.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}`
+                  : 'Check the admin dashboard to schedule one'}
+              </div>
             </div>
           </div>
           <button
-            onClick={() => go('admin-home')}
+            onClick={() => go(exitRoute as any)}
             style={{
               width: '100%',
               padding: 10,

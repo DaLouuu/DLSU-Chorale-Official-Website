@@ -190,4 +190,64 @@
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
   }
+
+  /* Elegant hover feedback for every button in the app. Buttons are styled
+     inline everywhere (not via Tailwind classes), so a global base rule is
+     the only way to cover them all without touching every screen file.
+     Only `filter`/`transform`/`transition` are set here — inline `style`
+     props always win over stylesheet rules for the properties they set
+     (background, color, border, etc.), so this never fights a component's
+     own colors. */
+  button:not(:disabled) {
+    transition: filter 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  button:not(:disabled):hover {
+    filter: brightness(1.07);
+  }
+  button:not(:disabled):active {
+    filter: brightness(0.96);
+    transform: translateY(0.5px);
+  }
+  a {
+    transition: filter 0.2s ease, opacity 0.2s ease;
+  }
+  a:hover {
+    filter: brightness(1.07);
+  }
+}
+
+/* Themed scrollbars — data-theme is set on <html> by ThemeProvider since
+   this app's dark mode is applied via inline styles, not a CSS class. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(17, 94, 43, 0.32);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(17, 94, 43, 0.55);
+  background-clip: padding-box;
+}
+:root {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(17, 94, 43, 0.32) transparent;
+}
+
+:root[data-theme='dark'] ::-webkit-scrollbar-thumb {
+  background: rgba(59, 160, 90, 0.35);
+  background-clip: padding-box;
+}
+:root[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 160, 90, 0.6);
+  background-clip: padding-box;
+}
+:root[data-theme='dark'] {
+  scrollbar-color: rgba(59, 160, 90, 0.35) transparent;
 }
