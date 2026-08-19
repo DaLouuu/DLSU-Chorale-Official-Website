@@ -142,6 +142,7 @@ function Topbar({ onMenuClick, isMobile }: { onMenuClick?: () => void; isMobile?
   const app = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const [sessionExpiry, setSessionExpiry] = useState<string | null>(null);
 
@@ -258,6 +259,57 @@ function Topbar({ onMenuClick, isMobile }: { onMenuClick?: () => void; isMobile?
     return allResults.slice(0, 8);
   })();
 
+  const closeSearch = () => {
+    setShowResults(false);
+    setSearchQuery('');
+    setMobileSearchOpen(false);
+  };
+
+  const renderResultRow = (result: { type: string; title: string; subtitle: string; route: any }, i: number) => (
+    <button
+      key={i}
+      onClick={() => {
+        go(result.route);
+        closeSearch();
+      }}
+      style={{
+        width: '100%',
+        padding: '12px 16px',
+        textAlign: 'left',
+        background: 'transparent',
+        border: 'none',
+        borderBottom: i === results.length - 1 ? 'none' : `1px solid ${theme.line}`,
+        cursor: 'pointer',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+      }}
+      onMouseEnter={(e) => {
+        (e.target as HTMLButtonElement).style.background = theme.cream;
+      }}
+      onMouseLeave={(e) => {
+        (e.target as HTMLButtonElement).style.background = 'transparent';
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span
+          style={{
+            fontSize: 9,
+            fontFamily: FONTS.mono,
+            letterSpacing: 1,
+            textTransform: 'uppercase',
+            color: theme.green,
+            fontWeight: 600,
+          }}
+        >
+          {result.type}
+        </span>
+        <span style={{ fontSize: 13.5, fontWeight: 500, color: theme.ink }}>{result.title}</span>
+      </div>
+      <div style={{ fontSize: 12, color: theme.dim }}>{result.subtitle}</div>
+    </button>
+  );
+
   return (
     <div
       style={{
@@ -366,58 +418,102 @@ function Topbar({ onMenuClick, isMobile }: { onMenuClick?: () => void; isMobile?
                   No results found for "{searchQuery}"
                 </div>
               ) : (
-                <div>
-                  {results.map((result, i) => (
-                    <button
-                      key={i}
-                      onClick={() => {
-                        go(result.route);
-                        setShowResults(false);
-                        setSearchQuery('');
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        textAlign: 'left',
-                        background: 'transparent',
-                        border: 'none',
-                        borderBottom: i === results.length - 1 ? 'none' : `1px solid ${theme.line}`,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 4,
-                      }}
-                      onMouseEnter={(e) => {
-                        (e.target as HTMLButtonElement).style.background = theme.cream;
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.target as HTMLButtonElement).style.background = 'transparent';
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span
-                          style={{
-                            fontSize: 9,
-                            fontFamily: FONTS.mono,
-                            letterSpacing: 1,
-                            textTransform: 'uppercase',
-                            color: theme.green,
-                            fontWeight: 600,
-                          }}
-                        >
-                          {result.type}
-                        </span>
-                        <span style={{ fontSize: 13.5, fontWeight: 500, color: theme.ink }}>{result.title}</span>
-                      </div>
-                      <div style={{ fontSize: 12, color: theme.dim }}>{result.subtitle}</div>
-                    </button>
-                  ))}
-                </div>
+                <div>{results.map(renderResultRow)}</div>
               )}
             </div>
           )}
         </div>}
+        {isMobile && (
+          <button
+            onClick={() => setMobileSearchOpen(true)}
+            style={{
+              background: 'transparent',
+              border: `1px solid ${theme.line}`,
+              borderRadius: 8,
+              padding: '6px 8px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              color: theme.dim,
+            }}
+          >
+            <Icon name="search" size={16} stroke={theme.dim} />
+          </button>
+        )}
       </div>
+
+      {/* Mobile full-screen search overlay */}
+      {isMobile && mobileSearchOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 200,
+            background: theme.paper,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 12px', borderBottom: `1px solid ${theme.line}` }}>
+            <button
+              onClick={closeSearch}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 6, display: 'flex', alignItems: 'center', color: theme.ink }}
+            >
+              <Icon name="chevronLeft" size={20} />
+            </button>
+            <div
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '8px 12px',
+                background: theme.cream,
+                border: `1px solid ${theme.line}`,
+                borderRadius: 10,
+              }}
+            >
+              <Icon name="search" size={14} stroke={theme.dim} />
+              <input
+                autoFocus
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={role === 'admin' ? 'Search members, excuses, events…' : 'Search events, excuses, fees…'}
+                style={{
+                  flex: 1,
+                  border: 'none',
+                  background: 'transparent',
+                  outline: 'none',
+                  fontSize: 15,
+                  color: theme.ink,
+                  fontFamily: FONTS.sans,
+                }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', color: theme.dim }}
+                >
+                  <Icon name="x" size={12} />
+                </button>
+              )}
+            </div>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {!searchQuery ? (
+              <div style={{ padding: 24, textAlign: 'center', color: theme.dim, fontSize: 13 }}>
+                Start typing to search.
+              </div>
+            ) : results.length === 0 ? (
+              <div style={{ padding: 24, textAlign: 'center', color: theme.dim, fontSize: 13 }}>
+                No results found for "{searchQuery}"
+              </div>
+            ) : (
+              results.map(renderResultRow)
+            )}
+          </div>
+        </div>
+      )}
 
       <NotificationBell />
 
