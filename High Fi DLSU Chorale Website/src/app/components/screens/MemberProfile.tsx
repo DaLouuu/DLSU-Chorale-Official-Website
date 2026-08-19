@@ -510,7 +510,7 @@ export function MemberProfile() {
   // Editable profile fields
   const [pronouns, setPronouns] = useState('');
   const [performingStatus, setPerformingStatus] = useState<'performing' | 'non-performing'>('performing');
-  const [memberStatus, setMemberStatus] = useState<'active' | 'inactive' | 'loa'>('active');
+  const [memberStatus, setMemberStatus] = useState<'Trainee' | 'Junior Member' | 'Senior Member'>('Trainee');
   const [savingProfile, setSavingProfile] = useState(false);
   const [userSchedule, setUserSchedule] = useState<{ term: string; classes: any[] } | null>(null);
 
@@ -540,8 +540,8 @@ export function MemberProfile() {
           if (val === 'performing' || val === 'non-performing') setPerformingStatus(val as 'performing' | 'non-performing');
         }
         if (data.membership_status && !touchedRef.current.memberStatus) {
-          const val = (data.membership_status as string).toLowerCase();
-          if (val === 'active' || val === 'inactive' || val === 'loa') setMemberStatus(val as 'active' | 'inactive' | 'loa');
+          const val = data.membership_status as string;
+          if (val === 'Trainee' || val === 'Junior Member' || val === 'Senior Member') setMemberStatus(val);
         }
         if (data.class_schedule) {
           setUserSchedule(data.class_schedule as { term: string; classes: any[] });
@@ -619,7 +619,7 @@ export function MemberProfile() {
       .update({
         pronouns,
         current_term_stat: performingStatus === 'performing' ? 'Performing' : 'Non-Performing',
-        membership_status: memberStatus.charAt(0).toUpperCase() + memberStatus.slice(1),
+        membership_status: memberStatus,
       })
       .eq('id', profileUuid);
     setSavingProfile(false);
@@ -670,15 +670,15 @@ export function MemberProfile() {
   };
 
   const STATUS_COLOR: Record<string, string> = {
-    active: theme.green,
-    inactive: theme.dim,
-    loa: theme.amber,
+    'Senior Member': theme.green,
+    'Junior Member': theme.blue,
+    'Trainee': theme.amber,
   };
 
   const STATUS_LABEL: Record<string, string> = {
-    active: 'Active',
-    inactive: 'Inactive',
-    loa: 'LOA',
+    'Senior Member': 'Senior Member',
+    'Junior Member': 'Junior Member',
+    'Trainee': 'Trainee',
   };
 
   return (
@@ -773,9 +773,9 @@ export function MemberProfile() {
             <div>
               <label style={fieldLabel}>Member Status</label>
               <select value={memberStatus} onChange={e => { touchedRef.current.memberStatus = true; setMemberStatus(e.target.value as any); }} style={selectStyle}>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="loa">LOA (Leave of Absence)</option>
+                <option value="Trainee">Trainee</option>
+                <option value="Junior Member">Junior Member</option>
+                <option value="Senior Member">Senior Member</option>
               </select>
             </div>
 

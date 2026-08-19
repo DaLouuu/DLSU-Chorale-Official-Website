@@ -518,8 +518,8 @@ export function AdminHome() {
       {lockedAccounts.length > 0 && (
         <div style={{
           marginBottom: 20,
-          background: '#fef2f2',
-          border: '1px solid #fecaca',
+          background: theme.redSoft,
+          border: `1px solid ${theme.red}40`,
           borderRadius: 12,
           padding: '14px 18px',
           display: 'flex',
@@ -528,7 +528,7 @@ export function AdminHome() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 15 }}>🔒</span>
-            <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 1.5, color: '#dc2626', textTransform: 'uppercase' as const }}>
+            <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 1.5, color: theme.red, textTransform: 'uppercase' as const }}>
               Security Alert — {lockedAccounts.length} locked account{lockedAccounts.length !== 1 ? 's' : ''}
             </div>
           </div>
@@ -537,10 +537,10 @@ export function AdminHome() {
               const fullName = [acc.first_name, acc.last_name].filter(Boolean).join(' ') || acc.email || `ID ${acc.school_id}`;
               const until = new Date(acc.locked_until).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
               return (
-                <div key={acc.school_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, background: '#fff', borderRadius: 8, padding: '10px 14px', border: '1px solid #fecaca', flexWrap: 'wrap' as const }}>
+                <div key={acc.school_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, background: theme.paper, borderRadius: 8, padding: '10px 14px', border: `1px solid ${theme.red}40`, flexWrap: 'wrap' as const }}>
                   <div>
                     <div style={{ fontSize: 13.5, fontWeight: 500, color: theme.ink }}>{fullName}</div>
-                    <div style={{ fontSize: 11.5, color: '#dc2626', fontFamily: FONTS.mono, marginTop: 2 }}>
+                    <div style={{ fontSize: 11.5, color: theme.red, fontFamily: FONTS.mono, marginTop: 2 }}>
                       Locked until {until} · {acc.failed_password_attempts} failed attempt{acc.failed_password_attempts !== 1 ? 's' : ''}
                     </div>
                   </div>
@@ -684,7 +684,15 @@ export function AdminHome() {
                       {conflicts.length > 0 && <span style={{ fontSize: 11, color: theme.dim, marginLeft: 4 }}>({conflicts.length} conflicts)</span>}
                     </div>
                   </div>
-                  <button onClick={e => { e.stopPropagation(); handleDelete(r.id); }} style={{ padding: 8, background: 'transparent', border: `1px solid ${theme.red}`, borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', color: theme.red }}>
+                  <button
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (window.confirm(`Delete this ${r.type.toLowerCase()} on ${new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}? This can't be undone.`)) {
+                        handleDelete(r.id);
+                      }
+                    }}
+                    style={{ padding: 8, background: 'transparent', border: `1px solid ${theme.red}`, borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', color: theme.red }}
+                  >
                     <Icon name="trash" size={14} />
                   </button>
                 </div>

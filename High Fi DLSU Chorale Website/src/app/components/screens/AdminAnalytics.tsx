@@ -42,8 +42,7 @@ const SECTION_SOFT: Record<string, string> = {
 // ── Types ──────────────────────────────────────────────────────────────────
 type OrgStats = {
   total: number;
-  active: number;
-  inactive: number;
+  byMembershipStatus: Record<string, number>;
   bySection: Record<string, number>;
   byCommittee: Record<string, number>;
   byTermStat: Record<string, number>;
@@ -155,11 +154,12 @@ export function AdminAnalytics() {
       const bySection: Record<string, number> = {};
       const byCommittee: Record<string, number> = {};
       const byTermStat: Record<string, number> = {};
+      const byMembershipStatus: Record<string, number> = {};
       const byCollege: Record<string, number> = {};
       const byCourse: Record<string, number> = {};
       const byCohortYear: Record<string, number> = {};
       const byLongevity: Record<string, number> = {};
-      let active = 0, inactive = 0, gpaSum = 0, gpaCount = 0, termsSum = 0, termsCount = 0, birthdaysThisMonth = 0;
+      let gpaSum = 0, gpaCount = 0, termsSum = 0, termsCount = 0, birthdaysThisMonth = 0;
       const thisMonth = new Date().getMonth() + 1;
 
       for (const p of data) {
@@ -185,10 +185,9 @@ export function AdminAnalytics() {
           byCourse[p.course_code] = (byCourse[p.course_code] ?? 0) + 1;
         }
 
-        // Active / inactive
-        const ms = (p.membership_status ?? '').toLowerCase();
-        if (ms === 'active') active++;
-        else inactive++;
+        // Membership status (Trainee / Junior Member / Senior Member)
+        const ms = p.membership_status ?? 'Unspecified';
+        byMembershipStatus[ms] = (byMembershipStatus[ms] ?? 0) + 1;
 
         // GPA
         if (p.last_term_gpa != null) { gpaSum += Number(p.last_term_gpa); gpaCount++; }
@@ -217,7 +216,7 @@ export function AdminAnalytics() {
       }
 
       setStats({
-        total: data.length, active, inactive,
+        total: data.length, byMembershipStatus,
         bySection, byCommittee, byTermStat, byCollege, byCourse, byCohortYear, byLongevity,
         avgGpa: gpaCount ? Math.round((gpaSum / gpaCount) * 100) / 100 : null,
         birthdaysThisMonth,
@@ -237,8 +236,7 @@ export function AdminAnalytics() {
       ['MEMBERSHIP OVERVIEW', ''],
       ['Metric', 'Value'],
       ['Total Members', stats.total],
-      ['Active', stats.active],
-      ['Inactive / LOA', stats.inactive],
+      ...Object.entries(stats.byMembershipStatus).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, v]),
       ['Avg GPA (last term)', stats.avgGpa ?? 'N/A'],
       ['Avg Terms Left', stats.avgTermsLeft ?? 'N/A'],
       ['Birthdays This Month', stats.birthdaysThisMonth],
@@ -302,8 +300,15 @@ export function AdminAnalytics() {
           <SectionLabel label="Membership Overview" />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 20 }}>
             <StatCard label="Total members" value={stats.total} sub="All records" />
-            <StatCard label="Active" value={stats.active} sub={`${stats.total ? Math.round((stats.active / stats.total) * 100) : 0}% of roster`} tone="green" />
-            <StatCard label="Inactive / LOA" value={stats.inactive} sub={`${stats.total ? Math.round((stats.inactive / stats.total) * 100) : 0}% of roster`} tone="amber" />
+            {Object.entries(stats.byMembershipStatus).map(([status, count]) => (
+              <StatCard
+                key={status}
+                label={status}
+                value={count}
+                sub={`${stats.total ? Math.round((count / stats.total) * 100) : 0}% of roster`}
+                tone={status === 'Senior Member' ? 'green' : status === 'Junior Member' ? 'blue' : 'amber'}
+              />
+            ))}
             <StatCard label="Birthdays this month" value={stats.birthdaysThisMonth} tone="neutral" />
           </div>
 
@@ -381,32 +386,36 @@ export function AdminAnalytics() {
 
           <Divider />
 
-          {/* ── 3. Org Tenure & Cohorts ── */}
-          <SectionLabel label="Tenure & Cohorts" />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, marginBottom: 24 }}>
-            {topN(stats.byCohortYear).length > 0 && (
-              <Card>
-                <h3 style={{ fontFamily: FONTS.serif, fontSize: 18, margin: '0 0 16px', fontWeight: 500 }}>Entry Cohort (by year)</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {topN(stats.byCohortYear, 8).sort((a, b) => Number(a[0]) - Number(b[0])).map(([year, count]) => (
-                    <BarRow key={year} label={year} count={count} max={topN(stats.byCohortYear)[0][1]} pct={stats.total ? Math.round((count / stats.total) * 100) : 0} />
-                  ))}
-                </div>
-              </Card>
-            )}
-            {topN(stats.byLongevity).length > 0 && (
-              <Card>
-                <h3 style={{ fontFamily: FONTS.serif, fontSize: 18, margin: '0 0 16px', fontWeight: 500 }}>Member Longevity</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {(['1–2 terms', '3–4 terms', '5–6 terms', '7+ terms']).filter(b => stats.byLongevity[b]).map(bucket => (
-                    <BarRow key={bucket} label={bucket} count={stats.byLongevity[bucket]} max={Math.max(...Object.values(stats.byLongevity))} pct={stats.total ? Math.round((stats.byLongevity[bucket] / stats.total) * 100) : 0} />
-                  ))}
-                </div>
-              </Card>
-            )}
-          </div>
+          {/* ── 3. Org Tenure & Cohorts (only shown once entry_date/longevity_terms data exists) ── */}
+          {(topN(stats.byCohortYear).length > 0 || topN(stats.byLongevity).length > 0) && (
+            <>
+              <SectionLabel label="Tenure & Cohorts" />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, marginBottom: 24 }}>
+                {topN(stats.byCohortYear).length > 0 && (
+                  <Card>
+                    <h3 style={{ fontFamily: FONTS.serif, fontSize: 18, margin: '0 0 16px', fontWeight: 500 }}>Entry Cohort (by year)</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {topN(stats.byCohortYear, 8).sort((a, b) => Number(a[0]) - Number(b[0])).map(([year, count]) => (
+                        <BarRow key={year} label={year} count={count} max={topN(stats.byCohortYear)[0][1]} pct={stats.total ? Math.round((count / stats.total) * 100) : 0} />
+                      ))}
+                    </div>
+                  </Card>
+                )}
+                {topN(stats.byLongevity).length > 0 && (
+                  <Card>
+                    <h3 style={{ fontFamily: FONTS.serif, fontSize: 18, margin: '0 0 16px', fontWeight: 500 }}>Member Longevity</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {(['1–2 terms', '3–4 terms', '5–6 terms', '7+ terms']).filter(b => stats.byLongevity[b]).map(bucket => (
+                        <BarRow key={bucket} label={bucket} count={stats.byLongevity[bucket]} max={Math.max(...Object.values(stats.byLongevity))} pct={stats.total ? Math.round((stats.byLongevity[bucket] / stats.total) * 100) : 0} />
+                      ))}
+                    </div>
+                  </Card>
+                )}
+              </div>
 
-          <Divider />
+              <Divider />
+            </>
+          )}
         </>
       ) : (
         <Card style={{ marginBottom: 28 }}>
@@ -431,7 +440,7 @@ export function AdminAnalytics() {
               {Object.entries(chartColors).map(([s, c]) => <LegendDot key={s} color={c} label={s} />)}
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, height: 220, padding: '16px 0 10px', borderBottom: `1px solid ${theme.line}` }}>
+          <div style={{ display: 'flex', alignItems: 'stretch', gap: 16, height: 220, padding: '16px 0 10px', borderBottom: `1px solid ${theme.line}` }}>
             {MONTHLY_DATA.map(row => (
               <div key={row.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: 3, width: '100%', justifyContent: 'center' }}>

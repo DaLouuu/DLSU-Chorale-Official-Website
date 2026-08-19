@@ -88,6 +88,11 @@ function MusicItemModal({ item, category, onClose, onSave, onDelete }: any) {
             onChange={e => setFormData({ ...formData, title: e.target.value })}
             placeholder="e.g. Pamugun (F. Buencamino)"
           />
+          {!formData.title && (
+            <div style={{ fontSize: 12, color: theme.red, marginTop: -8 }}>
+              Title is required.
+            </div>
+          )}
 
           <div>
             <label style={{ fontSize: 11.5, fontFamily: FONTS.mono, letterSpacing: 1, color: theme.dim, textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>
@@ -149,8 +154,10 @@ function MusicItemModal({ item, category, onClose, onSave, onDelete }: any) {
               <Button
                 variant="outline"
                 onClick={() => {
-                  onDelete();
-                  onClose();
+                  if (window.confirm(`Delete "${item.title}"? This can't be undone.`)) {
+                    onDelete();
+                    onClose();
+                  }
                 }}
                 style={{ color: theme.red, borderColor: theme.red }}
               >
@@ -249,8 +256,10 @@ function CategoryModal({ category, onClose, onSave, onDelete }: any) {
               <Button
                 variant="outline"
                 onClick={() => {
-                  onDelete();
-                  onClose();
+                  if (window.confirm(`Delete the "${category.category}" category and all its items? This can't be undone.`)) {
+                    onDelete();
+                    onClose();
+                  }
                 }}
                 style={{ color: theme.red, borderColor: theme.red }}
               >

@@ -112,7 +112,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
       <div style={{ padding: 14, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
         <button
           onClick={() => {
-            try { localStorage.removeItem('chorale_session'); } catch {}
+            try { localStorage.removeItem('chorale_session'); sessionStorage.removeItem('chorale_session'); } catch {}
             go('landing');
           }}
           style={{
@@ -147,7 +147,7 @@ function Topbar({ onMenuClick, isMobile }: { onMenuClick?: () => void; isMobile?
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('chorale_session');
+      const raw = localStorage.getItem('chorale_session') ?? sessionStorage.getItem('chorale_session');
       if (raw) {
         const parsed = JSON.parse(raw);
         if (new Date(parsed.expiresAt) > new Date()) setSessionExpiry(parsed.expiresAt);

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useTheme } from '../../App';
+import { useTheme, useApp } from '../../App';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
@@ -7,6 +7,7 @@ import { Button } from '../ui/Button';
 import { Avatar } from '../ui/Avatar';
 import { SectionTag } from '../ui/SectionTag';
 import { Chip } from '../ui/Chip';
+import { Icon } from '../ui/Icon';
 import { supabase } from '../../supabase';
 
 type Profile = {
@@ -41,11 +42,9 @@ function fullName(p: Profile) {
 }
 
 function statusChip(status: string | null) {
-  const s = (status ?? '').toLowerCase();
-  if (s === 'active') return <Chip tone="green">Active</Chip>;
-  if (s === 'inactive') return <Chip tone="neutral">Inactive</Chip>;
-  if (s === 'loa') return <Chip tone="amber">LOA</Chip>;
-  if (s === 'alumni') return <Chip tone="neutral">Alumni</Chip>;
+  if (status === 'Senior Member') return <Chip tone="green">Senior Member</Chip>;
+  if (status === 'Junior Member') return <Chip tone="blue">Junior Member</Chip>;
+  if (status === 'Trainee') return <Chip tone="amber">Trainee</Chip>;
   return <Chip tone="neutral">{status ?? 'Unknown'}</Chip>;
 }
 
@@ -62,9 +61,30 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function MemberDetailDrawer({ member, onClose }: { member: Profile; onClose: () => void }) {
+const VOICE_SECTIONS = ['Soprano', 'Alto', 'Tenor', 'Bass'];
+const MEMBERSHIP_STATUSES = ['Trainee', 'Junior Member', 'Senior Member'];
+
+function MemberDetailDrawer({ member, onClose, onSave }: { member: Profile; onClose: () => void; onSave: (patch: Partial<Profile>) => Promise<void> }) {
   const { theme } = useTheme();
   const name = fullName(member);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [voiceSection, setVoiceSection] = useState(member.voice_section ?? '');
+  const [committee, setCommittee] = useState(member.committee ?? '');
+  const [membershipStatus, setMembershipStatus] = useState(member.membership_status ?? '');
+
+  const editSelectStyle = { width: '100%', padding: '9px 12px', border: `1px solid ${theme.lineDark}`, borderRadius: 8, fontSize: 13.5, background: theme.paper, color: theme.ink, outline: 'none' as const };
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onSave({
+      voice_section: voiceSection || null,
+      committee: committee || null,
+      membership_status: membershipStatus || null,
+    });
+    setSaving(false);
+    setEditing(false);
+  };
 
   return (
     <>
@@ -124,12 +144,23 @@ function MemberDetailDrawer({ member, onClose }: { member: Profile; onClose: () 
                 </div>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 22, padding: 4, lineHeight: 1 }}
-            >
-              ×
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {!editing && (
+                <button
+                  onClick={() => setEditing(true)}
+                  title="Edit membership details"
+                  style={{ background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', cursor: 'pointer', padding: 8, borderRadius: 8, display: 'flex', alignItems: 'center' }}
+                >
+                  <Icon name="edit" size={15} />
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 22, padding: 4, lineHeight: 1 }}
+              >
+                ×
+              </button>
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
@@ -182,17 +213,63 @@ function MemberDetailDrawer({ member, onClose }: { member: Profile; onClose: () 
 
           {/* Chorale membership */}
           <section>
-            <div style={{ fontFamily: FONTS.mono, fontSize: 10, letterSpacing: 2, color: theme.green, textTransform: 'uppercase', marginBottom: 12 }}>
-              Chorale Membership
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontFamily: FONTS.mono, fontSize: 10, letterSpacing: 2, color: theme.green, textTransform: 'uppercase' }}>
+                Chorale Membership
+              </div>
+              {editing && <div style={{ fontSize: 10.5, fontFamily: FONTS.mono, color: theme.amber, textTransform: 'uppercase', letterSpacing: 1 }}>Editing</div>}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <InfoRow label="Voice section" value={member.voice_section} />
-              <InfoRow label="Committee" value={member.committee} />
-              <InfoRow label="Entry date" value={member.entry_date ? new Date(member.entry_date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : null} />
-              <InfoRow label="Longevity" value={member.longevity_terms != null ? `${member.longevity_terms} terms` : null} />
-              <InfoRow label="Membership status" value={statusChip(member.membership_status)} />
-              <InfoRow label="Term status" value={member.current_term_stat} />
-            </div>
+            {editing ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div>
+                  <div style={{ fontSize: 10, fontFamily: FONTS.mono, letterSpacing: 1.2, color: theme.dim, textTransform: 'uppercase', marginBottom: 4 }}>Voice section</div>
+                  <select value={voiceSection} onChange={e => setVoiceSection(e.target.value)} style={editSelectStyle}>
+                    <option value="">Unassigned</option>
+                    {VOICE_SECTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, fontFamily: FONTS.mono, letterSpacing: 1.2, color: theme.dim, textTransform: 'uppercase', marginBottom: 4 }}>Committee</div>
+                  <input value={committee} onChange={e => setCommittee(e.target.value)} placeholder="e.g. Music" style={editSelectStyle} />
+                </div>
+                <InfoRow label="Entry date" value={member.entry_date ? new Date(member.entry_date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : null} />
+                <InfoRow label="Longevity" value={member.longevity_terms != null ? `${member.longevity_terms} terms` : null} />
+                <div>
+                  <div style={{ fontSize: 10, fontFamily: FONTS.mono, letterSpacing: 1.2, color: theme.dim, textTransform: 'uppercase', marginBottom: 4 }}>Membership status</div>
+                  <select value={membershipStatus} onChange={e => setMembershipStatus(e.target.value)} style={editSelectStyle}>
+                    {MEMBERSHIP_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <InfoRow label="Term status" value={member.current_term_stat} />
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <InfoRow label="Voice section" value={member.voice_section} />
+                <InfoRow label="Committee" value={member.committee} />
+                <InfoRow label="Entry date" value={member.entry_date ? new Date(member.entry_date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : null} />
+                <InfoRow label="Longevity" value={member.longevity_terms != null ? `${member.longevity_terms} terms` : null} />
+                <InfoRow label="Membership status" value={statusChip(member.membership_status)} />
+                <InfoRow label="Term status" value={member.current_term_stat} />
+              </div>
+            )}
+            {editing && (
+              <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setVoiceSection(member.voice_section ?? '');
+                    setCommittee(member.committee ?? '');
+                    setMembershipStatus(member.membership_status ?? '');
+                    setEditing(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button icon="check" onClick={handleSave} disabled={saving}>
+                  {saving ? 'Saving…' : 'Save changes'}
+                </Button>
+              </div>
+            )}
           </section>
 
           <div style={{ height: 1, background: theme.line }} />
@@ -271,7 +348,7 @@ function MembersFilterModal({
           <div>
             <div style={{ fontSize: 11.5, fontFamily: FONTS.mono, letterSpacing: 1, color: theme.dim, textTransform: 'uppercase', marginBottom: 8 }}>Membership status</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {['All', 'active', 'inactive', 'loa'].map(s => pill(s === 'All' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1), 'status', s))}
+              {['All', 'Trainee', 'Junior Member', 'Senior Member'].map(s => pill(s, 'status', s))}
             </div>
           </div>
         </div>
@@ -289,6 +366,7 @@ const tdStyle = { padding: '11px 16px', verticalAlign: 'middle' as const };
 
 export function AdminMembers() {
   const { theme } = useTheme();
+  const app = useApp();
   const [members, setMembers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -320,7 +398,7 @@ export function AdminMembers() {
   let filtered = members;
   if (filters.section !== 'All') filtered = filtered.filter(m => m.voice_section === filters.section);
   if (filters.committee !== 'All') filtered = filtered.filter(m => m.committee === filters.committee);
-  if (filters.status !== 'All') filtered = filtered.filter(m => (m.membership_status ?? '').toLowerCase() === filters.status);
+  if (filters.status !== 'All') filtered = filtered.filter(m => m.membership_status === filters.status);
   if (search.trim()) {
     const q = search.toLowerCase();
     filtered = filtered.filter(m =>
@@ -433,7 +511,21 @@ export function AdminMembers() {
         <MembersFilterModal onClose={() => setShowFilters(false)} filters={filters} onApply={setFilters} committees={committees} />
       )}
       {selectedMember && (
-        <MemberDetailDrawer member={selectedMember} onClose={() => setSelectedMember(null)} />
+        <MemberDetailDrawer
+          member={selectedMember}
+          onClose={() => setSelectedMember(null)}
+          onSave={async (patch) => {
+            const { error } = await supabase.from('profiles').update(patch).eq('id', selectedMember.id);
+            if (error) {
+              app.showToast('Failed to save member details', 'error');
+              return;
+            }
+            const updated = { ...selectedMember, ...patch };
+            setMembers(prev => prev.map(m => (m.id === selectedMember.id ? updated : m)));
+            setSelectedMember(updated);
+            app.showToast('Member details updated');
+          }}
+        />
       )}
     </>
   );

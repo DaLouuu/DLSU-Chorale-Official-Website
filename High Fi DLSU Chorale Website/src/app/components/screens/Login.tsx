@@ -174,6 +174,13 @@ export function Login() {
     .toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' });
 
   const saveSession = (sessionRole: 'member' | 'admin', userObj: any) => {
+    // Always persist to sessionStorage so refresh/direct navigation within this
+    // tab doesn't drop the session — "keep me logged in" only controls whether
+    // it also survives a browser restart (localStorage, 30-day expiry).
+    try {
+      const sessionExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ user: userObj, role: sessionRole, expiresAt: sessionExpiresAt }));
+    } catch {}
     if (!keepLoggedIn) return;
     try {
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();

@@ -172,7 +172,7 @@ function displayType(ev: DbEvent) {
   if (t === 'production') return 'Production';
   if (t === 'festival') return 'Festival';
   if (t === 'pr') return 'PR';
-  return 'Production';
+  return ev.event_type || 'Uncategorized';
 }
 
 function fmtDate(d: string | null) {

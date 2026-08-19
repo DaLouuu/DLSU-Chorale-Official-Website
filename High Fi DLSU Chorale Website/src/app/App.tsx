@@ -395,13 +395,18 @@ export default function App() {
   useEffect(() => {
     let savedSession: { user: any; role: 'member' | 'admin'; expiresAt: string } | null = null;
     try {
-      const raw = localStorage.getItem('chorale_session');
-      if (raw) {
+      // Check localStorage first (a "keep me logged in" session), then fall
+      // back to sessionStorage (a normal session that should still survive
+      // refresh/direct navigation within this tab).
+      for (const store of [localStorage, sessionStorage]) {
+        const raw = store.getItem('chorale_session');
+        if (!raw) continue;
         const parsed = JSON.parse(raw);
         if (new Date(parsed.expiresAt) > new Date()) {
           savedSession = parsed;
+          break;
         } else {
-          localStorage.removeItem('chorale_session');
+          store.removeItem('chorale_session');
         }
       }
     } catch {}

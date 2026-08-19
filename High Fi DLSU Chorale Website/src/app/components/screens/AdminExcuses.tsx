@@ -92,9 +92,9 @@ export function AdminExcuses() {
               onClick={() => setFilter(f)}
               style={{
                 padding: '8px 16px', borderRadius: 999, fontSize: 12.5,
-                background: filter === f ? theme.ink : 'transparent',
+                background: filter === f ? theme.green : 'transparent',
                 color: filter === f ? '#fff' : theme.ink,
-                border: `1px solid ${filter === f ? theme.ink : theme.lineDark}`,
+                border: `1px solid ${filter === f ? theme.green : theme.lineDark}`,
                 cursor: 'pointer', fontFamily: FONTS.sans,
               }}
             >
@@ -186,8 +186,13 @@ export function AdminExcuses() {
               onChange={e => setDeclineNote(e.target.value)}
               rows={4}
               placeholder="Reason for declining…"
-              style={{ width: '100%', marginTop: 14, padding: 12, border: `1px solid ${theme.lineDark}`, borderRadius: 10, fontSize: 14, fontFamily: FONTS.sans, resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', marginTop: 14, padding: 12, border: `1px solid ${declineNote.trim() ? theme.lineDark : theme.red}`, borderRadius: 10, fontSize: 14, fontFamily: FONTS.sans, resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
             />
+            {!declineNote.trim() && (
+              <div style={{ fontSize: 12, color: theme.red, marginTop: 4 }}>
+                Enter a reason before declining — this can't be blank.
+              </div>
+            )}
             <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <Button variant="outline" onClick={() => { setDeclineFor(null); setDeclineNote(''); }}>Cancel</Button>
               <Button
