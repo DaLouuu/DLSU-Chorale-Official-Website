@@ -27,7 +27,7 @@ type CalendarEvent = {
 export function Calendar({ role = 'member', onEventClick }: { role?: 'member' | 'admin'; onEventClick?: (event: CalendarEvent) => void }) {
   const { theme } = useTheme();
   const app = useApp();
-  const [currentMonth, setCurrentMonth] = useState(new Date('2026-04-24'));
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -106,7 +106,7 @@ export function Calendar({ role = 'member', onEventClick }: { role?: 'member' | 
     setCurrentMonth(new Date(year, month + 1, 1));
   };
 
-  const today = new Date('2026-04-24');
+  const today = new Date();
   const isToday = (day: number) => {
     return year === today.getFullYear() && month === today.getMonth() && day === today.getDate();
   };

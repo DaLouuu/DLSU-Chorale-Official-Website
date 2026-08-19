@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useTheme, useApp } from '../../App';
 import { supabase } from '../../supabase';
 import { FONTS } from '../../theme';
@@ -516,6 +516,10 @@ export function MemberProfile() {
 
   const profileUuid: string | null = (user as any)?._uuid ?? (user as any)?.profileUuid ?? null;
 
+  // Tracks fields the user has already edited so the async hydration below
+  // never clobbers in-progress input if it resolves mid-edit.
+  const touchedRef = useRef({ pronouns: false, performingStatus: false, memberStatus: false });
+
   // Load persisted profile data from Supabase on mount
   useEffect(() => {
     if (!profileUuid) return;
@@ -530,12 +534,12 @@ export function MemberProfile() {
           setProfilePic(data.avatar_url);
           try { localStorage.setItem(`avatar_${user.id}`, data.avatar_url); } catch {}
         }
-        if (data.pronouns) setPronouns(data.pronouns);
-        if (data.current_term_stat) {
+        if (data.pronouns && !touchedRef.current.pronouns) setPronouns(data.pronouns);
+        if (data.current_term_stat && !touchedRef.current.performingStatus) {
           const val = (data.current_term_stat as string).toLowerCase();
           if (val === 'performing' || val === 'non-performing') setPerformingStatus(val as 'performing' | 'non-performing');
         }
-        if (data.membership_status) {
+        if (data.membership_status && !touchedRef.current.memberStatus) {
           const val = (data.membership_status as string).toLowerCase();
           if (val === 'active' || val === 'inactive' || val === 'loa') setMemberStatus(val as 'active' | 'inactive' | 'loa');
         }
@@ -750,7 +754,7 @@ export function MemberProfile() {
               <label style={fieldLabel}>Pronouns</label>
               <input
                 value={pronouns}
-                onChange={e => setPronouns(e.target.value)}
+                onChange={e => { touchedRef.current.pronouns = true; setPronouns(e.target.value); }}
                 placeholder="e.g. she/her, he/him, they/them"
                 style={{ ...selectStyle, appearance: 'none', backgroundImage: 'none', paddingRight: 14 }}
               />
@@ -759,7 +763,7 @@ export function MemberProfile() {
             {/* Performing status */}
             <div>
               <label style={fieldLabel}>Performing Status</label>
-              <select value={performingStatus} onChange={e => setPerformingStatus(e.target.value as any)} style={selectStyle}>
+              <select value={performingStatus} onChange={e => { touchedRef.current.performingStatus = true; setPerformingStatus(e.target.value as any); }} style={selectStyle}>
                 <option value="performing">Performing</option>
                 <option value="non-performing">Non-Performing</option>
               </select>
@@ -768,7 +772,7 @@ export function MemberProfile() {
             {/* Member status */}
             <div>
               <label style={fieldLabel}>Member Status</label>
-              <select value={memberStatus} onChange={e => setMemberStatus(e.target.value as any)} style={selectStyle}>
+              <select value={memberStatus} onChange={e => { touchedRef.current.memberStatus = true; setMemberStatus(e.target.value as any); }} style={selectStyle}>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
                 <option value="loa">LOA (Leave of Absence)</option>

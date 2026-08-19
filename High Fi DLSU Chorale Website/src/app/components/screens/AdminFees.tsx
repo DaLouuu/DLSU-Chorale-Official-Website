@@ -187,7 +187,7 @@ export function AdminFees() {
   return (
     <>
       <PageHeader
-        eyebrow="Module 8"
+        eyebrow="Admin"
         title="Fee Management"
         subtitle="Track balances, approve payments, edit the fee schedule."
         actions={

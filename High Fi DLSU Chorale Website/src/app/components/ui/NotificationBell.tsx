@@ -19,6 +19,7 @@ export function NotificationBell() {
   const app = useApp();
   const { role, go } = useRouter();
   const [showPanel, setShowPanel] = useState(false);
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const panelRef = useRef<HTMLDivElement>(null);
   const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
 
@@ -115,7 +116,16 @@ export function NotificationBell() {
     }
   }, [showPanel]);
 
+  notifications.forEach(n => { if (readIds.has(n.id)) n.read = true; });
   const unreadCount = notifications.filter(n => !n.read).length;
+
+  const markAllRead = () => {
+    setReadIds(prev => {
+      const next = new Set(prev);
+      notifications.forEach(n => next.add(n.id));
+      return next;
+    });
+  };
 
   return (
     <div style={{ position: 'relative' }} ref={panelRef}>
@@ -177,11 +187,31 @@ export function NotificationBell() {
             overflow: 'hidden',
           }}
         >
-          <div style={{ padding: isMobile ? '14px 16px' : '16px 20px', borderBottom: `1px solid ${theme.line}`, background: theme.cream }}>
-            <div style={{ fontSize: 16, fontWeight: 500, fontFamily: FONTS.serif }}>Notifications</div>
-            <div style={{ fontSize: 12, color: theme.dim, marginTop: 2 }}>
-              {unreadCount} unread
+          <div style={{ padding: isMobile ? '14px 16px' : '16px 20px', borderBottom: `1px solid ${theme.line}`, background: theme.cream, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 500, fontFamily: FONTS.serif }}>Notifications</div>
+              <div style={{ fontSize: 12, color: theme.dim, marginTop: 2 }}>
+                {unreadCount} unread
+              </div>
             </div>
+            {unreadCount > 0 && (
+              <button
+                onClick={markAllRead}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: 11.5,
+                  fontFamily: FONTS.sans,
+                  color: theme.green,
+                  fontWeight: 500,
+                  padding: 4,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Mark all as read
+              </button>
+            )}
           </div>
 
           <div style={{ maxHeight: isMobile ? 'calc(100vh - 170px)' : 400, overflowY: 'auto' }}>
@@ -195,6 +225,7 @@ export function NotificationBell() {
                 <div
                   key={n.id}
                   onClick={() => {
+                    setReadIds(prev => new Set(prev).add(n.id));
                     if (n.link) go(n.link as any);
                     setShowPanel(false);
                   }}

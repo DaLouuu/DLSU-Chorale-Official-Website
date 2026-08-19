@@ -60,7 +60,7 @@ export function MemberSocialEvents() {
   return (
     <>
       <PageHeader
-        eyebrow="Module 6"
+        eyebrow="Member Portal"
         title="Social Events"
         subtitle="Team building, parties, and bonding activities. Sign up to join the fun!"
       />

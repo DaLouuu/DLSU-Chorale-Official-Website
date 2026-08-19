@@ -402,7 +402,7 @@ export function AdminHome() {
 
   const pending = app.excuses.filter(e => e.status === 'Pending');
   const outstanding = FEE_SUMMARIES.reduce((s, f) => s + f.outstanding, 0);
-  const activeEvents = app.events.filter(e => new Date(e.date) > new Date('2026-04-24'));
+  const activeEvents = app.events.filter(e => new Date(e.date) > new Date());
 
   const handleSave = async (data: any) => {
     if (editingRehearsal) {

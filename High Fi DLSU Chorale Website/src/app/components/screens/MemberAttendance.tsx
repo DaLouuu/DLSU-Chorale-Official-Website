@@ -5,6 +5,7 @@ import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { StatusPill } from '../ui/Chip';
+import { Icon } from '../ui/Icon';
 import { ATTENDANCE_LOG } from '../../data';
 import { downloadCSV, todayStamp } from '../../utils/exportCsv';
 
@@ -58,20 +59,28 @@ export function MemberAttendance() {
     return c;
   }, [log]);
 
-  // Build calendar grid for April 2026
-  const monthDays: Array<{ day: number; entry?: any } | null> = [];
-  const firstDay = new Date('2026-04-01').getDay(); // 3 = Wed
+  // Build calendar grid for the viewed month
+  const [viewMonth, setViewMonth] = useState(new Date());
+  const viewYear = viewMonth.getFullYear();
+  const viewMonthIndex = viewMonth.getMonth();
+  const today = new Date();
+  const isToday = (day: number) =>
+    viewYear === today.getFullYear() && viewMonthIndex === today.getMonth() && day === today.getDate();
+
+  const monthDays: Array<{ day: number; entry?: any; isToday?: boolean } | null> = [];
+  const firstDay = new Date(viewYear, viewMonthIndex, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonthIndex + 1, 0).getDate();
   for (let i = 0; i < firstDay; i++) monthDays.push(null);
-  for (let d = 1; d <= 30; d++) {
-    const date = `2026-04-${String(d).padStart(2, '0')}`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = `${viewYear}-${String(viewMonthIndex + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const entry = ATTENDANCE_LOG.find(a => a.date === date);
-    monthDays.push({ day: d, entry });
+    monthDays.push({ day: d, entry, isToday: isToday(d) });
   }
 
   return (
     <>
       <PageHeader
-        eyebrow="Module 4"
+        eyebrow="Member Portal"
         title="My Attendance"
         subtitle="Complete attendance record across all rehearsals and performances this term."
         actions={
@@ -111,8 +120,24 @@ export function MemberAttendance() {
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1fr', gap: 20 }}>
         <Card>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-            <h3 style={{ fontFamily: FONTS.serif, fontSize: 22, margin: 0, fontWeight: 500 }}>April 2026</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button
+                onClick={() => setViewMonth(new Date(viewYear, viewMonthIndex - 1, 1))}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', color: theme.ink }}
+              >
+                <Icon name="chevronLeft" size={18} />
+              </button>
+              <h3 style={{ fontFamily: FONTS.serif, fontSize: 22, margin: 0, fontWeight: 500, minWidth: 150, textAlign: 'center' }}>
+                {viewMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              </h3>
+              <button
+                onClick={() => setViewMonth(new Date(viewYear, viewMonthIndex + 1, 1))}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', color: theme.ink }}
+              >
+                <Icon name="chevronRight" size={18} />
+              </button>
+            </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 11, color: theme.dim, fontFamily: FONTS.mono, letterSpacing: 0.5, textTransform: 'uppercase' }}>
               <LegendDot color={theme.green} label="Present" />
               <LegendDot color={theme.amber} label="Late" />
@@ -135,8 +160,8 @@ export function MemberAttendance() {
                   style={{
                     aspectRatio: '1',
                     borderRadius: 8,
-                    border: `1px solid ${theme.line}`,
-                    background: color ? color + '15' : 'transparent',
+                    border: `1px solid ${d.isToday ? theme.green : theme.line}`,
+                    background: color ? color + '15' : d.isToday ? theme.greenSoft : 'transparent',
                     padding: 6,
                     display: 'flex',
                     flexDirection: 'column',
@@ -145,7 +170,7 @@ export function MemberAttendance() {
                     cursor: d.entry ? 'pointer' : 'default',
                   }}
                 >
-                  <div style={{ fontSize: 12, fontWeight: 500, color: color ? color : theme.ink, fontFamily: FONTS.mono }}>{d.day}</div>
+                  <div style={{ fontSize: 12, fontWeight: d.isToday ? 700 : 500, color: color ? color : theme.ink, fontFamily: FONTS.mono }}>{d.day}</div>
                   {color && <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, alignSelf: 'flex-end' }} />}
                 </div>
               );

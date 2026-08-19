@@ -1,26 +1,29 @@
-// Email notification utility — calls Resend API
-// NOTE: Calling Resend from the browser exposes VITE_RESEND_API_KEY in the client bundle.
-// For production, move this behind a Supabase Edge Function or server route.
+// Email notification utility — routes through the send-email Supabase Edge
+// Function instead of calling Resend directly. Resend blocks cross-origin
+// browser requests (no CORS), and the Resend key must stay server-side —
+// see supabase/functions/send-email/index.ts for the proxy and deploy steps.
 
-const API_KEY = import.meta.env.VITE_RESEND_API_KEY as string | undefined;
-const FROM = import.meta.env.VITE_EMAIL_FROM as string | undefined
-  ?? 'onboarding@resend.dev';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const SEND_EMAIL_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/send-email` : undefined;
 
 const G = '#09331f';
 const GOLD = '#c9a84c';
 
 async function send(to: string, subject: string, html: string) {
-  if (!API_KEY || !to) return;
+  if (!SEND_EMAIL_URL || !to) return;
   try {
-    const res = await fetch('https://api.resend.com/emails', {
+    const res = await fetch(SEND_EMAIL_URL, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: FROM, to: [to], subject, html }),
+      headers: {
+        'Content-Type': 'application/json',
+        ...(SUPABASE_ANON_KEY ? { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, apikey: SUPABASE_ANON_KEY } : {}),
+      },
+      body: JSON.stringify({ to, subject, html }),
     });
-    if (!res.ok) console.warn('[Email] Resend responded', res.status, await res.text().catch(() => ''));
+    if (!res.ok) console.warn('[Email] send-email function responded', res.status, await res.text().catch(() => ''));
   } catch (e) {
-    // CORS or network — acceptable failure in browser prototype
-    console.warn('[Email] Could not reach Resend:', e);
+    console.warn('[Email] Could not reach send-email function:', e);
   }
 }
 

@@ -10,9 +10,11 @@ type FieldProps = {
   onChange?: (e: any) => void;
   placeholder?: string;
   readOnly?: boolean;
+  min?: string;
+  max?: string;
 };
 
-export function Field({ label, select, options, type = 'text', value, onChange, placeholder, readOnly }: FieldProps) {
+export function Field({ label, select, options, type = 'text', value, onChange, placeholder, readOnly, min, max }: FieldProps) {
   const { theme } = useTheme();
 
   const base = {
@@ -22,7 +24,7 @@ export function Field({ label, select, options, type = 'text', value, onChange, 
     borderRadius: 10,
     fontSize: 14,
     fontFamily: FONTS.sans,
-    background: readOnly ? theme.cream : '#fff',
+    background: readOnly ? theme.cream : theme.paper,
     color: theme.ink,
     outline: 'none',
     boxSizing: 'border-box' as const,
@@ -39,7 +41,7 @@ export function Field({ label, select, options, type = 'text', value, onChange, 
             ))}
           </select>
         ) : (
-          <input style={base} type={type} value={value} onChange={onChange} placeholder={placeholder} readOnly={readOnly} />
+          <input style={base} type={type} value={value} onChange={onChange} placeholder={placeholder} readOnly={readOnly} min={min} max={max} />
         )}
       </div>
     </div>

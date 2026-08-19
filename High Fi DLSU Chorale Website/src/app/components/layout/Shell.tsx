@@ -5,7 +5,7 @@ import { Icon } from '../ui/Icon';
 import { Avatar } from '../ui/Avatar';
 import { NotificationBell } from '../ui/NotificationBell';
 import logo from '../../../imports/dlsu-chorale-logo.png';
-import { MEMBERS } from '../../data';
+import { MEMBERS, SOCIAL_EVENTS } from '../../data';
 
 function useViewportWidth() {
   const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
@@ -199,6 +199,20 @@ function Topbar({ onMenuClick, isMobile }: { onMenuClick?: () => void; isMobile?
           route: 'admin-excuses',
         });
       });
+
+      // Search fees (all members)
+      app.fees.filter(f =>
+        f.memberName.toLowerCase().includes(query) ||
+        f.type.toLowerCase().includes(query) ||
+        (f.reference || '').toLowerCase().includes(query)
+      ).slice(0, 5).forEach(f => {
+        allResults.push({
+          type: 'Fee',
+          title: `${f.memberName} - ${f.type}`,
+          subtitle: `₱${f.amount} · ${f.status}`,
+          route: 'admin-fees',
+        });
+      });
     } else {
       // Member search
       app.excuses.filter(e =>
@@ -212,18 +226,32 @@ function Topbar({ onMenuClick, isMobile }: { onMenuClick?: () => void; isMobile?
           route: 'member-excuses',
         });
       });
+
+      // Search own fees
+      app.fees.filter(f =>
+        f.memberId === user.id &&
+        (f.type.toLowerCase().includes(query) || (f.reference || '').toLowerCase().includes(query))
+      ).slice(0, 5).forEach(f => {
+        allResults.push({
+          type: 'Fee',
+          title: f.type,
+          subtitle: `₱${f.amount} · ${f.status}`,
+          route: 'member-fees',
+        });
+      });
     }
 
-    // Search events (both)
-    app.events.filter(e =>
+    // Search events — productions/performances + social events (both roles)
+    [...app.events, ...SOCIAL_EVENTS].filter(e =>
       e.name.toLowerCase().includes(query) ||
-      e.venue.toLowerCase().includes(query)
+      e.venue.toLowerCase().includes(query) ||
+      (e.description || '').toLowerCase().includes(query)
     ).slice(0, 5).forEach(e => {
       allResults.push({
         type: 'Event',
         title: e.name,
         subtitle: `${e.venue} · ${new Date(e.date).toLocaleDateString()}`,
-        route: role === 'admin' ? 'admin-performances' : 'member-performances',
+        route: role === 'admin' ? 'admin-events' : 'member-performances',
       });
     });
 

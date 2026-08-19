@@ -52,7 +52,7 @@ export function MemberFees() {
 
   return (
     <>
-      <PageHeader eyebrow="Module 8" title="Fees & Payments" subtitle="Outstanding balances, payment history, and the current fee schedule." />
+      <PageHeader eyebrow="Member Portal" title="Fees & Payments" subtitle="Outstanding balances, payment history, and the current fee schedule." />
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: 20 }}>
         <div>
@@ -110,6 +110,7 @@ export function MemberFees() {
                     gridTemplateColumns: isMobile ? '1fr' : '90px 1fr 120px 90px 100px',
                     gap: 14,
                     alignItems: 'center',
+                    justifyItems: 'start',
                     padding: isMobile ? '12px 0' : '14px 0',
                     borderTop: i === 0 ? 'none' : `1px solid ${theme.line}`,
                   }}
@@ -204,6 +205,14 @@ function PaymentModal({
   const [proofFileName, setProofFileName] = useState('');
   const [proofDataUrl, setProofDataUrl] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

@@ -61,7 +61,7 @@ export function MemberAnnouncements() {
         eyebrow="From the Chorale FB group"
         title="Announcements"
         subtitle="Pinned + recent posts syndicated from the Chorale's private Facebook group."
-        actions={<Button variant="outline" icon="refresh">Refresh feed</Button>}
+        actions={<Button variant="outline" icon="refresh" onClick={() => app.showToast("You're up to date — no new posts from the Facebook group.")}>Refresh feed</Button>}
       />
       {pinned.length > 0 && (
         <>

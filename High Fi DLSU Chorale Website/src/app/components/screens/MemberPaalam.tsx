@@ -16,7 +16,10 @@ export function MemberPaalam() {
   const mine = app.excuses.filter(e => e.memberId === user.id);
   const [tab, setTab] = useState('new');
   const [type, setType] = useState('Absent');
-  const [date, setDate] = useState('2026-04-29');
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const minDateIso = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const maxDateIso = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const [date, setDate] = useState(todayIso);
   const [eventType, setEventType] = useState('Rehearsal');
   const [reason, setReason] = useState('');
   const [eta, setEta] = useState('');
@@ -30,7 +33,14 @@ export function MemberPaalam() {
   const isMobile = vw < 768;
 
   const submit = () => {
-    if (!reason.trim()) return;
+    if (!reason.trim()) {
+      app.showToast('Please enter a reason before submitting.', 'error');
+      return;
+    }
+    if (!date || date < minDateIso || date > maxDateIso) {
+      app.showToast('Please enter a valid date within the last 90 days or next 12 months.', 'error');
+      return;
+    }
     app.addExcuse({
       memberId: user.id,
       memberName: user.name,
@@ -75,7 +85,7 @@ export function MemberPaalam() {
               fontFamily: FONTS.sans,
               fontSize: 13.5,
               fontWeight: tab === t.k ? 500 : 400,
-              color: tab === t.k ? theme.greenDark : theme.dim,
+              color: tab === t.k ? theme.ink : theme.dim,
               borderBottom: `2px solid ${tab === t.k ? theme.green : 'transparent'}`,
               marginBottom: -1,
             }}
@@ -97,7 +107,7 @@ export function MemberPaalam() {
                     padding: '14px 16px',
                     textAlign: 'left',
                     cursor: 'pointer',
-                    background: type === t ? theme.greenSoft : '#fff',
+                    background: type === t ? theme.greenSoft : theme.paper,
                     border: `1.5px solid ${type === t ? theme.green : theme.line}`,
                     borderRadius: 10,
                     fontFamily: FONTS.sans,
@@ -115,7 +125,7 @@ export function MemberPaalam() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14 }}>
-              <Field label="Date" type="date" value={date} onChange={e => setDate(e.target.value)} />
+              <Field label="Date" type="date" value={date} onChange={e => setDate(e.target.value)} min={minDateIso} max={maxDateIso} />
               <Field label="Event type" select options={['Rehearsal', 'Performance']} value={eventType} onChange={e => setEventType(e.target.value)} />
               {(type === 'Late' || type === 'Stepping Out') && <Field label="Estimated arrival / return" type="time" value={eta} onChange={e => setEta(e.target.value)} />}
             </div>

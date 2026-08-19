@@ -13,7 +13,7 @@ export function Chip({ children, tone = 'neutral', icon }: ChipProps) {
   const { theme } = useTheme();
 
   const tones = {
-    neutral: { bg: '#F1F2EE', fg: theme.ink },
+    neutral: { bg: theme.line, fg: theme.ink },
     green: { bg: theme.greenSoft, fg: theme.greenDeep },
     amber: { bg: theme.amberSoft, fg: theme.amber },
     red: { bg: theme.redSoft, fg: theme.red },

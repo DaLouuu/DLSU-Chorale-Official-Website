@@ -138,7 +138,7 @@ export function Landing() {
               lineHeight: 1.02,
               letterSpacing: -1,
               margin: 0,
-              color: theme.greenDark,
+              color: theme.ink,
             }}
           >
             Animo,
@@ -181,8 +181,8 @@ export function Landing() {
                 letterSpacing: 0.1,
                 whiteSpace: 'nowrap',
                 background: 'transparent',
-                color: theme.greenDark,
-                border: `1.5px solid ${theme.greenDark}`,
+                color: theme.green,
+                border: `1.5px solid ${theme.green}`,
               }}
             >
               <LogIn size={isSmall ? 17 : 19} />

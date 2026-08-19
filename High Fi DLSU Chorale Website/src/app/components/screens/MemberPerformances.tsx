@@ -263,12 +263,13 @@ function NonPerformingRoleModal({
 
 // ── EventCard ─────────────────────────────────────────────────────────────────
 
-function EventCard({ event: e, theme, onSignUp }: { event: UnifiedEvent; theme: any; onSignUp: () => void }) {
+function EventCard({ event: e, theme, onSignUp, highlighted }: { event: UnifiedEvent; theme: any; onSignUp: () => void; highlighted?: boolean }) {
   const cs = CATEGORY_STYLE[e.category] ?? CATEGORY_STYLE.Production;
   const hasForm = e.forms?.waiver?.enabled || e.forms?.excuse?.enabled;
   const meta = getEventMeta(String(e.id));
 
   return (
+    <div id={`event-${e.id}`} style={{ borderRadius: 14, transition: 'box-shadow 0.3s ease', boxShadow: highlighted ? `0 0 0 3px ${theme.green}` : 'none' }}>
     <Card pad={0} style={{ overflow: 'hidden' }}>
       {e.image ? (
         <div
@@ -300,7 +301,7 @@ function EventCard({ event: e, theme, onSignUp }: { event: UnifiedEvent; theme: 
           <span style={{ display: 'inline-flex', padding: '3px 9px', borderRadius: 999, background: cs.bg, color: cs.color, fontSize: 11, fontFamily: FONTS.mono, border: `1px solid ${cs.color}40` }}>
             {e.category}
           </span>
-          <div style={{ fontFamily: FONTS.serif, fontSize: 17, fontWeight: 500, color: theme.ink }}>{e.name}</div>
+          <div style={{ fontFamily: FONTS.serif, fontSize: 17, fontWeight: 500, color: '#1f2937' }}>{e.name}</div>
           {e.mySignup && <div style={{ marginLeft: 'auto' }}><Chip tone="green" icon="check">Signed up</Chip></div>}
         </div>
       )}
@@ -394,6 +395,7 @@ function EventCard({ event: e, theme, onSignUp }: { event: UnifiedEvent; theme: 
         )}
       </div>
     </Card>
+    </div>
   );
 }
 
@@ -417,10 +419,28 @@ export function MemberPerformances() {
     Object.fromEntries(SOCIAL_EVENTS.map(s => [s.id, s.signedUp])),
   );
   const [signupsVersion, setSignupsVersion] = useState(0);
+  const [highlightedEventId, setHighlightedEventId] = useState<string | null>(null);
 
   useEffect(() => {
     initializeEventSignups().then(() => setSignupsVersion(v => v + 1));
   }, []);
+
+  // Scroll to and briefly highlight the event that was clicked from Home/another screen.
+  useEffect(() => {
+    if (!app.focusEventId) return;
+    const id = app.focusEventId;
+    app.setFocusEvent(null);
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`event-${id}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setHighlightedEventId(id);
+        setTimeout(() => setHighlightedEventId(null), 2200);
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [app.focusEventId]);
 
   const allEvents: UnifiedEvent[] = [
     ...app.events.map(e => normalize(e)),
@@ -537,7 +557,7 @@ export function MemberPerformances() {
   return (
     <>
       <PageHeader
-        eyebrow="Module 5"
+        eyebrow="Member Portal"
         title="Events"
         subtitle="All upcoming Chorale events — performances, social activities, competitions, and more."
       />
@@ -596,7 +616,7 @@ export function MemberPerformances() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 18 }}>
           {visibleEvents.map(e => (
-            <EventCard key={e.id} event={e} theme={theme} onSignUp={() => handleSignUp(e)} />
+            <EventCard key={e.id} event={e} theme={theme} onSignUp={() => handleSignUp(e)} highlighted={String(e.id) === highlightedEventId} />
           ))}
         </div>
       )}

@@ -208,6 +208,22 @@ export function Login() {
     </label>
   );
 
+  const PasswordHint = ({ password, context }: { password: string; context?: PasswordPolicyContext }) => {
+    if (!password) {
+      return (
+        <div style={{ fontSize: 11, color: theme.dim, marginTop: 4 }}>
+          {MIN_PASSWORD_LENGTH}-{MAX_PASSWORD_LENGTH} characters, with uppercase, lowercase, a number, and a symbol.
+        </div>
+      );
+    }
+    const issues = getPasswordPolicyIssues(password, context);
+    return (
+      <div style={{ fontSize: 11, color: issues.length ? '#b45309' : '#15803d', marginTop: 4 }}>
+        {issues.length ? issues[0] : '✓ Meets password requirements'}
+      </div>
+    );
+  };
+
   const ErrorBox = ({ msg }: { msg: string }) => (
     <div style={{
       fontSize: 13, color: '#dc2626',
@@ -811,13 +827,14 @@ export function Login() {
                   <input
                     value={memberPw}
                     onChange={e => setMemberPw(e.target.value)}
-                    placeholder="Min. 8 characters"
+                    placeholder="Create a secure password"
                     type={showMemberPw ? 'text' : 'password'}
                     autoComplete="new-password"
                     style={pwInputStyle()}
                   />
                   {showHideBtn(showMemberPw, () => setShowMemberPw(s => !s))}
                 </div>
+                <PasswordHint password={memberPw} context={{ schoolId: verifiedUser.schoolId, email: verifiedUser.email }} />
               </div>
 
               <div>
@@ -919,13 +936,14 @@ export function Login() {
                     <input
                       value={adminPwNew}
                       onChange={e => setAdminPwNew(e.target.value)}
-                      placeholder="Min. 8 characters"
+                      placeholder="Create a secure password"
                       type={showAdminPwNew ? 'text' : 'password'}
                       autoComplete="new-password"
                       style={pwInputStyle()}
                     />
                     {showHideBtn(showAdminPwNew, () => setShowAdminPwNew(s => !s))}
                   </div>
+                  <PasswordHint password={adminPwNew} context={{ schoolId: verifiedUser.schoolId, email: verifiedUser.email }} />
                   {setupPasswordsMatchAcrossRoles && (
                     <div style={{ fontSize: 11.5, color: '#dc2626', marginTop: 4 }}>
                       Member and Admin Console passwords must be different.

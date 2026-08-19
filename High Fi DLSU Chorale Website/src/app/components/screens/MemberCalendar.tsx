@@ -59,7 +59,7 @@ export function MemberCalendar() {
   return (
     <>
       <PageHeader
-        eyebrow="Module 8"
+        eyebrow="Member Portal"
         title="Calendar"
         subtitle="View all upcoming events, performances, rehearsals, and social events."
       />

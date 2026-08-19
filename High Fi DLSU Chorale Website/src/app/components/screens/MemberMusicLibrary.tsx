@@ -6,6 +6,7 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
 import { Chip } from '../ui/Chip';
+import { isValidLink } from '../../utils/links';
 
 type MusicItem = {
   title: string;
@@ -72,7 +73,7 @@ export function MemberMusicLibrary() {
   return (
     <>
       <PageHeader
-        eyebrow="Module 7"
+        eyebrow="Member Portal"
         title="Music Library"
         subtitle="Access sheet music, practice tracks, and study guides. All files are hosted on Google Drive."
       />
@@ -243,28 +244,50 @@ export function MemberMusicLibrary() {
                       {item.type}
                     </div>
 
-                    <a
-                      href={item.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '8px 14px',
-                        fontSize: 13,
-                        background: theme.green,
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: 8,
-                        cursor: 'pointer',
-                        textDecoration: 'none',
-                        fontFamily: FONTS.sans,
-                      }}
-                    >
-                      <Icon name="externalLink" size={14} />
-                      Open
-                    </a>
+                    {isValidLink(item.link) ? (
+                      <a
+                        href={item.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '8px 14px',
+                          fontSize: 13,
+                          background: theme.green,
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: 8,
+                          cursor: 'pointer',
+                          textDecoration: 'none',
+                          fontFamily: FONTS.sans,
+                        }}
+                      >
+                        <Icon name="externalLink" size={14} />
+                        Open
+                      </a>
+                    ) : (
+                      <span
+                        title="Link not available yet"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '8px 14px',
+                          fontSize: 13,
+                          background: theme.line,
+                          color: theme.dim,
+                          border: 'none',
+                          borderRadius: 8,
+                          cursor: 'not-allowed',
+                          fontFamily: FONTS.sans,
+                        }}
+                      >
+                        <Icon name="externalLink" size={14} />
+                        Unavailable
+                      </span>
+                    )}
                   </div>
                   );
                 })}

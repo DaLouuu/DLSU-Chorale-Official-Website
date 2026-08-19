@@ -6,6 +6,7 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Field } from '../ui/Field';
 import { Icon } from '../ui/Icon';
+import { isValidLink } from '../../utils/links';
 
 declare global {
   interface Window {
@@ -110,6 +111,11 @@ function MusicItemModal({ item, category, onClose, onSave, onDelete }: any) {
             onChange={e => setFormData({ ...formData, link: e.target.value })}
             placeholder="https://drive.google.com/file/d/..."
           />
+          {formData.link && !isValidLink(formData.link) && (
+            <div style={{ fontSize: 12, color: theme.red, marginTop: -8 }}>
+              Enter a full, working link (e.g. https://drive.google.com/...) — placeholder or invalid URLs can't be saved.
+            </div>
+          )}
 
           <Field
             label="Notes"
@@ -161,7 +167,7 @@ function MusicItemModal({ item, category, onClose, onSave, onDelete }: any) {
                 onSave(formData);
                 onClose();
               }}
-              disabled={!formData.title || !formData.link}
+              disabled={!formData.title || !isValidLink(formData.link)}
             >
               {item ? 'Update' : 'Add'} Item
             </Button>
@@ -500,28 +506,50 @@ export function AdminMusicLibrary() {
                         <Icon name="edit" size={16} />
                       </button>
 
-                      <a
-                        href={item.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          padding: '8px 14px',
-                          fontSize: 13,
-                          background: theme.green,
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: 8,
-                          cursor: 'pointer',
-                          textDecoration: 'none',
-                          fontFamily: FONTS.sans,
-                        }}
-                      >
-                        <Icon name="externalLink" size={14} />
-                        Open
-                      </a>
+                      {isValidLink(item.link) ? (
+                        <a
+                          href={item.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '8px 14px',
+                            fontSize: 13,
+                            background: theme.green,
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: 8,
+                            cursor: 'pointer',
+                            textDecoration: 'none',
+                            fontFamily: FONTS.sans,
+                          }}
+                        >
+                          <Icon name="externalLink" size={14} />
+                          Open
+                        </a>
+                      ) : (
+                        <span
+                          title="Link not set — edit this item to add one"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '8px 14px',
+                            fontSize: 13,
+                            background: theme.line,
+                            color: theme.dim,
+                            border: 'none',
+                            borderRadius: 8,
+                            cursor: 'not-allowed',
+                            fontFamily: FONTS.sans,
+                          }}
+                        >
+                          <Icon name="externalLink" size={14} />
+                          Unavailable
+                        </span>
+                      )}
                     </div>
                   ))
                 )}

@@ -68,7 +68,7 @@ export function MemberHome() {
 
   const myExcuses = app.excuses.filter(e => e.memberId === user.id);
   const pendingMine = myExcuses.filter(e => e.status === 'Pending').length;
-  const upcoming = app.events.filter(e => new Date(e.date) > new Date('2026-04-24')).slice(0, 3);
+  const upcoming = app.events.filter(e => new Date(e.date) > new Date()).slice(0, 3);
   const outstanding = FEE_RECORDS.filter(f => f.status === 'unpaid').reduce((s, f) => s + f.amount, 0);
   const recent = ATTENDANCE_LOG.slice(0, 4);
 
@@ -137,9 +137,9 @@ export function MemberHome() {
           color: '#fff',
         }}
       >
-        <div style={{ padding: isMobile ? '22px 20px' : '32px 36px', flex: isMobile ? '1 1 auto' : '0 0 58%' }}>
+        <div style={{ padding: isMobile ? '22px 20px' : '32px 36px', flex: isMobile ? '1 1 auto' : '0 0 58%', minWidth: 0 }}>
           <Chip tone="dark">Next performance · in 16 days</Chip>
-          <h2 style={{ fontFamily: FONTS.serif, fontSize: isMobile ? 30 : 34, fontWeight: 500, margin: '14px 0 6px', lineHeight: 1.1 }}>
+          <h2 style={{ fontFamily: FONTS.serif, fontSize: isMobile ? 'clamp(24px, 7vw, 30px)' : 'clamp(22px, 2.6vw, 34px)', fontWeight: 500, margin: '14px 0 6px', lineHeight: 1.1, overflowWrap: 'break-word' }}>
             Baccalaureate & Commencement
             <br />
             <em style={{ color: theme.greenMid }}>— Term 3</em>
@@ -149,7 +149,7 @@ export function MemberHome() {
             <span>· Teresa Yuchengco Aud.</span>
           </div>
           <div style={{ marginTop: 22, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <Button onClick={() => go('member-performances' as any)} style={{ background: '#fff', color: theme.greenDark, border: '1px solid #fff' }}>
+            <Button onClick={() => { app.setFocusEvent('e1'); go('member-performances' as any); }} style={{ background: '#fff', color: theme.greenDark, border: '1px solid #fff' }}>
               View details
             </Button>
             <Button
@@ -231,7 +231,7 @@ export function MemberHome() {
             <h3 style={{ fontFamily: FONTS.serif, fontSize: 19, margin: '6px 0 14px', fontWeight: 500 }}>Upcoming performances</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {upcoming.map(e => (
-                <div key={e.id} onClick={() => go('member-performances' as any)} style={{ display: 'flex', gap: 12, cursor: 'pointer', padding: 6, borderRadius: 8, alignItems: 'center' }}>
+                <div key={e.id} onClick={() => { app.setFocusEvent(e.id); go('member-performances' as any); }} style={{ display: 'flex', gap: 12, cursor: 'pointer', padding: 6, borderRadius: 8, alignItems: 'center' }}>
                   <div style={{ width: 54, height: 54, borderRadius: 8, backgroundImage: `url(${e.image})`, backgroundSize: 'cover', backgroundPosition: 'center', flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 500, lineHeight: 1.2 }}>{e.name}</div>
