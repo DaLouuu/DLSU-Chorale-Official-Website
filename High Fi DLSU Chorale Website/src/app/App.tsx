@@ -13,26 +13,21 @@ import { MemberPerformances } from './components/screens/MemberPerformances';
 import { MemberFees } from './components/screens/MemberFees';
 import { MemberAnnouncements } from './components/screens/MemberAnnouncements';
 import { MemberProfile } from './components/screens/MemberProfile';
-import { MemberSocialEvents } from './components/screens/MemberSocialEvents';
 import { MemberMusicLibrary } from './components/screens/MemberMusicLibrary';
-import { MemberCalendar } from './components/screens/MemberCalendar';
 import { AdminHome } from './components/screens/AdminHome';
 import { AdminAttendance } from './components/screens/AdminAttendance';
 import { AdminExcuses } from './components/screens/AdminExcuses';
-import { AdminPerformances } from './components/screens/AdminPerformances';
 import { AdminFees } from './components/screens/AdminFees';
 import { AdminAnalytics } from './components/screens/AdminAnalytics';
 import { AdminMembers } from './components/screens/AdminMembers';
-import { AdminCalendar } from './components/screens/AdminCalendar';
-import { AdminSocialEvents } from './components/screens/AdminSocialEvents';
 import { AdminMusicLibrary } from './components/screens/AdminMusicLibrary';
 import { AdminEvents } from './components/screens/AdminEvents';
 import { Shell } from './components/layout/Shell';
 
 // Router Context
 type Route = 'landing' | 'login' | 'pending' | 'rfid' | 'member-home' | 'admin-home' |
-  'member-attendance' | 'member-excuses' | 'member-performances' | 'member-fees' | 'member-announcements' | 'member-profile' | 'member-social' | 'member-music' | 'member-calendar' |
-  'admin-attendance' | 'admin-excuses' | 'admin-performances' | 'admin-fees' | 'admin-analytics' | 'admin-members' | 'admin-calendar' | 'admin-social' | 'admin-music' | 'admin-events';
+  'member-attendance' | 'member-excuses' | 'member-performances' | 'member-fees' | 'member-announcements' | 'member-profile' | 'member-music' |
+  'admin-attendance' | 'admin-excuses' | 'admin-fees' | 'admin-analytics' | 'admin-members' | 'admin-music' | 'admin-events';
 type RouterContextType = {
   route: Route;
   role: 'member' | 'admin' | null;
@@ -314,20 +309,15 @@ function Router() {
   if (route === 'member-fees') return <Shell><MemberFees /></Shell>;
   if (route === 'member-announcements') return <Shell><MemberAnnouncements /></Shell>;
   if (route === 'member-profile') return <Shell><MemberProfile /></Shell>;
-  if (route === 'member-social') return <Shell><MemberSocialEvents /></Shell>;
   if (route === 'member-music') return <Shell><MemberMusicLibrary /></Shell>;
-  if (route === 'member-calendar') return <Shell><MemberHome /></Shell>;
 
   // Admin screens
   if (route === 'admin-home') return <Shell><AdminHome /></Shell>;
   if (route === 'admin-attendance') return <Shell><AdminAttendance /></Shell>;
   if (route === 'admin-excuses') return <Shell><AdminExcuses /></Shell>;
-  if (route === 'admin-performances') return <Shell><AdminPerformances /></Shell>;
   if (route === 'admin-fees') return <Shell><AdminFees /></Shell>;
   if (route === 'admin-analytics') return <Shell><AdminAnalytics /></Shell>;
   if (route === 'admin-members') return <Shell><AdminMembers /></Shell>;
-  if (route === 'admin-calendar') return <Shell><AdminHome /></Shell>;
-  if (route === 'admin-social') return <Shell><AdminSocialEvents /></Shell>;
   if (route === 'admin-music') return <Shell><AdminMusicLibrary /></Shell>;
   if (route === 'admin-events') return <Shell><AdminEvents /></Shell>;
 
