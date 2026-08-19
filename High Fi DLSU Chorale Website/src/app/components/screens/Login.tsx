@@ -142,6 +142,18 @@ export function Login() {
   const [forgotError, setForgotError] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotQuestionsLoading, setForgotQuestionsLoading] = useState(false);
+  const [forgotHasProfile, setForgotHasProfile] = useState<boolean | null>(null);
+  const [forgotNewQuestion1, setForgotNewQuestion1] = useState('');
+  const [forgotNewQuestion2, setForgotNewQuestion2] = useState('');
+
+  // True once we've confirmed the account exists but has never had security
+  // questions set — offer to set them now instead of dead-ending on an error.
+  const forgotNeedsQuestionSetup =
+    forgotHasProfile === true && !forgotQuestionsLoading && !forgotQuestion1 && !forgotQuestion2;
+  const forgotNewQuestionsDuplicated =
+    forgotNewQuestion1.length > 0 &&
+    forgotNewQuestion2.length > 0 &&
+    forgotNewQuestion1 === forgotNewQuestion2;
 
   // Re-fetch security questions whenever email/ID number change on the forgot-password
   // screen itself, not just once when the "Forgot password?" link is first clicked —
@@ -153,6 +165,7 @@ export function Login() {
       setForgotQuestion1('');
       setForgotQuestion2('');
       setForgotUserIsAdmin(false);
+      setForgotHasProfile(null);
       return;
     }
     let cancelled = false;
@@ -164,6 +177,7 @@ export function Login() {
         .eq('school_id', schoolId)
         .maybeSingle();
       if (cancelled) return;
+      setForgotHasProfile(!!profile);
       setForgotUserIsAdmin(profile?.is_admin === true);
       setForgotQuestion1(profile?.security_question_1 ?? '');
       setForgotQuestion2(profile?.security_question_2 ?? '');
@@ -623,7 +637,20 @@ export function Login() {
       setForgotError('Enter your DLSU email and ID number.');
       return;
     }
-    if (!forgotQuestion1 || !forgotQuestion2) {
+    if (forgotHasProfile === false) {
+      setForgotError('We could not find an account with that email and ID number.');
+      return;
+    }
+    if (forgotNeedsQuestionSetup) {
+      if (!forgotNewQuestion1 || !forgotNewQuestion2) {
+        setForgotError('Choose two security questions to set up for future resets.');
+        return;
+      }
+      if (forgotNewQuestionsDuplicated) {
+        setForgotError('Security questions must be different.');
+        return;
+      }
+    } else if (!forgotQuestion1 || !forgotQuestion2) {
       setForgotError('Security questions are not set for this account. Contact an admin.');
       return;
     }
@@ -683,18 +710,34 @@ export function Login() {
         return;
       }
 
-      const { data: answersValid, error: verifyErr } = await supabase.rpc('verify_security_answers', {
-        p_school_id: schoolId,
-        p_answer_1: forgotAnswer1.trim(),
-        p_answer_2: forgotAnswer2.trim(),
-      });
-      if (verifyErr) {
-        setForgotError('Security answer verification failed. Please try again.');
-        return;
-      }
-      if (answersValid !== true) {
-        setForgotError('Security answers do not match our records.');
-        return;
+      if (forgotNeedsQuestionSetup) {
+        // No security questions on file yet — this is a first-time reset, so
+        // set what was just chosen instead of verifying against nothing.
+        const { error: setQErr } = await supabase.rpc('set_security_questions', {
+          p_school_id: schoolId,
+          p_question_1: forgotNewQuestion1,
+          p_answer_1: forgotAnswer1.trim(),
+          p_question_2: forgotNewQuestion2,
+          p_answer_2: forgotAnswer2.trim(),
+        });
+        if (setQErr) {
+          setForgotError('Could not save security questions. Please try again.');
+          return;
+        }
+      } else {
+        const { data: answersValid, error: verifyErr } = await supabase.rpc('verify_security_answers', {
+          p_school_id: schoolId,
+          p_answer_1: forgotAnswer1.trim(),
+          p_answer_2: forgotAnswer2.trim(),
+        });
+        if (verifyErr) {
+          setForgotError('Security answer verification failed. Please try again.');
+          return;
+        }
+        if (answersValid !== true) {
+          setForgotError('Security answers do not match our records.');
+          return;
+        }
       }
       if (forgotResetAdmin && profile.is_admin !== true) {
         setForgotError('This account does not have Admin Console access.');
@@ -732,12 +775,15 @@ export function Login() {
       setForgotAnswer1('');
       setForgotQuestion2('');
       setForgotAnswer2('');
+      setForgotNewQuestion1('');
+      setForgotNewQuestion2('');
       setForgotMemberPw('');
       setForgotMemberPwC('');
       setForgotAdminPw('');
       setForgotAdminPwC('');
       setForgotResetAdmin(false);
       setForgotUserIsAdmin(false);
+      setForgotHasProfile(null);
     } catch {
       setForgotError('Password reset failed. Ensure password RPCs and columns are deployed in Supabase.');
       if (CAPTCHA_ENABLED) setForgotCaptchaResetNonce(n => n + 1);
@@ -1096,9 +1142,21 @@ export function Login() {
               <div style={{ fontFamily: FONTS.mono, fontSize: 10, letterSpacing: 1.5, color: theme.green, textTransform: 'uppercase' as const }}>
                 Security Verification
               </div>
+              {forgotNeedsQuestionSetup && (
+                <p style={{ fontSize: 12, color: theme.dim, margin: 0 }}>
+                  No security questions on file yet for this account. Choose two now — you'll use them for future password resets.
+                </p>
+              )}
               <div>
                 {fieldLabel('Question 1')}
-                <input value={forgotQuestion1} readOnly placeholder={forgotQuestionsLoading ? 'Loading…' : 'Enter email and ID first to load question'} style={inputStyle()} />
+                {forgotNeedsQuestionSetup ? (
+                  <select value={forgotNewQuestion1} onChange={e => setForgotNewQuestion1(e.target.value)} style={inputStyle()}>
+                    <option value="">Select a question…</option>
+                    {SECURITY_QUESTIONS.map(q => <option key={q} value={q}>{q}</option>)}
+                  </select>
+                ) : (
+                  <input value={forgotQuestion1} readOnly placeholder={forgotQuestionsLoading ? 'Loading…' : 'Enter email and ID first to load question'} style={inputStyle()} />
+                )}
               </div>
               <div>
                 {fieldLabel('Answer 1')}
@@ -1112,7 +1170,14 @@ export function Login() {
               </div>
               <div>
                 {fieldLabel('Question 2')}
-                <input value={forgotQuestion2} readOnly placeholder={forgotQuestionsLoading ? 'Loading…' : 'Enter email and ID first to load question'} style={inputStyle()} />
+                {forgotNeedsQuestionSetup ? (
+                  <select value={forgotNewQuestion2} onChange={e => setForgotNewQuestion2(e.target.value)} style={inputStyle(forgotNewQuestionsDuplicated)}>
+                    <option value="">Select a different question…</option>
+                    {SECURITY_QUESTIONS.map(q => <option key={q} value={q}>{q}</option>)}
+                  </select>
+                ) : (
+                  <input value={forgotQuestion2} readOnly placeholder={forgotQuestionsLoading ? 'Loading…' : 'Enter email and ID first to load question'} style={inputStyle()} />
+                )}
               </div>
               <div>
                 {fieldLabel('Answer 2')}
@@ -1124,6 +1189,11 @@ export function Login() {
                   style={inputStyle()}
                 />
               </div>
+              {forgotNeedsQuestionSetup && forgotNewQuestionsDuplicated && (
+                <div style={{ fontSize: 11.5, color: '#dc2626', marginTop: 2 }}>
+                  Security questions must be different.
+                </div>
+              )}
             </div>
 
             <div style={{ padding: '16px 18px', background: theme.cream, borderRadius: 10, border: `1px solid ${theme.line}`, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1564,6 +1634,8 @@ export function Login() {
               setForgotIdNumber(schoolId ? String(schoolId) : '');
               setForgotAnswer1('');
               setForgotAnswer2('');
+              setForgotNewQuestion1('');
+              setForgotNewQuestion2('');
               setForgotMemberPw('');
               setForgotMemberPwC('');
               setForgotAdminPw('');
