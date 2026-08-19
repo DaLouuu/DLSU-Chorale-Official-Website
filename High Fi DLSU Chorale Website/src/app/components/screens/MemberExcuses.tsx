@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useTheme, useApp } from '../../App';
 import { notifyExcuseFiled } from '../../utils/email';
+import { supabase } from '../../supabase';
+import { EVENTS } from '../../data';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
@@ -10,9 +12,16 @@ import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
 import { Field } from '../ui/Field';
 
+type ExcusableEvent = {
+  id: string;
+  name: string;
+  date: string;
+  allowsExcusedAbsence: boolean;
+};
+
 export function MemberExcuses() {
   const { user } = useRouter();
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
   const app = useApp();
   const mine = app.excuses.filter(e => e.memberId === user.id);
   const [tab, setTab] = useState('new');
@@ -21,7 +30,8 @@ export function MemberExcuses() {
   const minDateIso = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const maxDateIso = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const [date, setDate] = useState(todayIso);
-  const [eventType, setEventType] = useState('Rehearsal');
+  const [events, setEvents] = useState<ExcusableEvent[]>([]);
+  const [eventId, setEventId] = useState('');
   const [reason, setReason] = useState('');
   const [eta, setEta] = useState('');
   const [docFileName, setDocFileName] = useState('');
@@ -35,6 +45,41 @@ export function MemberExcuses() {
     return () => window.removeEventListener('resize', handler);
   }, []);
   const isMobile = vw < 768;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let cols = 'event_id, name, notes, event_date, allows_excused_absence';
+      let { data, error } = await supabase.from('events').select(cols).order('event_date', { ascending: true });
+      if (error?.message?.includes('allows_excused_absence')) {
+        cols = cols.replace(', allows_excused_absence', '');
+        ({ data, error } = await supabase.from('events').select(cols).order('event_date', { ascending: true }));
+      }
+      if (cancelled) return;
+      if (!error && data && data.length > 0) {
+        setEvents(
+          (data as any[]).map(row => ({
+            id: String(row.event_id),
+            name: row.name ?? row.notes ?? 'Untitled event',
+            date: row.event_date ?? '',
+            allowsExcusedAbsence: !!row.allows_excused_absence,
+          })),
+        );
+      } else {
+        setEvents(
+          (EVENTS as any[]).map((e, i) => ({
+            id: `mock-${i}`,
+            name: e.name ?? 'Untitled event',
+            date: e.date ?? '',
+            allowsExcusedAbsence: false,
+          })),
+        );
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const selectedEvent = events.find(ev => ev.id === eventId) ?? null;
 
   const MAX_DOC_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -68,7 +113,9 @@ export function MemberExcuses() {
       date,
       type: type === 'Excused Absent' ? 'Excused Absent' : type,
       reason,
-      eventType,
+      eventId: selectedEvent?.id,
+      eventName: selectedEvent?.name,
+      allowsExcusedAbsence: selectedEvent?.allowsExcusedAbsence ?? false,
       eta: eta || undefined,
       documentFileName: docFileName || undefined,
       documentDataUrl: docDataUrl || undefined,
@@ -78,6 +125,7 @@ export function MemberExcuses() {
     if (adminEmail) notifyExcuseFiled({ adminEmail, memberName: user.name, section: user.section, excuseType: type, date, reason });
     setSubmitted(true);
     setReason('');
+    setEventId('');
     setEta('');
     setDocFileName('');
     setDocDataUrl(null);
@@ -153,9 +201,37 @@ export function MemberExcuses() {
 
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14 }}>
               <Field label="Date" type="date" value={date} onChange={e => setDate(e.target.value)} min={minDateIso} max={maxDateIso} />
-              <Field label="Event type" select options={['Rehearsal', 'Performance']} value={eventType} onChange={e => setEventType(e.target.value)} />
+              <div>
+                <label style={{ fontSize: 11.5, fontFamily: FONTS.mono, letterSpacing: 1, color: theme.dim, textTransform: 'uppercase' }}>Event (optional)</label>
+                <div style={{ marginTop: 6 }}>
+                  <select
+                    value={eventId}
+                    onChange={e => setEventId(e.target.value)}
+                    style={{
+                      width: '100%', padding: '11px 14px', border: `1px solid ${theme.lineDark}`,
+                      borderRadius: 10, fontSize: 14, fontFamily: FONTS.sans, background: theme.paper,
+                      color: theme.ink, outline: 'none', boxSizing: 'border-box', colorScheme: mode,
+                    }}
+                  >
+                    <option value="">Not tied to a specific event</option>
+                    {events.map(ev => (
+                      <option key={ev.id} value={ev.id}>
+                        {ev.name}{ev.date ? ` — ${new Date(ev.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
+                        {ev.allowsExcusedAbsence ? ' (Approved Absence eligible)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
               {(type === 'Late' || type === 'Stepping Out') && <Field label="Estimated arrival / return" type="time" value={eta} onChange={e => setEta(e.target.value)} />}
             </div>
+
+            {selectedEvent?.allowsExcusedAbsence && (
+              <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 8, background: theme.greenSoft, border: `1px solid ${theme.green}`, fontSize: 12.5, color: theme.ink, display: 'flex', gap: 8, alignItems: 'center' }}>
+                <Icon name="check" size={14} stroke={theme.green} />
+                This event is eligible for a fee-free Approved Absence.
+              </div>
+            )}
 
             <div style={{ marginTop: 14 }}>
               <label style={{ fontSize: 11.5, fontFamily: FONTS.mono, letterSpacing: 1, color: theme.dim, textTransform: 'uppercase' }}>Reason</label>
@@ -299,9 +375,11 @@ export function MemberExcuses() {
                   </div>
                 </div>
                 <div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 14.5, fontWeight: 500 }}>{e.type}</span>
                     {e.eta && <Chip tone="neutral">ETA {e.eta}</Chip>}
+                    {e.eventName && <Chip tone="neutral">{e.eventName}</Chip>}
+                    {e.allowsExcusedAbsence && <Chip tone="green" icon="check">Approved Absence eligible</Chip>}
                   </div>
                   <div style={{ fontSize: 13, color: theme.dim, lineHeight: 1.5 }}>{e.reason}</div>
                   {e.documentDataUrl && (

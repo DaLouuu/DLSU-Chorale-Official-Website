@@ -30,6 +30,10 @@ type Excuse = {
   eta?: string;
   notes?: string;
   approvedBy?: string;
+  documentFileName?: string;
+  documentDataUrl?: string;
+  eventName?: string;
+  allowsExcusedAbsence?: boolean;
 };
 
 export function AdminExcuses() {
@@ -134,6 +138,8 @@ export function AdminExcuses() {
                       <SectionTag section={e.section} />
                       <Chip tone="neutral">{e.type}</Chip>
                       {e.eta && <Chip tone="neutral" icon="clock">ETA {e.eta}</Chip>}
+                      {e.eventName && <Chip tone="neutral">{e.eventName}</Chip>}
+                      {e.allowsExcusedAbsence && <Chip tone="green" icon="check">Approved Absence eligible</Chip>}
                     </div>
                     <div style={{ fontSize: 13, color: theme.ink, lineHeight: 1.5, marginBottom: 4 }}>{e.reason}</div>
                     {e.documentDataUrl && (

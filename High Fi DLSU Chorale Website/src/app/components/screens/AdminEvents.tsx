@@ -10,6 +10,7 @@ import { supabase } from '../../supabase';
 import { EVENTS, MEMBERS } from '../../data';
 import {
   EventSignup,
+  RoleSlot,
   getEventMeta,
   getEventSignups,
   initializeEventSignups,
@@ -36,6 +37,7 @@ type DbEvent = {
   signup_deadline: string | null;
   cast_size: number | null;
   file_url: string | null;
+  allows_excused_absence: boolean | null;
   created_by: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -53,7 +55,8 @@ type FormData = {
   signup_deadline: string;
   cast_size: string;
   file_url: string;
-  role_slots_text: string;
+  allows_excused_absence: boolean;
+  role_slots: RoleSlot[];
   major_event_enabled: boolean;
   exam_required: boolean;
   ensemble_type: string;
@@ -64,7 +67,8 @@ type AutoFilledKey = keyof Omit<FormData, 'file_url'>;
 const EMPTY_FORM: FormData = {
   name: '', type: 'production', date: '', venue: '',
   call_time: '', attire: '', repertoire: [], signup_deadline: '', cast_size: '', file_url: '',
-  role_slots_text: '', major_event_enabled: false, exam_required: false, ensemble_type: '',
+  allows_excused_absence: false,
+  role_slots: [], major_event_enabled: false, exam_required: false, ensemble_type: '',
 };
 
 const EVENT_TYPE_LABELS: Record<FormData['type'], string> = {
@@ -191,28 +195,6 @@ function normalizeKey(raw: string): string {
   return raw.toLowerCase().replace(/[\s_-]+/g, '_');
 }
 
-function parseRoleSlotsText(input: string) {
-  // One role per line: Committee | Role | Limit
-  return input
-    .split('\n')
-    .map(line => line.trim())
-    .filter(Boolean)
-    .map(line => {
-      const [committee, role, limitRaw] = line.split('|').map(p => p.trim());
-      const limit = Number(limitRaw);
-      return {
-        committee: committee ?? '',
-        role: role ?? '',
-        limit: Number.isFinite(limit) ? limit : 0,
-      };
-    })
-    .filter(row => row.committee && row.role && row.limit > 0);
-}
-
-function roleSlotsToText(slots: { committee: string; role: string; limit: number }[]) {
-  return slots.map(s => `${s.committee} | ${s.role} | ${s.limit}`).join('\n');
-}
-
 const CSV_FIELD_MAP: Record<string, AutoFilledKey> = {
   name: 'name', event_name: 'name', title: 'name',
   type: 'type', event_type: 'type',
@@ -305,6 +287,7 @@ function mapFormToEventRow(
     signup_deadline: source.signup_deadline || null,
     cast_size: source.cast_size ? parseInt(source.cast_size, 10) : null,
     file_url: source.file_url || null,
+    allows_excused_absence: source.allows_excused_absence,
     ...(opts?.includeUpdatedBy ? { updated_by: profileId } : {}),
     ...(opts?.includeCreatedBy ? { created_by: profileId } : {}),
   } as Record<string, any>;
@@ -324,7 +307,8 @@ function mapEventRowToForm(row: DbEvent, meta: EventMeta): FormData {
     signup_deadline: row.signup_deadline ?? '',
     cast_size: row.cast_size != null ? String(row.cast_size) : '',
     file_url: row.file_url ?? '',
-    role_slots_text: roleSlotsToText(meta.roleSlots),
+    allows_excused_absence: !!row.allows_excused_absence,
+    role_slots: meta.roleSlots,
     major_event_enabled: meta.majorEvent.enabled,
     exam_required: meta.majorEvent.examRequired,
     ensemble_type: meta.majorEvent.ensembleType ?? '',
@@ -503,8 +487,10 @@ function FileUploadZone({
     setStatus('Uploading…');
     setError(null);
 
-    // 1. Try to upload to Supabase Storage — failure is non-fatal, CSV parsing still runs
+    // 1. Try to upload to Supabase Storage — failure is non-fatal, CSV/PDF parsing still runs,
+    // but the admin needs to actually see it so they know the file wasn't saved.
     let fileUrl = '';
+    let storageWarning: string | null = null;
     try {
       const path = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
       const { data: uploadData, error: uploadErr } = await supabase.storage
@@ -513,12 +499,15 @@ function FileUploadZone({
 
       if (uploadErr) {
         console.warn('[FileUpload] Storage error:', uploadErr.message);
+        storageWarning = `File was not saved to storage (${uploadErr.message}). Any auto-filled fields below are still usable, but there is no attachment to keep.`;
       } else if (uploadData) {
         fileUrl = supabase.storage.from('events').getPublicUrl(uploadData.path).data.publicUrl;
       }
     } catch (e) {
       console.warn('[FileUpload] Storage unavailable — continuing without attachment URL:', e);
+      storageWarning = 'File was not saved to storage — the attachment storage service is unavailable right now.';
     }
+    setError(storageWarning);
 
     // 2. Parse if CSV or Excel
     const name = file.name.toLowerCase();
@@ -659,6 +648,66 @@ function FormField({
       </div>
       {children}
       {hint && <div style={{ fontSize: 11, color: '#9a7228' }}>{hint}</div>}
+    </div>
+  );
+}
+
+const COMMITTEES = ['Executive', 'Music', 'Logistics', 'Publicity', 'Finance'];
+
+function RoleSlotsEditor({ value, onChange }: { value: RoleSlot[]; onChange: (slots: RoleSlot[]) => void }) {
+  const { theme } = useTheme();
+  const update = (i: number, patch: Partial<RoleSlot>) => {
+    onChange(value.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
+  };
+  const remove = (i: number) => onChange(value.filter((_, idx) => idx !== i));
+  const add = () => onChange([...value, { committee: COMMITTEES[0], role: '', limit: 1 }]);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {value.map((slot, i) => (
+        <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr 90px auto', gap: 8, alignItems: 'center' }}>
+          <select
+            value={slot.committee}
+            onChange={e => update(i, { committee: e.target.value })}
+            style={{ ...inputStyle(theme, false), padding: '8px 10px' }}
+          >
+            {COMMITTEES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <input
+            value={slot.role}
+            onChange={e => update(i, { role: e.target.value })}
+            placeholder="Role title, e.g. Stage Manager"
+            style={{ ...inputStyle(theme, false), padding: '8px 10px' }}
+          />
+          <input
+            type="number"
+            min={1}
+            value={slot.limit || ''}
+            onChange={e => update(i, { limit: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+            placeholder="Needed"
+            style={{ ...inputStyle(theme, false), padding: '8px 10px' }}
+          />
+          <button
+            onClick={() => remove(i)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: theme.dim, padding: 4 }}
+            aria-label="Remove role slot"
+          >
+            <Icon name="x" size={14} />
+          </button>
+        </div>
+      ))}
+      <button
+        onClick={add}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+          padding: '8px 14px', borderRadius: 8, cursor: 'pointer',
+          border: `1px dashed ${theme.lineDark}`, background: 'transparent',
+          color: theme.green, fontSize: 13, fontFamily: FONTS.sans,
+        }}
+      >
+        <Icon name="plus" size={14} stroke={theme.green} />
+        Add role slot
+      </button>
     </div>
   );
 }
@@ -983,7 +1032,7 @@ function EventDrawer({
     }
     if (savedEventId != null) {
       setEventMeta(String(savedEventId), {
-        roleSlots: parseRoleSlotsText(form.role_slots_text),
+        roleSlots: form.role_slots.filter(s => s.committee && s.role && s.limit > 0),
         majorEvent: {
           enabled: form.major_event_enabled,
           examRequired: form.exam_required,
@@ -1124,6 +1173,20 @@ function EventDrawer({
               </div>
             </FormField>
 
+            <FormField label="Excuse filing">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={form.allows_excused_absence}
+                  onChange={e => set('allows_excused_absence', e.target.checked)}
+                />
+                Can be filed for Approved Absence
+              </label>
+              <div style={{ fontSize: 11.5, color: theme.dim, marginTop: 4 }}>
+                Lets members select this event when filing an excused-absence request.
+              </div>
+            </FormField>
+
             {/* Date + Signup deadline */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <FormField label="Date *" autoFilled={autoFilled.has('date')}>
@@ -1199,17 +1262,8 @@ function EventDrawer({
               />
             </FormField>
 
-            <FormField
-              label="Non-performing role slots"
-              hint="One per line: Committee | Role | Limit (e.g. Logistics | Stage Manager | 2)"
-            >
-              <textarea
-                value={form.role_slots_text}
-                onChange={e => set('role_slots_text', e.target.value)}
-                rows={4}
-                placeholder={`Logistics | Stage Manager | 2\nPublicity | Booth Manning | 3`}
-                style={{ ...inputStyle(theme, false), resize: 'vertical' }}
-              />
+            <FormField label="Non-performing role slots">
+              <RoleSlotsEditor value={form.role_slots} onChange={slots => set('role_slots', slots)} />
             </FormField>
 
             {isMajorType(form.type) && (
@@ -1294,6 +1348,7 @@ function mockDbEvents(): DbEvent[] {
     signup_deadline: e.signupDeadline ?? null,
     cast_size: e.castSize ?? null,
     file_url: null,
+    allows_excused_absence: false,
     created_by: null,
     created_at: null,
     updated_at: null,
@@ -1323,10 +1378,14 @@ export function AdminEvents() {
     setLoading(true);
     setFetchError(null);
     try {
-      const { data, error } = await supabase
-        .from('events')
-        .select('event_id, event_date, start_time, end_time, notes, event_type, is_castable, name, venue, call_time, attire, repertoire, signup_deadline, cast_size, file_url, created_by, created_at, updated_at, updated_by')
-        .order('event_date', { ascending: true });
+      // allows_excused_absence is a newer column — if its migration hasn't been
+      // run yet, drop it and retry rather than losing the whole events list.
+      let cols = 'event_id, event_date, start_time, end_time, notes, event_type, is_castable, name, venue, call_time, attire, repertoire, signup_deadline, cast_size, file_url, allows_excused_absence, created_by, created_at, updated_at, updated_by';
+      let { data, error } = await supabase.from('events').select(cols).order('event_date', { ascending: true });
+      if (error?.message?.includes('allows_excused_absence')) {
+        cols = cols.replace(', allows_excused_absence', '');
+        ({ data, error } = await supabase.from('events').select(cols).order('event_date', { ascending: true }));
+      }
 
       if (error) {
         setEvents(mockDbEvents());
