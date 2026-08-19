@@ -141,6 +141,37 @@ export function Login() {
   const [showForgotAdminPwC, setShowForgotAdminPwC] = useState(false);
   const [forgotError, setForgotError] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotQuestionsLoading, setForgotQuestionsLoading] = useState(false);
+
+  // Re-fetch security questions whenever email/ID number change on the forgot-password
+  // screen itself, not just once when the "Forgot password?" link is first clicked —
+  // otherwise editing these fields directly never loads the questions.
+  useEffect(() => {
+    const normalizedEmail = forgotEmail.trim().toLowerCase();
+    const schoolId = Number(forgotIdNumber.trim());
+    if (!normalizedEmail || !schoolId) {
+      setForgotQuestion1('');
+      setForgotQuestion2('');
+      setForgotUserIsAdmin(false);
+      return;
+    }
+    let cancelled = false;
+    setForgotQuestionsLoading(true);
+    const timer = setTimeout(async () => {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_admin, security_question_1, security_question_2')
+        .eq('school_id', schoolId)
+        .maybeSingle();
+      if (cancelled) return;
+      setForgotUserIsAdmin(profile?.is_admin === true);
+      setForgotQuestion1(profile?.security_question_1 ?? '');
+      setForgotQuestion2(profile?.security_question_2 ?? '');
+      setForgotQuestionsLoading(false);
+    }, 500);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [forgotEmail, forgotIdNumber]);
+
   const setupPasswordsMatchAcrossRoles =
     verifiedUser?.isAdmin === true &&
     memberPw.length > 0 &&
@@ -1067,7 +1098,7 @@ export function Login() {
               </div>
               <div>
                 {fieldLabel('Question 1')}
-                <input value={forgotQuestion1} readOnly placeholder="Enter email and ID first to load question" style={inputStyle()} />
+                <input value={forgotQuestion1} readOnly placeholder={forgotQuestionsLoading ? 'Loading…' : 'Enter email and ID first to load question'} style={inputStyle()} />
               </div>
               <div>
                 {fieldLabel('Answer 1')}
@@ -1081,7 +1112,7 @@ export function Login() {
               </div>
               <div>
                 {fieldLabel('Question 2')}
-                <input value={forgotQuestion2} readOnly placeholder="Enter email and ID first to load question" style={inputStyle()} />
+                <input value={forgotQuestion2} readOnly placeholder={forgotQuestionsLoading ? 'Loading…' : 'Enter email and ID first to load question'} style={inputStyle()} />
               </div>
               <div>
                 {fieldLabel('Answer 2')}
@@ -1522,35 +1553,22 @@ export function Login() {
 
           <button
             type="button"
-            onClick={async () => {
+            onClick={() => {
               setForgotError('');
               const normalizedEmail = email.trim().toLowerCase();
               const schoolId = Number(idNumber.trim());
+              // Prefill from the login form if it was already filled in — the
+              // effect watching forgotEmail/forgotIdNumber loads the security
+              // questions, whether prefilled here or typed directly below.
               setForgotEmail(normalizedEmail);
               setForgotIdNumber(schoolId ? String(schoolId) : '');
-              setForgotQuestion1('');
               setForgotAnswer1('');
-              setForgotQuestion2('');
               setForgotAnswer2('');
               setForgotMemberPw('');
               setForgotMemberPwC('');
               setForgotAdminPw('');
               setForgotAdminPwC('');
               setForgotResetAdmin(false);
-              setForgotUserIsAdmin(false);
-
-              if (normalizedEmail && schoolId) {
-                const { data: profile } = await supabase
-                  .from('profiles')
-                  .select('is_admin, security_question_1, security_question_2')
-                  .eq('school_id', schoolId)
-                  .maybeSingle();
-                if (profile?.is_admin === true) {
-                  setForgotUserIsAdmin(true);
-                }
-                setForgotQuestion1(profile?.security_question_1 ?? '');
-                setForgotQuestion2(profile?.security_question_2 ?? '');
-              }
 
               setScreen('forgot');
             }}
