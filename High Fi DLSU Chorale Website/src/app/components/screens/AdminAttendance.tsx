@@ -57,7 +57,7 @@ function FiltersModal({ onClose, filters, onApply }: { onClose: () => void; filt
   const [local, setLocal] = useState(filters);
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(8,32,26,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 24 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: theme.paper, borderRadius: 14, width: 500, border: `1px solid ${theme.line}` }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: theme.paper, borderRadius: 14, width: 'min(500px, 100%)', border: `1px solid ${theme.line}` }}>
         <div style={{ padding: '22px 28px', borderBottom: `1px solid ${theme.line}`, background: theme.cream }}>
           <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, color: theme.green, textTransform: 'uppercase' }}>Attendance Overview</div>
           <h3 style={{ fontFamily: FONTS.serif, fontSize: 24, margin: '6px 0 0', fontWeight: 500 }}>Filters</h3>

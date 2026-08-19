@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme, useApp } from '../../App';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
@@ -34,6 +34,13 @@ export function MemberMusicLibrary() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [eventFilter, setEventFilter] = useState<string>('all');
+  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setVw(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  const isMobile = vw < 768;
 
   const getIcon = (type: string) => {
     if (type === 'Score') return 'file';
@@ -79,7 +86,7 @@ export function MemberMusicLibrary() {
       />
 
       <Card style={{ marginBottom: 20 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr 1fr', gap: 12 }}>
           <div>
             <label style={{ fontSize: 11.5, fontFamily: FONTS.mono, letterSpacing: 1, color: theme.dim, textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>
               Search
@@ -191,44 +198,7 @@ export function MemberMusicLibrary() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                 {filteredItems.map((item, i) => {
                   const itemEvent = (item as any).eventId ? allEvents.find((e: any) => e.id === (item as any).eventId) : null;
-                  return (
-                  <div
-                    key={i}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'auto 1fr auto auto auto',
-                      gap: 16,
-                      alignItems: 'center',
-                      padding: '16px 20px',
-                      borderTop: i === 0 ? 'none' : `1px solid ${theme.line}`,
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 8,
-                        background: theme.cream,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Icon name={getIcon(item.type) as any} size={20} stroke={getTypeColor(item.type)} />
-                    </div>
-
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 3 }}>{item.title}</div>
-                      <div style={{ fontSize: 12, color: theme.dim }}>{item.notes}</div>
-                      {itemEvent && (
-                        <div style={{ marginTop: 4 }}>
-                          <Chip tone="neutral" style={{ fontSize: 10, padding: '2px 6px' }}>
-                            {itemEvent.name}
-                          </Chip>
-                        </div>
-                      )}
-                    </div>
-
+                  const typeBadge = (
                     <div
                       style={{
                         fontSize: 11,
@@ -239,56 +209,129 @@ export function MemberMusicLibrary() {
                         background: theme.cream,
                         padding: '4px 10px',
                         borderRadius: 6,
+                        flexShrink: 0,
                       }}
                     >
                       {item.type}
                     </div>
+                  );
+                  const openButton = isValidLink(item.link) ? (
+                    <a
+                      href={item.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '8px 14px',
+                        fontSize: 13,
+                        background: theme.green,
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        textDecoration: 'none',
+                        fontFamily: FONTS.sans,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Icon name="externalLink" size={14} />
+                      Open
+                    </a>
+                  ) : (
+                    <span
+                      title="Link not available yet"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '8px 14px',
+                        fontSize: 13,
+                        background: theme.line,
+                        color: theme.dim,
+                        border: 'none',
+                        borderRadius: 8,
+                        cursor: 'not-allowed',
+                        fontFamily: FONTS.sans,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Icon name="externalLink" size={14} />
+                      Unavailable
+                    </span>
+                  );
+                  const icon = (
+                    <div
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 8,
+                        background: theme.cream,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Icon name={getIcon(item.type) as any} size={20} stroke={getTypeColor(item.type)} />
+                    </div>
+                  );
+                  const details = (
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 3 }}>{item.title}</div>
+                      <div style={{ fontSize: 12, color: theme.dim }}>{item.notes}</div>
+                      {itemEvent && (
+                        <div style={{ marginTop: 4 }}>
+                          <Chip tone="neutral" style={{ fontSize: 10, padding: '2px 6px' }}>
+                            {itemEvent.name}
+                          </Chip>
+                        </div>
+                      )}
+                    </div>
+                  );
 
-                    {isValidLink(item.link) ? (
-                      <a
-                        href={item.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                  if (isMobile) {
+                    return (
+                      <div
+                        key={i}
                         style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          padding: '8px 14px',
-                          fontSize: 13,
-                          background: theme.green,
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: 8,
-                          cursor: 'pointer',
-                          textDecoration: 'none',
-                          fontFamily: FONTS.sans,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 12,
+                          padding: '14px 16px',
+                          borderTop: i === 0 ? 'none' : `1px solid ${theme.line}`,
                         }}
                       >
-                        <Icon name="externalLink" size={14} />
-                        Open
-                      </a>
-                    ) : (
-                      <span
-                        title="Link not available yet"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          padding: '8px 14px',
-                          fontSize: 13,
-                          background: theme.line,
-                          color: theme.dim,
-                          border: 'none',
-                          borderRadius: 8,
-                          cursor: 'not-allowed',
-                          fontFamily: FONTS.sans,
-                        }}
-                      >
-                        <Icon name="externalLink" size={14} />
-                        Unavailable
-                      </span>
-                    )}
-                  </div>
+                        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                          {icon}
+                          {details}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                          {typeBadge}
+                          {openButton}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'auto 1fr auto auto auto',
+                        gap: 16,
+                        alignItems: 'center',
+                        padding: '16px 20px',
+                        borderTop: i === 0 ? 'none' : `1px solid ${theme.line}`,
+                      }}
+                    >
+                      {icon}
+                      {details}
+                      {typeBadge}
+                      {openButton}
+                    </div>
                   );
                 })}
               </div>

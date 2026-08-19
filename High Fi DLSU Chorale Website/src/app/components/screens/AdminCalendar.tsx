@@ -342,6 +342,13 @@ export function AdminCalendar() {
   const app = useApp();
   const [showModal, setShowModal] = useState(false);
   const [editingRehearsal, setEditingRehearsal] = useState<any>(null);
+  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setVw(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  const isMobile = vw < 768;
   const [rehearsals, setRehearsals] = useState<any[]>(() => {
     const fromEvents = eventsToRehearsals(EVENTS);
     return fromEvents.length > 0 ? fromEvents : (window.REHEARSALS || []);
@@ -464,12 +471,12 @@ export function AdminCalendar() {
                   key={r.id}
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: '110px 140px 1fr auto auto auto',
-                    gap: 14,
+                    gridTemplateColumns: isMobile ? '1fr' : '110px 140px 1fr auto auto auto',
+                    gap: isMobile ? 8 : 14,
                     padding: '12px 14px',
                     background: theme.cream,
                     borderRadius: 10,
-                    alignItems: 'center',
+                    alignItems: isMobile ? 'flex-start' : 'center',
                     fontSize: 13,
                     cursor: 'pointer',
                   }}
@@ -515,7 +522,7 @@ export function AdminCalendar() {
                     {r.time}–{r.endTime}
                   </div>
 
-                  <div style={{ textAlign: 'right' }}>
+                  <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
                     <div style={{ fontSize: 12, color: theme.dim }}>Est. attendance</div>
                     <div style={{ fontWeight: 600, color: conflicts.length > 5 ? theme.amber : theme.green }}>
                       {estimatedAttendance}/{totalMembers}
@@ -527,8 +534,13 @@ export function AdminCalendar() {
 
                   {/* Stop row click from bubbling on delete */}
                   <button
-                    onClick={e => { e.stopPropagation(); handleDelete(r.id); }}
-                    style={{ padding: 8, background: 'transparent', border: `1px solid ${theme.red}`, borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', color: theme.red }}
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (window.confirm(`Delete this ${r.type.toLowerCase()} on ${new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}? This can't be undone.`)) {
+                        handleDelete(r.id);
+                      }
+                    }}
+                    style={{ padding: 8, background: 'transparent', border: `1px solid ${theme.red}`, borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', color: theme.red, justifySelf: isMobile ? 'flex-start' : 'auto' }}
                   >
                     <Icon name="trash" size={14} />
                   </button>

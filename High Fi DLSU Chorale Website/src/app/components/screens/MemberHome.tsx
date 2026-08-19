@@ -293,11 +293,11 @@ export function MemberHome() {
       {selectedEvent && (
         <div
           onClick={() => setSelectedEvent(null)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(8,32,26,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 24 }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(8,32,26,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 12 }}
         >
           <div
             onClick={e => e.stopPropagation()}
-            style={{ background: theme.paper, borderRadius: 14, width: 600, maxHeight: '85vh', overflowY: 'auto', border: `1px solid ${theme.line}` }}
+            style={{ background: theme.paper, borderRadius: 14, width: 'min(600px, 100%)', maxHeight: '85vh', overflowY: 'auto', border: `1px solid ${theme.line}` }}
           >
             <div style={{ padding: '22px 28px', borderBottom: `1px solid ${theme.line}`, background: theme.cream }}>
               <div style={{ fontSize: 11, fontFamily: FONTS.mono, letterSpacing: 1, color: selectedEvent.color, textTransform: 'uppercase', marginBottom: 6 }}>

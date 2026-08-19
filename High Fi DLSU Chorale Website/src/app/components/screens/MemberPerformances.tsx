@@ -149,7 +149,7 @@ function SignUpFormModal({
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{ background: theme.paper, color: theme.ink, borderRadius: 14, width: 620, maxHeight: '85vh', overflowY: 'auto', border: `1px solid ${theme.line}` }}
+        style={{ background: theme.paper, color: theme.ink, borderRadius: 14, width: 'min(620px, 100%)', maxHeight: '85vh', overflowY: 'auto', border: `1px solid ${theme.line}` }}
       >
         <div style={{ padding: '22px 28px', borderBottom: `1px solid ${theme.line}`, background: theme.cream }}>
           <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, color: theme.green, textTransform: 'uppercase' }}>

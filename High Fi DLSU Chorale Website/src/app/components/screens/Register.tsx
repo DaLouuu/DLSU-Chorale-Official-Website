@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useTheme } from '../../App';
 import { FONTS } from '../../theme';
 import { Button } from '../ui/Button';
@@ -11,6 +11,13 @@ export function Register() {
   const { theme } = useTheme();
   const [step, setStep] = useState(1);
   const [data, setData] = useState({ email: '', name: '', section: 'Soprano', year: '1st Year', studentId: '' });
+  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setVw(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  const isMobile = vw < 768;
 
   const next = () => setStep(s => Math.min(3, s + 1));
   const prev = () => setStep(s => Math.max(1, s - 1));
@@ -20,16 +27,18 @@ export function Register() {
   });
 
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', background: theme.cream, fontFamily: FONTS.sans }}>
+    <div style={{ width: '100%', minHeight: '100%', display: 'flex', flexDirection: isMobile ? 'column' : 'row', background: theme.cream, fontFamily: FONTS.sans }}>
       <div
         style={{
-          width: 320,
-          padding: 40,
+          width: isMobile ? '100%' : 320,
+          flexShrink: 0,
+          boxSizing: 'border-box',
+          padding: isMobile ? '28px 24px' : 40,
           background: theme.greenDark,
           color: '#fff',
           display: 'flex',
           flexDirection: 'column',
-          gap: 40,
+          gap: isMobile ? 24 : 40,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -75,7 +84,7 @@ export function Register() {
           </a>
         </div>
       </div>
-      <div style={{ flex: 1, padding: '60px 80px', overflow: 'auto' }}>
+      <div style={{ flex: 1, padding: isMobile ? '32px 20px' : '60px 80px', overflow: 'auto', boxSizing: 'border-box' }}>
         <div style={{ maxWidth: 520 }}>
           {step === 1 && (
             <>
@@ -88,7 +97,7 @@ export function Register() {
                   setData({ ...data, email: 'new_member@dlsu.edu.ph', name: 'New Member' });
                   next();
                 }}
-                style={{ marginTop: 24, width: 320, justifyContent: 'center' }}
+                style={{ marginTop: 24, width: isMobile ? '100%' : 320, justifyContent: 'center' }}
               >
                 <svg width="16" height="16" viewBox="0 0 48 48">
                   <path

@@ -14,15 +14,17 @@ export function PendingVerification() {
     <div
       style={{
         width: '100%',
-        height: '100%',
+        minHeight: '100%',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         background: theme.cream,
         fontFamily: FONTS.sans,
+        padding: 20,
+        boxSizing: 'border-box',
       }}
     >
-      <Card pad={48} style={{ width: 560, textAlign: 'center' }}>
+      <Card pad={32} style={{ width: 'min(560px, 100%)', textAlign: 'center' }}>
         <div
           style={{
             width: 64,

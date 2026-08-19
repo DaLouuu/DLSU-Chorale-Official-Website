@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme, useApp, useRouter } from '../../App';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
@@ -18,6 +18,13 @@ export function MemberCalendar() {
   const { user } = useRouter();
   const app = useApp();
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setVw(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  const isMobile = vw < 768;
 
   const handleEventClick = (event: any) => {
     setSelectedEvent(event);
@@ -82,13 +89,13 @@ export function MemberCalendar() {
                 key={i}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '100px 2fr 1fr 120px',
-                  gap: 12,
+                  gridTemplateColumns: isMobile ? '1fr' : '100px 2fr 1fr 120px',
+                  gap: isMobile ? 4 : 12,
                   padding: 12,
                   background: theme.cream,
                   borderRadius: 8,
                   fontSize: 13,
-                  alignItems: 'center',
+                  alignItems: isMobile ? 'flex-start' : 'center',
                 }}
               >
                 <div style={{ fontFamily: FONTS.mono, fontWeight: 600, color: theme.green }}>
@@ -118,7 +125,7 @@ export function MemberCalendar() {
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 50,
-            padding: 24,
+            padding: isMobile ? 12 : 24,
           }}
         >
           <div
@@ -126,13 +133,13 @@ export function MemberCalendar() {
             style={{
               background: theme.paper,
               borderRadius: 14,
-              width: 600,
+              width: 'min(600px, 100%)',
               maxHeight: '85vh',
               overflowY: 'auto',
               border: `1px solid ${theme.line}`,
             }}
           >
-            <div style={{ padding: '22px 28px', borderBottom: `1px solid ${theme.line}`, background: theme.cream }}>
+            <div style={{ padding: isMobile ? '18px 20px' : '22px 28px', borderBottom: `1px solid ${theme.line}`, background: theme.cream }}>
               <div
                 style={{
                   fontSize: 11,
@@ -150,7 +157,7 @@ export function MemberCalendar() {
               </h3>
             </div>
 
-            <div style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ padding: isMobile ? 20 : 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '12px 16px', fontSize: 14 }}>
                 <Icon name="calendar" size={18} stroke={theme.dim} />
                 <div>
