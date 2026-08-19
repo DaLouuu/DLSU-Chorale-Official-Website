@@ -666,8 +666,8 @@ function FormField({
 function inputStyle(theme: any, autoFilled: boolean) {
   return {
     width: '100%', padding: '9px 12px', boxSizing: 'border-box' as const,
-    border: `1px solid ${autoFilled ? '#c9a84c' : theme.lineDark}`,
-    background: autoFilled ? '#fef9ec' : theme.paper,
+    border: `1px solid ${autoFilled ? theme.amber : theme.lineDark}`,
+    background: autoFilled ? theme.amberSoft : theme.paper,
     borderRadius: 8, fontSize: 13.5, fontFamily: FONTS.sans,
     color: theme.ink, outline: 'none',
   };

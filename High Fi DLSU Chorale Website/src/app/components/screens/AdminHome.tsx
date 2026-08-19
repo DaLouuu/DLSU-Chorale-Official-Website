@@ -54,7 +54,7 @@ function generateWeeklyDates(startDate: string, endDate: string, days: string[])
 }
 
 function BroadcastNoticeModal({ onClose, onBroadcast }: { onClose: () => void; onBroadcast: (data: { title: string; body: string; pinned: boolean; recipients: string }) => void }) {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
   const isMobile = useViewportWidth() < 768;
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -77,6 +77,7 @@ function BroadcastNoticeModal({ onClose, onBroadcast }: { onClose: () => void; o
     color: theme.ink,
     outline: 'none',
     boxSizing: 'border-box' as const,
+    colorScheme: mode,
   };
 
   return (
@@ -134,7 +135,7 @@ function BroadcastNoticeModal({ onClose, onBroadcast }: { onClose: () => void; o
 }
 
 function RehearsalModal({ rehearsal, onClose, onSave, onDelete }: any) {
-  const { theme } = useTheme();
+  const { theme, mode: themeMode } = useTheme();
   const isMobile = useViewportWidth() < 768;
   const [mode, setMode] = useState<ScheduleMode>('single');
 
@@ -186,6 +187,7 @@ function RehearsalModal({ rehearsal, onClose, onSave, onDelete }: any) {
     color: theme.ink,
     outline: 'none',
     boxSizing: 'border-box',
+    colorScheme: themeMode,
   };
 
   return (

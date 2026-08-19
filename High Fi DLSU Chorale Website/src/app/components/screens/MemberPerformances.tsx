@@ -112,7 +112,7 @@ function SignUpFormModal({
   onClose: () => void;
   onSubmit: () => void;
 }) {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
   const forms = event.forms || {};
   const activeForms = [
     forms.waiver?.enabled ? { key: 'waiver', ...forms.waiver } : null,
@@ -140,6 +140,7 @@ function SignUpFormModal({
     fontSize: 14, fontFamily: FONTS.sans,
     background: theme.paper, color: theme.ink,
     outline: 'none', boxSizing: 'border-box' as const,
+    colorScheme: mode,
   };
 
   return (

@@ -15,7 +15,7 @@ type FieldProps = {
 };
 
 export function Field({ label, select, options, type = 'text', value, onChange, placeholder, readOnly, min, max }: FieldProps) {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
 
   const base = {
     width: '100%',
@@ -28,6 +28,10 @@ export function Field({ label, select, options, type = 'text', value, onChange, 
     color: theme.ink,
     outline: 'none',
     boxSizing: 'border-box' as const,
+    // Native date/time picker icons (and other browser-drawn form chrome)
+    // otherwise stay light-mode-colored regardless of the app's own theme,
+    // since that chrome is drawn by the browser, not this stylesheet.
+    colorScheme: mode,
   };
 
   return (

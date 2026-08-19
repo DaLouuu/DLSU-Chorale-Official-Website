@@ -4,9 +4,11 @@ import { FONTS } from '../../theme';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Logo } from '../ui/Logo';
+import { DecorativeAccent } from '../ui/DecorativeAccent';
 import { supabase } from '../../supabase';
 import { initializeUserData } from '../../data';
 import { Moon, Sun } from 'lucide-react';
+import choirTcc from '../../../imports/choir-tcc.png';
 
 function useViewportWidth() {
   const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
@@ -304,6 +306,7 @@ export function Login() {
   const GreenPanel = () => (
     <div
       style={{
+        position: 'relative',
         width: isMobile ? '100%' : 360,
         minHeight: isMobile ? 160 : undefined,
         padding: isMobile ? '28px 28px 24px' : '40px 36px',
@@ -313,19 +316,21 @@ export function Login() {
         flexDirection: 'column',
         justifyContent: isMobile ? 'flex-start' : 'space-between',
         gap: isMobile ? 16 : 0,
-        backgroundImage: `linear-gradient(180deg, rgba(8,50,24,0.85), rgba(8,50,24,0.95)), url("assets/choir-tcc.png")`,
+        backgroundImage: `linear-gradient(180deg, rgba(8,50,24,0.72), rgba(8,50,24,0.88)), url(${choirTcc})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
+        overflow: 'hidden',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <DecorativeAccent corner="bottom-right" />
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 10 }}>
         <Logo size={isMobile ? 32 : 40} color="white" />
         <div style={{ fontFamily: FONTS.serif, fontSize: isMobile ? 16 : 18, letterSpacing: 0.3 }}>
           DLSU Chorale
         </div>
       </div>
       {!isMobile && (
-        <div>
+        <div style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ fontFamily: FONTS.mono, fontSize: 10, letterSpacing: 2, opacity: 0.7, textTransform: 'uppercase', marginBottom: 14 }}>
             Sign in to continue
           </div>
@@ -337,7 +342,7 @@ export function Login() {
         </div>
       )}
       {!isMobile && (
-        <div style={{ fontSize: 11, fontFamily: FONTS.mono, opacity: 0.6, letterSpacing: 0.5 }}>
+        <div style={{ position: 'relative', zIndex: 1, fontSize: 11, fontFamily: FONTS.mono, opacity: 0.6, letterSpacing: 0.5 }}>
           New here? Create an account →
         </div>
       )}

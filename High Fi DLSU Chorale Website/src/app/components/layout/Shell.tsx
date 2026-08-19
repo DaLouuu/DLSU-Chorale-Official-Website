@@ -4,6 +4,7 @@ import { FONTS } from '../../theme';
 import { Icon } from '../ui/Icon';
 import { Avatar } from '../ui/Avatar';
 import { NotificationBell } from '../ui/NotificationBell';
+import { DecorativeAccent } from '../ui/DecorativeAccent';
 import logo from '../../../imports/dlsu-chorale-logo.png';
 import { MEMBERS, SOCIAL_EVENTS } from '../../data';
 
@@ -54,6 +55,8 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
   return (
     <aside
       style={{
+        position: 'relative',
+        overflow: 'hidden',
         width: 240,
         background: theme.greenDark,
         color: '#F1EFEA',
@@ -64,7 +67,8 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
         height: '100%',
       }}
     >
-      <div style={{ padding: '22px 20px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+      <DecorativeAccent corner="bottom-left" scale={0.85} />
+      <div style={{ position: 'relative', zIndex: 1, padding: '22px 20px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <img src={logo} alt="DLSU Chorale" style={{ height: 38, width: 'auto', filter: 'brightness(0) invert(1)' }} />
           <div>
@@ -77,7 +81,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
         </div>
       </div>
 
-      <nav style={{ padding: 10, flex: 1 }}>
+      <nav style={{ position: 'relative', zIndex: 1, padding: 10, flex: 1 }}>
         {items.map(it => {
           const active = route === it.key;
           return (
@@ -109,7 +113,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
         })}
       </nav>
 
-      <div style={{ padding: 14, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+      <div style={{ position: 'relative', zIndex: 1, padding: 14, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
         <button
           onClick={() => {
             try { localStorage.removeItem('chorale_session'); sessionStorage.removeItem('chorale_session'); } catch {}

@@ -5,6 +5,7 @@ import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
 import { Logo } from '../ui/Logo';
 import { MEMBERS } from '../../data';
+import choirB2b1 from '../../../imports/choir-b2b-1.png';
 
 declare global {
   interface Window {
@@ -133,7 +134,7 @@ export function RFIDKiosk() {
         color: '#fff',
         display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
-        backgroundImage: `linear-gradient(135deg, rgba(8,50,24,0.92), rgba(17,94,43,0.82)), url("assets/choir-b2b-1.png")`,
+        backgroundImage: `linear-gradient(135deg, rgba(8,50,24,0.82), rgba(17,94,43,0.7)), url(${choirB2b1})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }}

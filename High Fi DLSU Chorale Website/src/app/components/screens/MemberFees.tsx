@@ -191,7 +191,7 @@ function PaymentModal({
   onClose: () => void;
   onSubmit: (data: any) => void;
 }) {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
   const vw = useViewportWidth();
   const isMobile = vw < 640;
   const today = new Date().toISOString().slice(0, 10);
@@ -287,6 +287,7 @@ function PaymentModal({
     color: theme.ink,
     outline: 'none',
     boxSizing: 'border-box' as const,
+    colorScheme: mode,
   };
 
   const labelStyle = {
