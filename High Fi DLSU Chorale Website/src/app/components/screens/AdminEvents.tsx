@@ -454,8 +454,8 @@ function RepertoireInput({
           placeholder="Add piece and press Enter…"
           style={{
             flex: 1, padding: '9px 12px',
-            border: `1px solid ${autoFilled ? '#c9a84c' : theme.lineDark}`,
-            background: autoFilled ? '#fef9ec' : theme.paper,
+            border: `1px solid ${autoFilled ? theme.amber : theme.lineDark}`,
+            background: autoFilled ? theme.amberSoft : theme.paper,
             borderRadius: 8, fontSize: 13.5, fontFamily: FONTS.sans,
             color: theme.ink, outline: 'none',
           }}
@@ -616,10 +616,10 @@ function FileUploadZone({
       onDrop={onDrop}
       onClick={() => inputRef.current?.click()}
       style={{
-        border: `2px dashed ${dragOver ? '#c9a84c' : theme.lineDark}`,
+        border: `2px dashed ${dragOver ? theme.amber : theme.lineDark}`,
         borderRadius: 12, padding: '24px 20px', textAlign: 'center',
         cursor: 'pointer', marginBottom: 20,
-        background: dragOver ? '#fef9ec' : theme.cream,
+        background: dragOver ? theme.amberSoft : theme.cream,
         transition: 'all 0.15s',
       }}
     >
@@ -630,7 +630,7 @@ function FileUploadZone({
         style={{ display: 'none' }}
         onChange={onFileChange}
       />
-      <Icon name="download" size={22} stroke={uploading ? '#c9a84c' : theme.dim} />
+      <Icon name="download" size={22} stroke={uploading ? theme.amber : theme.dim} />
       <div style={{ marginTop: 8, fontSize: 13.5, color: theme.ink }}>
         {status ?? 'Drop a file or click to browse'}
       </div>
@@ -657,13 +657,13 @@ function FormField({
         {autoFilled && (
           <span style={{
             fontSize: 9, fontFamily: FONTS.mono, letterSpacing: 1,
-            background: '#c9a84c22', color: '#9a7228', padding: '1px 6px',
+            background: theme.amber + '22', color: theme.amber, padding: '1px 6px',
             borderRadius: 4, textTransform: 'uppercase',
           }}>auto-filled</span>
         )}
       </div>
       {children}
-      {hint && <div style={{ fontSize: 11, color: '#9a7228' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 11, color: theme.amber }}>{hint}</div>}
     </div>
   );
 }
@@ -842,8 +842,8 @@ function ChangeSummaryModal({
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {changes.map(c => (
-              <div key={c.field} style={{ padding: '10px 14px', borderRadius: 8, background: '#fef9ec', border: '1px solid #e8d99a' }}>
-                <div style={{ fontSize: 10.5, fontFamily: FONTS.mono, letterSpacing: 1, color: '#9a7228', textTransform: 'uppercase', marginBottom: 4 }}>{c.field}</div>
+              <div key={c.field} style={{ padding: '10px 14px', borderRadius: 8, background: theme.amberSoft, border: `1px solid ${theme.amber}` }}>
+                <div style={{ fontSize: 10.5, fontFamily: FONTS.mono, letterSpacing: 1, color: theme.amber, textTransform: 'uppercase', marginBottom: 4 }}>{c.field}</div>
                 <div style={{ fontSize: 13, color: theme.dim, textDecoration: 'line-through' }}>{c.from || '—'}</div>
                 <div style={{ fontSize: 13, color: theme.ink, fontWeight: 500 }}>→ {c.to || '—'}</div>
               </div>
@@ -1155,7 +1155,7 @@ function EventDrawer({
             />
 
             {autoFilled.size > 0 && (
-              <div style={{ padding: '10px 14px', borderRadius: 8, background: '#fef9ec', border: '1px solid #e8d99a', fontSize: 12.5, color: '#9a7228' }}>
+              <div style={{ padding: '10px 14px', borderRadius: 8, background: theme.amberSoft, border: `1px solid ${theme.amber}`, fontSize: 12.5, color: theme.amber }}>
                 <strong>Auto-filled:</strong> {[...autoFilled].join(', ')} — review highlighted fields before saving.
               </div>
             )}

@@ -125,6 +125,10 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+@keyframes pulse-fade {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
 
 @layer base {
   * {
@@ -191,18 +195,23 @@
     line-height: 1.5;
   }
 
-  /* Elegant hover feedback for every button in the app. Buttons are styled
-     inline everywhere (not via Tailwind classes), so a global base rule is
-     the only way to cover them all without touching every screen file.
-     Only `filter`/`transform`/`transition` are set here — inline `style`
-     props always win over stylesheet rules for the properties they set
-     (background, color, border, etc.), so this never fights a component's
-     own colors. */
+  /* Elegant hover feedback for every button in the app, including tabs
+     (which are plain <button>s styled inline, often with a transparent
+     background when inactive). Buttons are styled inline everywhere (not
+     via Tailwind classes), so a global base rule is the only way to cover
+     them all without touching every screen file. Only `filter`/`transform`/
+     `box-shadow`/`transition` are set here — inline `style` props always
+     win over stylesheet rules for the properties they set (background,
+     color, border, etc.), so this never fights a component's own colors.
+     `transform` is the important one for transparent tab buttons: a
+     brightness filter alone is invisible with nothing to brighten, but a
+     lift reads clearly regardless of what's behind it. */
   button:not(:disabled) {
-    transition: filter 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    transition: filter 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
   }
   button:not(:disabled):hover {
-    filter: brightness(1.07);
+    filter: brightness(1.1);
+    transform: translateY(-1.5px);
   }
   button:not(:disabled):active {
     filter: brightness(0.96);

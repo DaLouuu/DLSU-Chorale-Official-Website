@@ -309,7 +309,7 @@ function RehearsalModal({ rehearsal, onClose, onSave, onDelete }: any) {
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     {previewDates.slice(0, 12).map(d => (
-                      <span key={d} style={{ fontSize: 12, fontFamily: FONTS.mono, color: theme.greenDeep, background: 'rgba(255,255,255,0.6)', padding: '3px 8px', borderRadius: 4 }}>
+                      <span key={d} style={{ fontSize: 12, fontFamily: FONTS.mono, color: theme.ink, background: theme.paper, padding: '3px 8px', borderRadius: 4 }}>
                         {new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}
                       </span>
                     ))}

@@ -8,7 +8,7 @@ type DecorativeAccentProps = {
 };
 
 /**
- * Soft blurred blobs + a few thin arcs, in the brand green/gold, for large
+ * Soft blurred blobs + a few thin arcs, in the brand green/teal, for large
  * flat dark-green surfaces (auth side panels, sidebar, kiosk) that otherwise
  * have no visual texture. Positioned absolutely inside a `position: relative`
  * parent; pointer-events are disabled so it never blocks clicks.

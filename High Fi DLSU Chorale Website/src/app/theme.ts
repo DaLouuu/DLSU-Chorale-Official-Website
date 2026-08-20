@@ -11,8 +11,10 @@ export const PALETTES = {
     dim: "#5A6B61",
     line: "#E4E6E0",
     lineDark: "#CBD0C9",
-    amber: "#C88A1E",
-    amberSoft: "#F6ECD7",
+    // Kept the "amber" key name to avoid touching every call site — the
+    // brand accent moved from gold to teal, this is the only place it's defined.
+    amber: "#1E7F76",
+    amberSoft: "#E3F3F1",
     red: "#A93226",
     redSoft: "#F5E0DD",
     blue: "#2C5B8E",
@@ -31,8 +33,8 @@ export const PALETTES = {
     dim: "#8C9890",
     line: "#2A342E",
     lineDark: "#3A453E",
-    amber: "#E5B353",
-    amberSoft: "#3A2E18",
+    amber: "#5FD3C4",
+    amberSoft: "#173330",
     red: "#D9645A",
     redSoft: "#3A1E1B",
     blue: "#6A98CA",

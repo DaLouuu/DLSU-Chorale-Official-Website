@@ -8,7 +8,7 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | und
 const SEND_EMAIL_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/send-email` : undefined;
 
 const G = '#09331f';
-const GOLD = '#c9a84c';
+const TEAL = '#1e7f76';
 
 async function send(to: string, subject: string, html: string) {
   if (!SEND_EMAIL_URL || !to) return;
@@ -31,7 +31,7 @@ function wrap(body: string) {
   return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f7f8f6;font-family:system-ui,sans-serif">
 <div style="max-width:560px;margin:32px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;box-shadow:0 2px 12px rgba(0,0,0,0.06)">
   <div style="background:${G};padding:22px 32px">
-    <p style="margin:0;color:${GOLD};font-size:10px;letter-spacing:2.5px;text-transform:uppercase;font-weight:600">DLSU Chorale</p>
+    <p style="margin:0;color:${TEAL};font-size:10px;letter-spacing:2.5px;text-transform:uppercase;font-weight:600">DLSU Chorale</p>
   </div>
   <div style="padding:32px 32px 24px">${body}</div>
   <div style="padding:14px 32px;background:#f7f8f6;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:center">
@@ -141,7 +141,7 @@ export function notifyAnnouncement(opts: {
   author: string;
 }) {
   const html = wrap(
-    (opts.pinned ? badge('Pinned', '#c9a84c') + '<br/><br/>' : '') +
+    (opts.pinned ? badge('Pinned', TEAL) + '<br/><br/>' : '') +
     h2(`📣 ${opts.title}`) +
     `<p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px">${opts.body}</p>
      <p style="font-size:12px;color:#9ca3af;margin:0">— ${opts.author}</p>` +

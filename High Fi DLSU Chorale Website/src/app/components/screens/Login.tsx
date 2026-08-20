@@ -1023,7 +1023,7 @@ export function Login({ startAtRoleSelect }: { startAtRoleSelect?: boolean } = {
                 flexDirection: 'column',
                 gap: 12,
               }}>
-                <div style={{ fontFamily: FONTS.mono, fontSize: 10, letterSpacing: 1.5, color: '#c9a84c', textTransform: 'uppercase' as const }}>
+                <div style={{ fontFamily: FONTS.mono, fontSize: 10, letterSpacing: 1.5, color: theme.amber, textTransform: 'uppercase' as const }}>
                   Admin Console Password
                 </div>
                 <p style={{ fontSize: 12, color: theme.dim, margin: 0 }}>
@@ -1260,7 +1260,7 @@ export function Login({ startAtRoleSelect }: { startAtRoleSelect?: boolean } = {
 
             {forgotResetAdmin && (
               <div style={{ padding: '16px 18px', background: theme.cream, borderRadius: 10, border: `1px solid ${theme.line}`, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ fontFamily: FONTS.mono, fontSize: 10, letterSpacing: 1.5, color: '#c9a84c', textTransform: 'uppercase' as const }}>
+                <div style={{ fontFamily: FONTS.mono, fontSize: 10, letterSpacing: 1.5, color: theme.amber, textTransform: 'uppercase' as const }}>
                   New admin password
                 </div>
 

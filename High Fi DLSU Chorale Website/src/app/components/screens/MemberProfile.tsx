@@ -385,7 +385,7 @@ function ClassScheduleModal({ schedule, onClose, onSave }: any) {
             {/* File upload zone */}
             <label
               style={{ display: 'block', marginBottom: 16, padding: '14px 16px', border: `2px dashed ${theme.lineDark}`, borderRadius: 10, cursor: 'pointer', textAlign: 'center', background: theme.cream, transition: 'border-color 0.15s' }}
-              onDragOver={e => { e.preventDefault(); (e.currentTarget as HTMLElement).style.borderColor = '#c9a84c'; }}
+              onDragOver={e => { e.preventDefault(); (e.currentTarget as HTMLElement).style.borderColor = theme.amber; }}
               onDragLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = theme.lineDark; }}
               onDrop={e => {
                 e.preventDefault();

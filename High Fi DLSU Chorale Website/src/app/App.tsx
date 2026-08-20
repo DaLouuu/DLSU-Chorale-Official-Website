@@ -23,6 +23,7 @@ import { AdminMembers } from './components/screens/AdminMembers';
 import { AdminMusicLibrary } from './components/screens/AdminMusicLibrary';
 import { AdminEvents } from './components/screens/AdminEvents';
 import { Shell } from './components/layout/Shell';
+import { DecorativeAccent } from './components/ui/DecorativeAccent';
 
 // Router Context
 type Route = 'landing' | 'login' | 'role-select' | 'pending' | 'rfid' | 'member-home' | 'admin-home' |
@@ -463,13 +464,29 @@ export default function App() {
         alignItems: 'center',
         justifyContent: 'center',
         flexDirection: 'column',
-        gap: 12,
+        gap: 16,
         fontFamily: FONTS.sans,
+        position: 'relative',
+        overflow: 'hidden',
       }}>
-        <div style={{ fontFamily: FONTS.serif, fontSize: 22, color: '#c9a84c', letterSpacing: 0.5 }}>
+        <DecorativeAccent corner="top-left" scale={1.3} />
+        <DecorativeAccent corner="bottom-right" scale={1.3} />
+        <div
+          style={{
+            width: 34,
+            height: 34,
+            border: '2.5px solid rgba(30,127,118,0.25)',
+            borderTopColor: '#1e7f76',
+            borderRadius: '50%',
+            animation: 'spin 0.9s linear infinite',
+            position: 'relative',
+            zIndex: 1,
+          }}
+        />
+        <div style={{ fontFamily: FONTS.serif, fontSize: 22, color: '#1e7f76', letterSpacing: 0.5, position: 'relative', zIndex: 1 }}>
           DLSU Chorale
         </div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', letterSpacing: 1 }}>
+        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', letterSpacing: 1, animation: 'pulse-fade 1.8s ease-in-out infinite', position: 'relative', zIndex: 1 }}>
           Loading…
         </div>
       </div>
