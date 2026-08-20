@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTheme, useApp } from '../../App';
+import { EVENTS } from '../../data';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
@@ -11,7 +12,6 @@ import { isValidLink } from '../../utils/links';
 declare global {
   interface Window {
     MUSIC_LIBRARY: any[];
-    EVENTS: any[];
   }
 }
 
@@ -139,7 +139,7 @@ function MusicItemModal({ item, category, onClose, onSave, onDelete }: any) {
               style={modalInput}
             >
               <option value="">None</option>
-              {window.EVENTS?.map((e: any) => (
+              {EVENTS.map((e: any) => (
                 <option key={e.id} value={e.id}>
                   {e.name}
                 </option>

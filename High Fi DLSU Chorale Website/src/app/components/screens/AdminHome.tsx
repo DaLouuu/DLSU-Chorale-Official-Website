@@ -366,7 +366,7 @@ function useViewportWidth() {
 }
 
 export function AdminHome() {
-  const { user } = useRouter();
+  const { user, go } = useRouter();
   const { theme } = useTheme();
   const app = useApp();
   const vw = useViewportWidth();
@@ -404,7 +404,13 @@ export function AdminHome() {
 
   const pending = app.excuses.filter(e => e.status === 'Pending');
   const outstanding = FEE_SUMMARIES.reduce((s, f) => s + f.outstanding, 0);
-  const activeEvents = app.events.filter(e => new Date(e.date) > new Date());
+  const activeEvents = app.events
+    .filter(e => new Date(e.date) > new Date())
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const nextEvent = activeEvents[0];
+  const nextEventTrend = nextEvent
+    ? `next: ${nextEvent.name} in ${Math.max(1, Math.ceil((new Date(nextEvent.date).getTime() - Date.now()) / 86400000))}d`
+    : 'none scheduled';
 
   const handleSave = async (data: any) => {
     if (editingRehearsal) {
@@ -562,10 +568,10 @@ export function AdminHome() {
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
-        <StatCard label="Active members" value="64" trend="+3 this term" tone="green" />
+        <StatCard label="Active members" value={MEMBERS.length} trend={`${MEMBERS.filter((m: any) => m.admin).length} admins`} tone="green" />
         <StatCard label="Pending excuses" value={pending.length} trend="requires review" tone="amber" />
         <StatCard label="Outstanding fees" value={`₱${outstanding.toLocaleString()}`} trend={`across ${FEE_SUMMARIES.filter(f => f.outstanding > 0).length} members`} tone="red" />
-        <StatCard label="Upcoming events" value={activeEvents.length} trend="next: BCFC in 16d" tone="blue" />
+        <StatCard label="Upcoming events" value={activeEvents.length} trend={nextEventTrend} tone="blue" />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: 20 }}>
@@ -575,7 +581,7 @@ export function AdminHome() {
               <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, color: theme.green, textTransform: 'uppercase' }}>Action needed</div>
               <h3 style={{ fontFamily: FONTS.serif, fontSize: 22, margin: '4px 0 0', fontWeight: 500 }}>Pending excuses · {pending.length}</h3>
             </div>
-            <a onClick={() => {}} style={{ fontSize: 12.5, color: theme.green, cursor: 'pointer', textDecoration: 'underline' }}>Review all →</a>
+            <a onClick={() => go('admin-excuses')} style={{ fontSize: 12.5, color: theme.green, cursor: 'pointer', textDecoration: 'underline' }}>Review all →</a>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {pending.slice(0, 5).map(e => {

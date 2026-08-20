@@ -344,6 +344,9 @@ export function AdminFees() {
   const [chargingFee, setChargingFee] = useState(false);
 
   const pendingPayments = (app.fees as any[]).filter((f: any) => f.status === 'pending');
+  const paidHistory = (app.fees as any[])
+    .filter((f: any) => f.status === 'paid')
+    .sort((a: any, b: any) => (b.paidAt ?? '').localeCompare(a.paidAt ?? ''));
 
   const topDebtor = FEE_SUMMARIES.reduce((top: any, f: any) => (f.outstanding > (top?.outstanding ?? 0) ? f : top), null);
 
@@ -647,10 +650,46 @@ export function AdminFees() {
       )}
 
       {tab === 'payments' && (
-        <Card>
-          <div style={{ color: theme.dim, textAlign: 'center', padding: 40 }}>
-            Recent payments ledger appears here — uploads from Finance, with auto-matched GCash receipts.
-          </div>
+        <Card pad={0}>
+          {paidHistory.length === 0 ? (
+            <div style={{ color: theme.dim, textAlign: 'center', padding: 40 }}>
+              No payments have been recorded yet.
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 700 }}>
+                <thead>
+                  <tr style={{ background: theme.cream, fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 1, textTransform: 'uppercase', color: theme.dim }}>
+                    <th style={thStyle}>Member</th>
+                    <th style={thStyle}>Fee</th>
+                    <th style={thStyle}>Amount</th>
+                    <th style={thStyle}>Paid</th>
+                    <th style={thStyle}>Reference</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paidHistory.map((p: any) => (
+                    <tr key={p.id} style={{ borderTop: `1px solid ${theme.line}` }}>
+                      <td style={{ ...tdStyle, display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Avatar member={{ name: p.memberName, avatar: p.memberName?.split(' ').map((n: string) => n[0]).join('') }} size={28} />
+                        <div>
+                          <div style={{ fontWeight: 500 }}>{p.memberName}</div>
+                          <div style={{ fontSize: 11, color: theme.dim, fontFamily: FONTS.mono }}>#{p.memberId}</div>
+                        </div>
+                      </td>
+                      <td style={tdStyle}>
+                        <div style={{ fontSize: 13 }}>{p.type}</div>
+                        <div style={{ fontSize: 11.5, color: theme.dim }}>{p.reference}</div>
+                      </td>
+                      <td style={{ ...tdStyle, fontFamily: FONTS.serif, fontSize: 18, fontWeight: 500 }}>₱{p.amount}</td>
+                      <td style={{ ...tdStyle, fontSize: 12, color: theme.dim, fontFamily: FONTS.mono }}>{p.paidAt ?? '—'}</td>
+                      <td style={{ ...tdStyle, fontSize: 12, color: theme.dim, fontFamily: FONTS.mono }}>{p.paymentData?.referenceNumber ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       )}
       {selectedPayment && (

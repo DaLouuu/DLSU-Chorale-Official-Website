@@ -24,7 +24,6 @@ type MusicCategory = {
 declare global {
   interface Window {
     MUSIC_LIBRARY: MusicCategory[];
-    EVENTS: any[];
   }
 }
 
@@ -72,7 +71,7 @@ export function MemberMusicLibrary() {
     });
   };
 
-  const allEvents = window.EVENTS || app.events;
+  const allEvents = app.events;
   const allTypes = Array.from(new Set(
     window.MUSIC_LIBRARY.flatMap(cat => cat.items.map(item => item.type))
   ));
