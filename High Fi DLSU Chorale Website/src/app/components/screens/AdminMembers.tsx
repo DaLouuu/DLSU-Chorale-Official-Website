@@ -700,6 +700,7 @@ export function AdminMembers() {
     if (dirErr) return `Could not create directory entry: ${dirErr.message}`;
 
     const { error: profErr } = await supabase.from('profiles').insert({
+      id: crypto.randomUUID(),
       school_id: schoolId,
       email,
       first_name: form.first_name.trim(),
