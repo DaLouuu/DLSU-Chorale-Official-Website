@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTheme, useApp } from '../../App';
 import { supabase } from '../../supabase';
 import { FEE_SUMMARIES, MEMBERS } from '../../data';
@@ -410,6 +410,28 @@ export function AdminFees() {
   const [chargingFee, setChargingFee] = useState(false);
   const [editingRule, setEditingRule] = useState<any | null>(null);
   const [showRuleModal, setShowRuleModal] = useState(false);
+  const [showRefreshPrompt, setShowRefreshPrompt] = useState(false);
+  const selfChargedIds = useRef<Set<number>>(new Set());
+
+  // Fees can now be auto-charged by a database trigger the moment attendance
+  // is logged (late/unexcused-absence — see
+  // 20260824_auto_charge_attendance_fees.sql), which this open tab has no
+  // other way of knowing about. Realtime tells us a row landed; we just
+  // prompt to refresh rather than trying to merge it into local state live.
+  useEffect(() => {
+    const channel = supabase
+      .channel('fee_records_admin_watch')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'fee_records' }, (payload: any) => {
+        const newId = payload.new?.id;
+        if (newId != null && selfChargedIds.current.has(newId)) {
+          selfChargedIds.current.delete(newId);
+          return;
+        }
+        setShowRefreshPrompt(true);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   const pendingPayments = (app.fees as any[]).filter((f: any) => f.status === 'pending');
   const paidHistory = (app.fees as any[])
@@ -464,6 +486,7 @@ export function AdminFees() {
     }
 
     (inserted ?? []).forEach((row: any) => {
+      selfChargedIds.current.add(row.id);
       const m = MEMBERS.find((mm: any) => mm._uuid === row.account_id_fk);
       app.addFee({
         id: row.id,
@@ -530,6 +553,19 @@ export function AdminFees() {
           </>
         }
       />
+
+      {showRefreshPrompt && (
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+            padding: '12px 18px', borderRadius: 10, marginBottom: 18,
+            background: theme.amberSoft, border: `1px solid ${theme.amber}`, color: theme.ink, fontSize: 13,
+          }}
+        >
+          <span>A new fee was just charged — refresh to see the latest balances.</span>
+          <Button size="sm" variant="outline" onClick={() => window.location.reload()}>Refresh</Button>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 16, marginBottom: 22 }}>
         <StatCard

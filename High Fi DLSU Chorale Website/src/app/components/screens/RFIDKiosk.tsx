@@ -4,14 +4,8 @@ import { FONTS } from '../../theme';
 import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
 import { Logo } from '../ui/Logo';
-import { MEMBERS } from '../../data';
+import { EVENTS, MEMBERS } from '../../data';
 import choirB2b1 from '../../../imports/choir-b2b-1.png';
-
-declare global {
-  interface Window {
-    REHEARSALS: any[];
-  }
-}
 
 function useViewportWidth() {
   const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
@@ -23,21 +17,18 @@ function useViewportWidth() {
   return width;
 }
 
-// The rehearsal happening today, or the next upcoming one if none is today —
-// sourced from window.REHEARSALS, the same live list AdminHome's "Upcoming
-// Rehearsals & Sectionals" widget manages, so admin edits show up here too.
-function getCurrentOrNextRehearsal() {
-  const list = typeof window !== 'undefined' ? window.REHEARSALS : undefined;
-  if (!list || list.length === 0) return null;
+// Whatever's on today — rehearsal or performance — or the next upcoming one
+// if nothing's scheduled today. Reads EVENTS directly (real Supabase data by
+// the time this mounts, since the app's loading screen already waits on
+// initializePublicData()), so this always reflects today's real calendar
+// instead of a fixed/stale placeholder.
+function getTodayOrNextEvent() {
+  if (!EVENTS || EVENTS.length === 0) return null;
   const todayStr = new Date().toISOString().slice(0, 10);
-  const sorted = [...list].sort((a, b) => String(a.date).localeCompare(String(b.date)));
-  return sorted.find(r => r.date >= todayStr) ?? sorted[sorted.length - 1] ?? null;
-}
-
-function rehearsalTitle(r: any) {
-  if (r.type === 'Sectional' && r.section) return `${r.section} sectional`;
-  if (r.type === 'Sectional') return 'Sectional rehearsal';
-  return 'Full ensemble rehearsal';
+  const sorted = [...(EVENTS as any[])].sort((a, b) =>
+    String(a.date).localeCompare(String(b.date)) || String(a.callTime ?? '').localeCompare(String(b.callTime ?? ''))
+  );
+  return sorted.find(e => e.date === todayStr) ?? sorted.find(e => e.date > todayStr) ?? null;
 }
 
 
@@ -51,7 +42,7 @@ export function RFIDKiosk() {
   const vw = useViewportWidth();
   const isMobile = vw < 768;
   const isSmall = vw < 480;
-  const [rehearsal] = useState(() => getCurrentOrNextRehearsal());
+  const [event] = useState(() => getTodayOrNextEvent());
   const todayStr = new Date().toISOString().slice(0, 10);
 
   const [state, setState] = useState<'idle' | 'success' | 'error' | 'locked'>('idle');
@@ -207,14 +198,14 @@ export function RFIDKiosk() {
             </div>
             <div style={{ marginTop: 32 }}>
               <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, opacity: 0.6, textTransform: 'uppercase' }}>
-                {rehearsal ? (rehearsal.date === todayStr ? "Today's " : 'Next ') + (rehearsal.type ?? 'Rehearsal') : 'Rehearsal'}
+                {event ? (event.date === todayStr ? "Today's " : 'Next ') + (event.type ?? 'Event') : 'Today'}
               </div>
               <div style={{ fontFamily: FONTS.serif, fontSize: 22, marginTop: 8, lineHeight: 1.15 }}>
-                {rehearsal ? rehearsalTitle(rehearsal) : 'No rehearsal scheduled'}
+                {event ? event.name : 'Nothing scheduled'}
               </div>
               <div style={{ fontSize: 13, opacity: 0.75, marginTop: 4 }}>
-                {rehearsal
-                  ? `${rehearsal.venue ?? 'Venue TBA'} · ${rehearsal.time ?? '—'} call${rehearsal.date !== todayStr ? ` · ${new Date(rehearsal.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}`
+                {event
+                  ? `${event.venue || 'Venue TBA'} · ${event.callTime || '—'} call${event.date !== todayStr ? ` · ${new Date(event.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}`
                   : 'Check the admin dashboard to schedule one'}
               </div>
             </div>
