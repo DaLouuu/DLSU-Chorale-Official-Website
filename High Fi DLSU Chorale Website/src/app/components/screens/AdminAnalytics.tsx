@@ -1,29 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useTheme } from '../../App';
+import { useTheme, useApp } from '../../App';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { supabase } from '../../supabase';
 import { downloadCSV, todayStamp } from '../../utils/exportCsv';
-
-// ── Static fallback data for excuse/attendance charts ──────────────────────
-const MONTHLY_DATA = [
-  { month: 'Jan', Soprano: 4, Alto: 3, Tenor: 2, Bass: 2 },
-  { month: 'Feb', Soprano: 6, Alto: 4, Tenor: 3, Bass: 3 },
-  { month: 'Mar', Soprano: 5, Alto: 5, Tenor: 4, Bass: 2 },
-  { month: 'Apr', Soprano: 3, Alto: 4, Tenor: 2, Bass: 3 },
-  { month: 'May', Soprano: 7, Alto: 6, Tenor: 5, Bass: 4 },
-  { month: 'Jun', Soprano: 4, Alto: 3, Tenor: 3, Bass: 2 },
-];
-
-const REASONS_DATA = [
-  { label: 'Academic requirement', count: 18, pct: 29 },
-  { label: 'Illness / medical', count: 16, pct: 25 },
-  { label: 'Family obligation', count: 12, pct: 19 },
-  { label: 'Org conflict', count: 9, pct: 14 },
-  { label: 'Personal reason', count: 8, pct: 13 },
-];
 
 const SECTION_COLORS: Record<string, string> = {
   Soprano: '#B04A5F',
@@ -140,8 +122,20 @@ function LegendDot({ color, label }: { color: string; label: string }) {
 // ── Main component ─────────────────────────────────────────────────────────
 export function AdminAnalytics() {
   const { theme } = useTheme();
+  const app = useApp();
   const [stats, setStats] = useState<OrgStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [attendanceRate, setAttendanceRate] = useState<{ pct: number; present: number; total: number } | null>(null);
+
+  useEffect(() => {
+    async function loadAttendance() {
+      const { data: logs } = await supabase.from('attendance_logs').select('log_status');
+      if (!logs || logs.length === 0) return;
+      const present = logs.filter(l => (l.log_status ?? '').toLowerCase() === 'present').length;
+      setAttendanceRate({ pct: Math.round((present / logs.length) * 100), present, total: logs.length });
+    }
+    loadAttendance();
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -272,12 +266,40 @@ export function AdminAnalytics() {
     downloadCSV(`chorale-analytics-${todayStamp()}`, rows);
   };
 
-  const maxBar = Math.max(...MONTHLY_DATA.flatMap(m => [m.Soprano, m.Alto, m.Tenor, m.Bass]));
   const chartColors: Record<string, string> = { Soprano: '#B04A5F', Alto: '#9B6B2F', Tenor: '#2C5B8E', Bass: '#1B5E20' };
   const SECTIONS = ['Soprano', 'Alto', 'Tenor', 'Bass'];
 
   const topN = (rec: Record<string, number>, n = 6) =>
     Object.entries(rec).sort((a, b) => b[1] - a[1]).slice(0, n);
+
+  const excuses = app.excuses as any[];
+  const excusesTotal = excuses.length;
+  const excusesApproved = excuses.filter(e => e.status === 'Approved').length;
+
+  const byType: Record<string, number> = {};
+  for (const e of excuses) {
+    const t = e.type ?? 'Other';
+    byType[t] = (byType[t] ?? 0) + 1;
+  }
+  const typeEntries = Object.entries(byType).sort((a, b) => b[1] - a[1]);
+  const maxType = typeEntries.length > 0 ? typeEntries[0][1] : 0;
+
+  const monthlyBySection: Record<string, Record<string, number>> = {};
+  for (const e of excuses) {
+    if (!e.date || !e.section) continue;
+    const monthKey = new Date(e.date).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    if (!monthlyBySection[monthKey]) monthlyBySection[monthKey] = { Soprano: 0, Alto: 0, Tenor: 0, Bass: 0 };
+    if (SECTIONS.includes(e.section)) monthlyBySection[monthKey][e.section]++;
+  }
+  const monthlyData = Object.entries(monthlyBySection)
+    .map(([month, counts]) => ({ month, ...counts }))
+    .sort((a, b) => new Date(`1 ${a.month}`).getTime() - new Date(`1 ${b.month}`).getTime())
+    .slice(-6);
+  const maxBar = Math.max(1, ...monthlyData.flatMap(m => [m.Soprano, m.Alto, m.Tenor, m.Bass]));
+
+  const fees = app.fees as any[];
+  const feesBilled = fees.reduce((s, f) => s + (f.amount ?? 0), 0);
+  const feesCollected = fees.filter(f => f.status === 'paid').reduce((s, f) => s + (f.amount ?? 0), 0);
 
   return (
     <>
@@ -426,49 +448,75 @@ export function AdminAnalytics() {
       {/* ── 4. Attendance & Excuses ── */}
       <SectionLabel label="Attendance & Excuses" />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 22 }}>
-        <StatCard label="Avg. attendance" value="89%" sub="+2% vs Q1" tone="green" />
-        <StatCard label="Excuses filed" value="63" sub="this term" tone="amber" />
-        <StatCard label="Approved %" value="82%" sub="52 of 63" tone="blue" />
-        <StatCard label="Fees collected" value="₱8.4k" sub="of ₱11.1k billed" tone="green" />
+        <StatCard
+          label="Avg. attendance"
+          value={attendanceRate ? `${attendanceRate.pct}%` : '—'}
+          sub={attendanceRate ? `${attendanceRate.present} of ${attendanceRate.total} logs` : 'no logs yet'}
+          tone="green"
+        />
+        <StatCard label="Excuses filed" value={excusesTotal} sub="on file" tone="amber" />
+        <StatCard
+          label="Approved %"
+          value={excusesTotal ? `${Math.round((excusesApproved / excusesTotal) * 100)}%` : '—'}
+          sub={excusesTotal ? `${excusesApproved} of ${excusesTotal}` : 'no excuses yet'}
+          tone="blue"
+        />
+        <StatCard
+          label="Fees collected"
+          value={`₱${feesCollected.toLocaleString()}`}
+          sub={`of ₱${feesBilled.toLocaleString()} billed`}
+          tone="green"
+        />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
         <Card>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 8 }}>
-            <h3 style={{ fontFamily: FONTS.serif, fontSize: 20, margin: 0, fontWeight: 500 }}>Excuses by section — 2026</h3>
+            <h3 style={{ fontFamily: FONTS.serif, fontSize: 20, margin: 0, fontWeight: 500 }}>Excuses by section</h3>
             <div style={{ display: 'flex', gap: 14, fontSize: 11.5, fontFamily: FONTS.mono, color: theme.dim, letterSpacing: 0.3, flexWrap: 'wrap' }}>
               {Object.entries(chartColors).map(([s, c]) => <LegendDot key={s} color={c} label={s} />)}
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'stretch', gap: 16, height: 220, padding: '16px 0 10px', borderBottom: `1px solid ${theme.line}` }}>
-            {MONTHLY_DATA.map(row => (
-              <div key={row.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: 3, width: '100%', justifyContent: 'center' }}>
-                  {(['Soprano', 'Alto', 'Tenor', 'Bass'] as const).map(s => (
-                    <div key={s} title={`${s}: ${row[s]}`} style={{ width: 11, height: `${(row[s] / maxBar) * 100}%`, background: chartColors[s], borderRadius: '3px 3px 0 0' }} />
-                  ))}
+          {monthlyData.length === 0 ? (
+            <div style={{ color: theme.dim, fontSize: 13, textAlign: 'center', padding: '32px 0' }}>No excuses on file yet.</div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'stretch', gap: 16, height: 220, padding: '16px 0 10px', borderBottom: `1px solid ${theme.line}` }}>
+              {monthlyData.map(row => (
+                <div key={row.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: 3, width: '100%', justifyContent: 'center' }}>
+                    {(['Soprano', 'Alto', 'Tenor', 'Bass'] as const).map(s => (
+                      <div key={s} title={`${s}: ${row[s]}`} style={{ width: 11, height: `${(row[s] / maxBar) * 100}%`, background: chartColors[s], borderRadius: '3px 3px 0 0' }} />
+                    ))}
+                  </div>
+                  <div style={{ marginTop: 8, fontFamily: FONTS.mono, fontSize: 11, color: theme.dim }}>{row.month}</div>
                 </div>
-                <div style={{ marginTop: 8, fontFamily: FONTS.mono, fontSize: 11, color: theme.dim }}>{row.month}</div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         <Card>
-          <h3 style={{ fontFamily: FONTS.serif, fontSize: 20, margin: '0 0 14px', fontWeight: 500 }}>Reasons breakdown</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {REASONS_DATA.map(r => (
-              <div key={r.label}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 4 }}>
-                  <span>{r.label}</span>
-                  <span style={{ fontFamily: FONTS.mono, color: theme.dim }}>{r.count} · {r.pct}%</span>
-                </div>
-                <div style={{ height: 6, background: theme.line, borderRadius: 3 }}>
-                  <div style={{ width: `${r.pct * 2.5}%`, height: '100%', background: theme.green, borderRadius: 3 }} />
-                </div>
-              </div>
-            ))}
-          </div>
+          <h3 style={{ fontFamily: FONTS.serif, fontSize: 20, margin: '0 0 14px', fontWeight: 500 }}>Excuses by type</h3>
+          {typeEntries.length === 0 ? (
+            <div style={{ color: theme.dim, fontSize: 13, textAlign: 'center', padding: '32px 0' }}>No excuses on file yet.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {typeEntries.map(([label, count]) => {
+                const pct = excusesTotal ? Math.round((count / excusesTotal) * 100) : 0;
+                return (
+                  <div key={label}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 4 }}>
+                      <span>{label}</span>
+                      <span style={{ fontFamily: FONTS.mono, color: theme.dim }}>{count} · {pct}%</span>
+                    </div>
+                    <div style={{ height: 6, background: theme.line, borderRadius: 3 }}>
+                      <div style={{ width: `${(count / maxType) * 100}%`, height: '100%', background: theme.green, borderRadius: 3 }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </Card>
       </div>
     </>
