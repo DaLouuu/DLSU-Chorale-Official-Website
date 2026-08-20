@@ -71,6 +71,18 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true });
     }
 
+    if (action === 'get_evidence_url') {
+      // incident-evidence is a private bucket (see
+      // 20260838_lock_down_incident_evidence.sql) — this is the only way
+      // to actually view a file, short-lived so a copied link doesn't stay
+      // valid forever.
+      const { path } = payload ?? {};
+      if (!path) return json({ error: 'Missing path' }, 400);
+      const { data, error } = await supabase.storage.from('incident-evidence').createSignedUrl(path, 300);
+      if (error) return json({ error: error.message }, 500);
+      return json({ signedUrl: data.signedUrl });
+    }
+
     if (action === 'add_comment') {
       const { report_id, author_name, comment_body, is_feedback } = payload ?? {};
       if (!report_id || !comment_body) return json({ error: 'Missing report_id or comment_body' }, 400);

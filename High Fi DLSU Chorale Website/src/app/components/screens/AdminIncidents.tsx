@@ -32,6 +32,19 @@ async function callHrApi(token: string, action: string, payload?: any) {
   return data;
 }
 
+// incident-evidence is a private bucket now (20260838_lock_down_incident_evidence.sql)
+// — a stored evidence URL only still resolves to a storage object path, not
+// a working link, so it needs turning into a fresh signed URL through the
+// same HR-gated Edge Function. Evidence can also just be a plain link a
+// member pasted in instead of uploading a file (see MemberIncidents.tsx) —
+// those aren't in our bucket at all and should open exactly as typed.
+const EVIDENCE_PREFIX = SUPABASE_URL ? `${SUPABASE_URL}/storage/v1/object/public/incident-evidence/` : undefined;
+
+function evidenceStoragePath(url: string): string | null {
+  if (!EVIDENCE_PREFIX || !url.startsWith(EVIDENCE_PREFIX)) return null;
+  return url.slice(EVIDENCE_PREFIX.length);
+}
+
 const STATUSES = [
   'Pending', 'DM Review', 'HR Investigation', 'CM/ACM Investigation',
   'Conductor Investigation', 'CAO Investigation', 'Resolved',
@@ -170,7 +183,9 @@ function LockScreen({ onUnlocked }: { onUnlocked: (token: string) => void }) {
     setBusy(true);
     const { data, error: err } = await supabase.rpc('verify_hr_incident_password', { p_password: password });
     setBusy(false);
-    if (err) { setError('Could not verify password. Try again.'); return; }
+    // A lockout (too many failed attempts) comes back as an RPC error with a
+    // specific message; anything else is a generic failure to verify.
+    if (err) { setError(err.message?.includes('Too many failed attempts') ? err.message : 'Could not verify password. Try again.'); return; }
     if (!data) { setError('Incorrect password.'); return; }
     setError('');
     await sendOtp();
@@ -451,11 +466,33 @@ function ReportDetail({
             <div>
               <div style={{ fontSize: 10, fontFamily: FONTS.mono, letterSpacing: 1.2, color: theme.dim, textTransform: 'uppercase', marginBottom: 8 }}>Evidence</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {report.evidence.map((ev, i) => (
-                  <a key={i} href={ev.url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: theme.green, textDecoration: 'none' }}>
-                    <Icon name="file" size={14} stroke={theme.green} /> {ev.label}
-                  </a>
-                ))}
+                {report.evidence.map((ev, i) => {
+                  const path = evidenceStoragePath(ev.url);
+                  if (!path) {
+                    // A plain link the member pasted in, not an uploaded file.
+                    return (
+                      <a key={i} href={ev.url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: theme.green, textDecoration: 'none' }}>
+                        <Icon name="file" size={14} stroke={theme.green} /> {ev.label}
+                      </a>
+                    );
+                  }
+                  return (
+                    <button
+                      key={i}
+                      onClick={async () => {
+                        try {
+                          const { signedUrl } = await callHrApi(token, 'get_evidence_url', { path });
+                          window.open(signedUrl, '_blank', 'noreferrer');
+                        } catch (e: any) {
+                          app.showToast(`Could not open evidence: ${e.message}`, 'error');
+                        }
+                      }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: theme.green, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', fontFamily: FONTS.sans }}
+                    >
+                      <Icon name="file" size={14} stroke={theme.green} /> {ev.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
