@@ -511,7 +511,7 @@ export function MemberProfile() {
     if (!profileUuid) return;
     supabase
       .from('profiles')
-      .select('avatar_url, pronouns, current_term_stat, membership_status, class_schedule, weekly_digest_opt_in')
+      .select('avatar_url, pronouns, current_term_stat, membership_status, class_schedule, weekly_digest_opt_in, excuse_decision_opt_in, rehearsal_reminder_opt_in')
       .eq('id', profileUuid)
       .single()
       .then(({ data }) => {
@@ -532,11 +532,19 @@ export function MemberProfile() {
         if (data.class_schedule) {
           setUserSchedule(data.class_schedule as { term: string; classes: any[] });
         }
-        // The digest itself is a server-side scheduled job, so it needs the
-        // real opt-in state from the DB — local device state can drift from
-        // it (e.g. toggled off on another device).
-        if (typeof data.weekly_digest_opt_in === 'boolean') {
-          setNotif({ weeklyDigest: data.weekly_digest_opt_in });
+        // All three are read from other sessions (a server-side cron job for
+        // the digest, the admin's own browser for excuse decisions), so the
+        // DB value has to win over whatever's cached in local device storage.
+        const dbNotifPatch: Record<string, boolean> = {};
+        if (typeof data.weekly_digest_opt_in === 'boolean') dbNotifPatch.weeklyDigest = data.weekly_digest_opt_in;
+        if (typeof data.excuse_decision_opt_in === 'boolean') dbNotifPatch.excuseDecision = data.excuse_decision_opt_in;
+        if (typeof data.rehearsal_reminder_opt_in === 'boolean') dbNotifPatch.rehearsalReminder = data.rehearsal_reminder_opt_in;
+        if (Object.keys(dbNotifPatch).length > 0) {
+          setNotifications((prev: Record<string, boolean>) => {
+            const next = { ...prev, ...dbNotifPatch };
+            try { localStorage.setItem('pref_notifications', JSON.stringify(next)); } catch {}
+            return next;
+          });
         }
       });
   }, [profileUuid]);
@@ -546,14 +554,27 @@ export function MemberProfile() {
     return { excuseDecision: true, rehearsalReminder: true, weeklyDigest: false };
   });
 
+  const NOTIF_DB_COLUMNS: Record<string, string> = {
+    weeklyDigest: 'weekly_digest_opt_in',
+    excuseDecision: 'excuse_decision_opt_in',
+    rehearsalReminder: 'rehearsal_reminder_opt_in',
+  };
+
   const setNotif = (patch: Record<string, boolean>) => {
     const next = { ...notifications, ...patch };
     setNotifications(next);
     try { localStorage.setItem('pref_notifications', JSON.stringify(next)); } catch {}
-    // weeklyDigest is the one preference a server-side scheduled job needs to
-    // read, so it has to live in the database, not just this device's storage.
-    if ('weeklyDigest' in patch && profileUuid) {
-      supabase.from('profiles').update({ weekly_digest_opt_in: patch.weeklyDigest }).eq('id', profileUuid);
+    // These are read from other sessions entirely (a server-side cron job
+    // for the digest, the admin's own browser when deciding whether to
+    // email an excuse decision), so they have to live in the database —
+    // this device's localStorage is invisible to those.
+    if (!profileUuid) return;
+    const dbPatch: Record<string, boolean> = {};
+    for (const key of Object.keys(patch)) {
+      if (NOTIF_DB_COLUMNS[key]) dbPatch[NOTIF_DB_COLUMNS[key]] = patch[key];
+    }
+    if (Object.keys(dbPatch).length > 0) {
+      supabase.from('profiles').update(dbPatch).eq('id', profileUuid);
     }
   };
 
@@ -581,14 +602,19 @@ export function MemberProfile() {
         app.showToast('Profile picture updated');
         return;
       }
-    } catch {}
-    // Fallback: local FileReader
+      console.warn('[MemberProfile] Avatar upload to Storage failed, falling back to local-only:', uploadError.message);
+    } catch (e) {
+      console.warn('[MemberProfile] Avatar upload threw, falling back to local-only:', e);
+    }
+    // Fallback: local FileReader. This never reaches profiles.avatar_url,
+    // so it's only visible on this device/browser and is lost on next visit
+    // elsewhere — say so plainly instead of claiming it's saved.
     const reader = new FileReader();
     reader.onload = (ev) => {
       const url = ev.target?.result as string;
       setProfilePic(url);
       try { localStorage.setItem(`avatar_${user.id}`, url); } catch {}
-      app.showToast('Profile picture updated');
+      app.showToast('Could not upload to the server — picture is only saved on this device for now.', 'error');
     };
     reader.readAsDataURL(file);
     setUploading(false);

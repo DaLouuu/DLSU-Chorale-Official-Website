@@ -429,7 +429,7 @@ export async function initializePublicData(): Promise<void> {
     // 1. Members from profiles
     const { data: profilesData } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, voice_section, is_admin, email, school_id, committee, membership_status')
+      .select('id, first_name, last_name, voice_section, is_admin, email, school_id, committee, membership_status, excuse_decision_opt_in, rehearsal_reminder_opt_in')
       .order('last_name', { ascending: true });
 
     if (profilesData && profilesData.length > 0) {
@@ -450,6 +450,8 @@ export async function initializePublicData(): Promise<void> {
           avatar: initials,
           admin: p.is_admin ?? false,
           _uuid: p.id,
+          excuseDecisionOptIn: p.excuse_decision_opt_in ?? true,
+          rehearsalReminderOptIn: p.rehearsal_reminder_opt_in ?? true,
         };
       });
     }

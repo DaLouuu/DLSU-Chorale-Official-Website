@@ -41,8 +41,7 @@ export function MemberHome() {
 
   useEffect(() => {
     try {
-      const prefs = JSON.parse(localStorage.getItem('pref_notifications') || '{}');
-      if (!prefs.rehearsalReminder || !user?.email) return;
+      if ((user as any)?.rehearsalReminderOptIn === false || !user?.email) return;
       const now = new Date();
       const next = REHEARSALS.find(r => {
         const start = new Date(`${r.date}T${r.time}:00`);

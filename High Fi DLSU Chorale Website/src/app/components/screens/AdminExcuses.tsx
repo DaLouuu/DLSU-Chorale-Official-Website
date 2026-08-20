@@ -17,6 +17,11 @@ function memberEmail(memberId: string | number): string {
   return m?.email ?? '';
 }
 
+function memberWantsExcuseDecisionEmail(memberId: string | number): boolean {
+  const m: any = MEMBERS.find(x => String(x.id) === String(memberId));
+  return m?.excuseDecisionOptIn !== false;
+}
+
 type Excuse = {
   id: string | number;
   memberId: string | number;
@@ -60,7 +65,9 @@ export function AdminExcuses() {
     if (error) { app.showToast(`Could not approve excuse: ${error.message}`, 'error'); return; }
     app.updateExcuse(e.id, { status: 'Approved', approvedBy: adminName, notes: 'Approved.' });
     app.showToast(`Approved · ${e.memberName}`);
-    notifyExcuseDecision({ email: memberEmail(e.memberId), name: e.memberName, excuseType: e.type, date: e.date, status: 'Approved', notes: 'Approved.' });
+    if (memberWantsExcuseDecisionEmail(e.memberId)) {
+      notifyExcuseDecision({ email: memberEmail(e.memberId), name: e.memberName, excuseType: e.type, date: e.date, status: 'Approved', notes: 'Approved.' });
+    }
   };
 
   const handleDecline = async () => {
@@ -75,7 +82,9 @@ export function AdminExcuses() {
     setActioning(null);
     if (error) { app.showToast(`Could not decline excuse: ${error.message}`, 'error'); return; }
     app.updateExcuse(declineFor.id, { status: 'Declined', approvedBy: adminName, notes: note });
-    notifyExcuseDecision({ email: memberEmail(declineFor.memberId), name: declineFor.memberName, excuseType: declineFor.type, date: declineFor.date, status: 'Declined', notes: note });
+    if (memberWantsExcuseDecisionEmail(declineFor.memberId)) {
+      notifyExcuseDecision({ email: memberEmail(declineFor.memberId), name: declineFor.memberName, excuseType: declineFor.type, date: declineFor.date, status: 'Declined', notes: note });
+    }
     app.showToast('Declined — member notified', 'error');
     setDeclineFor(null);
     setDeclineNote('');
