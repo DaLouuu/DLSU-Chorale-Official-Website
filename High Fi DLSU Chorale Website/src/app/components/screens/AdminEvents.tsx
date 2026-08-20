@@ -38,6 +38,11 @@ type DbEvent = {
   signup_deadline: string | null;
   cast_size: number | null;
   file_url: string | null;
+  description: string | null;
+  image_url: string | null;
+  reminder_enabled: boolean | null;
+  reminder_days_before: number | null;
+  reminder_sent_at: string | null;
   allows_excused_absence: boolean | null;
   excused_absence_open: boolean | null;
   excused_absence_form_url: string | null;
@@ -59,6 +64,10 @@ type FormData = {
   signup_deadline: string;
   cast_size: string;
   file_url: string;
+  description: string;
+  image_url: string;
+  reminder_enabled: boolean;
+  reminder_days_before: string;
   allows_excused_absence: boolean;
   excused_absence_open: boolean;
   excused_absence_form_url: string;
@@ -69,11 +78,13 @@ type FormData = {
   ensemble_type: string;
 };
 
-type AutoFilledKey = keyof Omit<FormData, 'file_url'>;
+type AutoFilledKey = keyof Omit<FormData, 'file_url' | 'image_url'>;
 
 const EMPTY_FORM: FormData = {
   name: '', type: 'production', date: '', venue: '',
   call_time: '', attire: '', repertoire: [], signup_deadline: '', cast_size: '', file_url: '',
+  description: '', image_url: '',
+  reminder_enabled: false, reminder_days_before: '3',
   allows_excused_absence: false,
   excused_absence_open: true,
   excused_absence_form_url: '',
@@ -117,7 +128,72 @@ async function extractPdfText(file: File): Promise<string> {
   return parts.join(' ');
 }
 
-function parsePrPdf(text: string): Partial<FormData> & { autoFilled: AutoFilledKey[] } {
+// .docx is a ZIP archive; the document's text lives in word/document.xml as a
+// deflate-compressed ZIP entry. DecompressionStream('deflate-raw') decodes that
+// natively in every modern browser, so no ZIP/docx library needs to be added —
+// this project has no working pnpm/npm install path to safely add one right now.
+async function extractDocxText(file: File): Promise<string> {
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  const view = new DataView(buf);
+
+  const EOCD_SIG = 0x06054b50;
+  let eocdOffset = -1;
+  const searchStart = Math.max(0, bytes.length - 22 - 65557);
+  for (let i = bytes.length - 22; i >= searchStart; i--) {
+    if (view.getUint32(i, true) === EOCD_SIG) { eocdOffset = i; break; }
+  }
+  if (eocdOffset === -1) throw new Error('Not a valid .docx file (missing zip end-of-directory record)');
+
+  let offset = view.getUint32(eocdOffset + 16, true);
+  const entryCount = view.getUint16(eocdOffset + 10, true);
+  const CDH_SIG = 0x02014b50;
+  const decoder = new TextDecoder('utf-8');
+
+  for (let i = 0; i < entryCount; i++) {
+    if (view.getUint32(offset, true) !== CDH_SIG) break;
+    const compMethod = view.getUint16(offset + 10, true);
+    const compSize = view.getUint32(offset + 20, true);
+    const nameLen = view.getUint16(offset + 28, true);
+    const extraLen = view.getUint16(offset + 30, true);
+    const commentLen = view.getUint16(offset + 32, true);
+    const localHeaderOffset = view.getUint32(offset + 42, true);
+    const entryName = decoder.decode(bytes.subarray(offset + 46, offset + 46 + nameLen));
+
+    if (entryName === 'word/document.xml') {
+      const lfhNameLen = view.getUint16(localHeaderOffset + 26, true);
+      const lfhExtraLen = view.getUint16(localHeaderOffset + 28, true);
+      const dataStart = localHeaderOffset + 30 + lfhNameLen + lfhExtraLen;
+      const compressed = bytes.slice(dataStart, dataStart + compSize);
+
+      let xmlBytes: Uint8Array;
+      if (compMethod === 0) {
+        xmlBytes = compressed;
+      } else if (compMethod === 8) {
+        const ds = new DecompressionStream('deflate-raw');
+        const writer = ds.writable.getWriter();
+        writer.write(compressed);
+        writer.close();
+        xmlBytes = new Uint8Array(await new Response(ds.readable).arrayBuffer());
+      } else {
+        throw new Error('Unsupported .docx compression method');
+      }
+
+      const xml = decoder.decode(xmlBytes);
+      return xml
+        .replace(/<\/w:p>/g, '\n')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+        .replace(/[ \t]+/g, ' ')
+        .trim();
+    }
+    offset += 46 + nameLen + extraLen + commentLen;
+  }
+  throw new Error('word/document.xml not found — file may not be a valid .docx');
+}
+
+function parseEventRequestText(text: string): Partial<FormData> & { autoFilled: AutoFilledKey[] } {
   const result: Partial<FormData> = {};
   const autoFilled: AutoFilledKey[] = [];
 
@@ -166,6 +242,17 @@ function parsePrPdf(text: string): Partial<FormData> & { autoFilled: AutoFilledK
     result.call_time = `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
     autoFilled.push('call_time');
   }
+
+  // Sign-up deadline
+  const rawDeadline = grab(/(?:Sign[- ]?up|Registration)\s+Deadline[:\s]+([A-Za-z]+ \d{1,2},?\s*\d{4})/i);
+  if (rawDeadline) {
+    const d = new Date(rawDeadline.replace(/\s*\([^)]*\)/g, ''));
+    if (!isNaN(d.getTime())) { result.signup_deadline = d.toISOString().split('T')[0]; autoFilled.push('signup_deadline'); }
+  }
+
+  // Description — an explicit label, falling back to nothing rather than guessing.
+  const desc = grab(/(?:Event\s+)?(?:Description|Details|Purpose)[:\s]+([^\n(]{10,500})/i, 500);
+  if (desc) { result.description = desc; autoFilled.push('description'); }
 
   // Mark as "PR" type since this is a request form.
   if (autoFilled.length > 0) { result.type = 'pr'; autoFilled.push('type'); }
@@ -297,6 +384,10 @@ function mapFormToEventRow(
     signup_deadline: source.signup_deadline || null,
     cast_size: source.cast_size ? parseInt(source.cast_size, 10) : null,
     file_url: source.file_url || null,
+    description: source.description || null,
+    image_url: source.image_url || null,
+    reminder_enabled: source.reminder_enabled,
+    reminder_days_before: source.reminder_days_before ? parseInt(source.reminder_days_before, 10) : null,
     allows_excused_absence: source.allows_excused_absence,
     excused_absence_open: source.excused_absence_open,
     excused_absence_form_url: source.excused_absence_form_url || null,
@@ -320,6 +411,10 @@ function mapEventRowToForm(row: DbEvent, meta: EventMeta): FormData {
     signup_deadline: row.signup_deadline ?? '',
     cast_size: row.cast_size != null ? String(row.cast_size) : '',
     file_url: row.file_url ?? '',
+    description: row.description ?? '',
+    image_url: row.image_url ?? '',
+    reminder_enabled: !!row.reminder_enabled,
+    reminder_days_before: row.reminder_days_before != null ? String(row.reminder_days_before) : '3',
     allows_excused_absence: !!row.allows_excused_absence,
     excused_absence_open: row.excused_absence_open ?? true,
     excused_absence_form_url: row.excused_absence_form_url ?? '',
@@ -476,6 +571,7 @@ function RepertoireInput({
 
 type UploadResult = {
   fileUrl: string;
+  imageUrl?: string;
   rows: Record<string, string>[] | null;
   isBulk: boolean;
   parseError: string | null;
@@ -505,7 +601,7 @@ function FileUploadZone({
 
     // 1. Try to upload to Supabase Storage — failure is non-fatal, CSV/PDF parsing still runs,
     // but the admin needs to actually see it so they know the file wasn't saved.
-    let fileUrl = '';
+    let uploadedUrl = '';
     let storageWarning: string | null = null;
     try {
       const path = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
@@ -517,7 +613,7 @@ function FileUploadZone({
         console.warn('[FileUpload] Storage error:', uploadErr.message);
         storageWarning = `File was not saved to storage (${uploadErr.message}). Any auto-filled fields below are still usable, but there is no attachment to keep.`;
       } else if (uploadData) {
-        fileUrl = supabase.storage.from('events').getPublicUrl(uploadData.path).data.publicUrl;
+        uploadedUrl = supabase.storage.from('events').getPublicUrl(uploadData.path).data.publicUrl;
       }
     } catch (e) {
       console.warn('[FileUpload] Storage unavailable — continuing without attachment URL:', e);
@@ -525,8 +621,18 @@ function FileUploadZone({
     }
     setError(storageWarning);
 
-    // 2. Parse if CSV or Excel
     const name = file.name.toLowerCase();
+
+    // Images become the event photo, not a generic attachment — routed to a
+    // separate field so uploading both a request form and a photo doesn't
+    // clobber each other.
+    if (/\.(png|jpe?g|gif|webp)$/.test(name)) {
+      setStatus(null);
+      onResult({ fileUrl: '', imageUrl: uploadedUrl, rows: null, isBulk: false, parseError: null });
+      return;
+    }
+
+    // 2. Parse if CSV, PDF, or Word doc
     let rows: Record<string, string>[] | null = null;
     let parseError: string | null = null;
 
@@ -546,9 +652,9 @@ function FileUploadZone({
       try {
         const text = await extractPdfText(file);
         if (text.length > 30) {
-          const { autoFilled, ...fields } = parsePrPdf(text);
+          const { autoFilled, ...fields } = parseEventRequestText(text);
           if (autoFilled.length > 0) {
-            onResult({ fileUrl, rows: null, isBulk: false, parseError: null, parsedForm: { fields, autoFilled } });
+            onResult({ fileUrl: uploadedUrl, rows: null, isBulk: false, parseError: null, parsedForm: { fields, autoFilled } });
             setStatus(null);
             return;
           }
@@ -558,12 +664,30 @@ function FileUploadZone({
       } catch {
         parseError = null;
       }
+    } else if (name.endsWith('.docx')) {
+      setStatus('Reading document…');
+      try {
+        const text = await extractDocxText(file);
+        if (text.length > 30) {
+          const { autoFilled, ...fields } = parseEventRequestText(text);
+          if (autoFilled.length > 0) {
+            onResult({ fileUrl: uploadedUrl, rows: null, isBulk: false, parseError: null, parsedForm: { fields, autoFilled } });
+            setStatus(null);
+            return;
+          }
+        }
+        parseError = null;
+      } catch (e) {
+        console.warn('[FileUpload] .docx parse failed:', e);
+        parseError = 'Could not auto-read this .docx file — it was uploaded as an attachment, but you\'ll need to fill in the form manually.';
+      }
+    } else if (name.endsWith('.doc')) {
+      parseError = 'Legacy .doc files can\'t be auto-read — file was uploaded as an attachment. Save as .docx or PDF to enable auto-fill.';
     }
-    // Images — just attach, no auto-fill possible without OCR
 
     setStatus(null);
     onResult({
-      fileUrl,
+      fileUrl: uploadedUrl,
       rows,
       isBulk: (rows?.length ?? 0) > 1,
       parseError,
@@ -626,7 +750,7 @@ function FileUploadZone({
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,.png,.jpg,.jpeg,.csv,.xlsx,.xls"
+        accept=".pdf,.docx,.doc,.png,.jpg,.jpeg,.gif,.webp,.csv,.xlsx,.xls"
         style={{ display: 'none' }}
         onChange={onFileChange}
       />
@@ -635,7 +759,7 @@ function FileUploadZone({
         {status ?? 'Drop a file or click to browse'}
       </div>
       <div style={{ fontSize: 11.5, color: theme.dim, marginTop: 4 }}>
-        PDF (CAO request form auto-fills) · CSV (bulk import) · Image (attaches only)
+        PDF or .docx request form (auto-fills the form) · CSV (bulk import) · Image (becomes the event photo)
       </div>
       {error && <div style={{ marginTop: 8, fontSize: 12, color: '#dc2626' }}>{error}</div>}
     </div>
@@ -668,7 +792,7 @@ function FormField({
   );
 }
 
-const COMMITTEES = ['Executive', 'Music', 'Logistics', 'Publicity', 'Finance'];
+const COMMITTEES = ['Marketing & Publicity', 'Finance', 'Production & Logistics', 'Documentations', 'Human Resources', 'Any Committee / Anyone'];
 
 function RoleSlotsEditor({ value, onChange }: { value: RoleSlot[]; onChange: (slots: RoleSlot[]) => void }) {
   const { theme } = useTheme();
@@ -995,6 +1119,7 @@ function EventDrawer({
   const handleUploadResult = (r: UploadResult) => {
     setUploading(false);
     if (r.fileUrl) set('file_url', r.fileUrl);
+    if (r.imageUrl) set('image_url', r.imageUrl);
     if (r.parseError) { setSaveError(r.parseError); return; }
 
     // PDF parsed directly into form fields
@@ -1026,7 +1151,17 @@ function EventDrawer({
     setSaveError(null);
     const profileId = await getProfileUuid();
 
-    const payload = mapFormToEventRow(form, { profileId, includeUpdatedBy: true });
+    // Reconfiguring the reminder (turning it on, or changing the lead time)
+    // means the admin wants it to fire again — clear any previous send so the
+    // next cron pass re-evaluates it. Unrelated edits (venue, attire, etc.)
+    // leave reminder_sent_at untouched so members aren't reminded twice.
+    const newDaysBefore = form.reminder_days_before ? parseInt(form.reminder_days_before, 10) : null;
+    const reminderShouldReset = form.reminder_enabled && (
+      !editing || !editing.reminder_enabled || (editing.reminder_days_before ?? null) !== newDaysBefore
+    );
+    const reminderReset = reminderShouldReset ? { reminder_sent_at: null } : {};
+
+    const payload = { ...mapFormToEventRow(form, { profileId, includeUpdatedBy: true }), ...reminderReset };
 
     let error: any = null;
     let savedEventId: number | null = editing?.event_id ?? null;
@@ -1035,7 +1170,7 @@ function EventDrawer({
       const { error: e } = await safeUpdateEventRow(editing.event_id, payload);
       error = e;
     } else {
-      const createPayload = mapFormToEventRow(form, { profileId, includeCreatedBy: true, includeUpdatedBy: true });
+      const createPayload = { ...mapFormToEventRow(form, { profileId, includeCreatedBy: true, includeUpdatedBy: true }), ...reminderReset };
       const { data: inserted, error: e } = await safeInsertEventRow(createPayload);
       error = e;
       savedEventId = inserted?.event_id ?? null;
@@ -1154,6 +1289,26 @@ function EventDrawer({
               uploading={uploading}
             />
 
+            {form.image_url && (
+              <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', border: `1px solid ${theme.line}`, marginTop: -8 }}>
+                <img
+                  src={form.image_url}
+                  alt="Event"
+                  style={{ width: '100%', maxHeight: 180, objectFit: 'cover', display: 'block' }}
+                />
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 10px', fontSize: 10.5, fontFamily: FONTS.mono, letterSpacing: 1, textTransform: 'uppercase', color: '#fff', background: 'rgba(0,0,0,0.45)' }}>
+                  Event image
+                </div>
+                <button
+                  onClick={() => set('image_url', '')}
+                  style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.55)', border: 'none', borderRadius: 6, color: '#fff', cursor: 'pointer', padding: '4px 6px', display: 'flex' }}
+                  aria-label="Remove event image"
+                >
+                  <Icon name="x" size={14} />
+                </button>
+              </div>
+            )}
+
             {autoFilled.size > 0 && (
               <div style={{ padding: '10px 14px', borderRadius: 8, background: theme.amberSoft, border: `1px solid ${theme.amber}`, fontSize: 12.5, color: theme.amber }}>
                 <strong>Auto-filled:</strong> {[...autoFilled].join(', ')} — review highlighted fields before saving.
@@ -1187,6 +1342,16 @@ function EventDrawer({
                   >{EVENT_TYPE_LABELS[t]}</button>
                 ))}
               </div>
+            </FormField>
+
+            <FormField label="Description" autoFilled={autoFilled.has('description')}>
+              <textarea
+                value={form.description}
+                onChange={e => { set('description', e.target.value); setAutoFilled(prev => { const s = new Set(prev); s.delete('description'); return s; }); }}
+                placeholder="What is this event about? Members will see this on the event details."
+                rows={4}
+                style={{ ...inputStyle(theme, autoFilled.has('description')), resize: 'vertical', lineHeight: 1.5 }}
+              />
             </FormField>
 
             <FormField label="Excuse filing">
@@ -1280,6 +1445,34 @@ function EventDrawer({
                 />
               </FormField>
             </div>
+
+            <FormField label="Sign-up reminder">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={form.reminder_enabled}
+                  onChange={e => set('reminder_enabled', e.target.checked)}
+                />
+                Email members who haven't signed up yet
+              </label>
+              <div style={{ fontSize: 11.5, color: theme.dim, marginTop: 4 }}>
+                Sends one reminder email to every member without a sign-up for this event.
+              </div>
+              {form.reminder_enabled && (
+                <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 12.5, color: theme.ink }}>Send</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={30}
+                    value={form.reminder_days_before}
+                    onChange={e => set('reminder_days_before', e.target.value)}
+                    style={{ ...inputStyle(theme, false), width: 64, padding: '6px 8px', textAlign: 'center' }}
+                  />
+                  <span style={{ fontSize: 12.5, color: theme.ink }}>day(s) before the event</span>
+                </div>
+              )}
+            </FormField>
 
             {/* Call time + Cast size */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -1422,6 +1615,11 @@ function mockDbEvents(): DbEvent[] {
     signup_deadline: e.signupDeadline ?? null,
     cast_size: e.castSize ?? null,
     file_url: null,
+    description: e.description ?? null,
+    image_url: e.image ?? null,
+    reminder_enabled: false,
+    reminder_days_before: null,
+    reminder_sent_at: null,
     allows_excused_absence: false,
     excused_absence_open: true,
     excused_absence_form_url: null,
@@ -1457,7 +1655,7 @@ export function AdminEvents() {
     try {
       // Newer columns — if their migrations haven't been run yet, drop whichever
       // one the error names and retry rather than losing the whole events list.
-      const newerCols = ['allows_excused_absence', 'excused_absence_open', 'excused_absence_form_url', 'is_closed'];
+      const newerCols = ['allows_excused_absence', 'excused_absence_open', 'excused_absence_form_url', 'is_closed', 'description', 'image_url', 'reminder_enabled', 'reminder_days_before', 'reminder_sent_at'];
       let cols = `event_id, event_date, start_time, end_time, notes, event_type, is_castable, name, venue, call_time, attire, repertoire, signup_deadline, cast_size, file_url, ${newerCols.join(', ')}, created_by, created_at, updated_at, updated_by`;
       let data: any = null;
       let error: any = null;

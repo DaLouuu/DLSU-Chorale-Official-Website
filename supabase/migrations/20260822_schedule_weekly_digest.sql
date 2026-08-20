@@ -3,7 +3,7 @@
 --
 -- MANUAL STEP REQUIRED FIRST — do this in the Supabase Dashboard before
 -- running this file, since a secret must never be committed to a public repo:
---   1. Dashboard -> Project Settings -> Vault -> "New secret"
+--   1. Dashboard -> Settings -> (left sidebar, under INTEGRATIONS) -> Vault -> "New secret"
 --   2. Name it exactly:  service_role_key
 --   3. Value: your project's service_role key (Settings -> API Keys ->
 --      Legacy anon, service_role API keys tab). This is DIFFERENT from the
