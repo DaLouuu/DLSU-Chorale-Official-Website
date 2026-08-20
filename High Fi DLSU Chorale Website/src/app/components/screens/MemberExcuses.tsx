@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useRouter, useTheme, useApp } from '../../App';
 import { notifyExcuseFiled } from '../../utils/email';
 import { supabase } from '../../supabase';
-import { EVENTS } from '../../data';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
@@ -11,13 +10,6 @@ import { Chip, StatusPill } from '../ui/Chip';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
 import { Field } from '../ui/Field';
-
-type ExcusableEvent = {
-  id: string;
-  name: string;
-  date: string;
-  allowsExcusedAbsence: boolean;
-};
 
 export function MemberExcuses() {
   const { user } = useRouter();
@@ -30,13 +22,19 @@ export function MemberExcuses() {
   const minDateIso = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const maxDateIso = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const [date, setDate] = useState(todayIso);
-  const [events, setEvents] = useState<ExcusableEvent[]>([]);
+  const events: { id: string; _eventId: number | null; name: string; date: string; allowsExcusedAbsence: boolean }[] =
+    (app.events as any[]).map(ev => ({
+      id: ev.id,
+      _eventId: ev._eventId ?? null,
+      name: ev.name ?? 'Untitled event',
+      date: ev.date ?? '',
+      allowsExcusedAbsence: !!ev.allowsExcusedAbsence,
+    }));
   const [eventId, setEventId] = useState('');
   const [reason, setReason] = useState('');
   const [eta, setEta] = useState('');
-  const [docFileName, setDocFileName] = useState('');
-  const [docDataUrl, setDocDataUrl] = useState<string | null>(null);
-  const [docError, setDocError] = useState('');
+  const [documentUrl, setDocumentUrl] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   useEffect(() => {
@@ -46,58 +44,9 @@ export function MemberExcuses() {
   }, []);
   const isMobile = vw < 768;
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      let cols = 'event_id, name, notes, event_date, allows_excused_absence';
-      let { data, error } = await supabase.from('events').select(cols).order('event_date', { ascending: true });
-      if (error?.message?.includes('allows_excused_absence')) {
-        cols = cols.replace(', allows_excused_absence', '');
-        ({ data, error } = await supabase.from('events').select(cols).order('event_date', { ascending: true }));
-      }
-      if (cancelled) return;
-      if (!error && data && data.length > 0) {
-        setEvents(
-          (data as any[]).map(row => ({
-            id: String(row.event_id),
-            name: row.name ?? row.notes ?? 'Untitled event',
-            date: row.event_date ?? '',
-            allowsExcusedAbsence: !!row.allows_excused_absence,
-          })),
-        );
-      } else {
-        setEvents(
-          (EVENTS as any[]).map((e, i) => ({
-            id: `mock-${i}`,
-            name: e.name ?? 'Untitled event',
-            date: e.date ?? '',
-            allowsExcusedAbsence: false,
-          })),
-        );
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
   const selectedEvent = events.find(ev => ev.id === eventId) ?? null;
 
-  const MAX_DOC_SIZE = 10 * 1024 * 1024; // 10MB
-
-  const handleDocChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > MAX_DOC_SIZE) {
-      setDocError('File is too large — max 10MB.');
-      return;
-    }
-    setDocError('');
-    setDocFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = ev => setDocDataUrl(ev.target?.result as string);
-    reader.readAsDataURL(file);
-  };
-
-  const submit = () => {
+  const submit = async () => {
     if (!reason.trim()) {
       app.showToast('Please enter a reason before submitting.', 'error');
       return;
@@ -106,7 +55,36 @@ export function MemberExcuses() {
       app.showToast('Please enter a valid date within the last 90 days or next 12 months.', 'error');
       return;
     }
+    const profileUuid: string | null = (user as any)?._uuid ?? (user as any)?.profileUuid ?? null;
+    if (!profileUuid) {
+      app.showToast("Your account isn't linked to a profile — contact an admin.", 'error');
+      return;
+    }
+
+    setSubmitting(true);
+    const { data: inserted, error } = await supabase
+      .from('excuse_requests')
+      .insert({
+        account_id_fk: profileUuid,
+        excused_date: date,
+        excuse_type: type,
+        notes: reason,
+        status: 'Pending',
+        eta: eta || null,
+        event_id_fk: selectedEvent?._eventId ?? null,
+        document_url: documentUrl.trim() || null,
+      })
+      .select('request_id, created_at')
+      .single();
+    setSubmitting(false);
+
+    if (error) {
+      app.showToast(`Could not submit excuse: ${error.message}`, 'error');
+      return;
+    }
+
     app.addExcuse({
+      id: inserted.request_id,
       memberId: user.id,
       memberName: user.name,
       section: user.section,
@@ -117,8 +95,8 @@ export function MemberExcuses() {
       eventName: selectedEvent?.name,
       allowsExcusedAbsence: selectedEvent?.allowsExcusedAbsence ?? false,
       eta: eta || undefined,
-      documentFileName: docFileName || undefined,
-      documentDataUrl: docDataUrl || undefined,
+      documentUrl: documentUrl.trim() || undefined,
+      submittedAt: inserted.created_at ? inserted.created_at.slice(0, 16).replace('T', ' ') : undefined,
     });
     app.showToast("Excuse submitted — your Section Head will review it.");
     const adminEmail = import.meta.env.VITE_ADMIN_EMAIL as string ?? '';
@@ -127,9 +105,7 @@ export function MemberExcuses() {
     setReason('');
     setEventId('');
     setEta('');
-    setDocFileName('');
-    setDocDataUrl(null);
-    setDocError('');
+    setDocumentUrl('');
     setTimeout(() => {
       setSubmitted(false);
       setTab('mine');
@@ -258,34 +234,22 @@ export function MemberExcuses() {
               <label style={{ fontSize: 11.5, fontFamily: FONTS.mono, letterSpacing: 1, color: theme.dim, textTransform: 'uppercase' }}>
                 Supporting document {type === 'Excused Absent' ? '(recommended)' : '(optional)'}
               </label>
-              <div
-                style={{
-                  marginTop: 6,
-                  border: `2px dashed ${docError ? theme.red : theme.line}`,
-                  borderRadius: 10,
-                  padding: 18,
-                  textAlign: 'center',
-                  background: theme.cream,
-                  position: 'relative',
-                }}
-              >
+              <div style={{ marginTop: 6, display: 'flex', gap: 10, alignItems: 'center' }}>
+                <Icon name="file" size={18} stroke={theme.dim} />
                 <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  onChange={handleDocChange}
-                  style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%' }}
+                  value={documentUrl}
+                  onChange={e => setDocumentUrl(e.target.value)}
+                  placeholder="Paste a Google Drive link — e.g. medical cert, excuse letter"
+                  style={{
+                    flex: 1, padding: '11px 14px', border: `1px solid ${theme.lineDark}`,
+                    borderRadius: 10, fontSize: 14, fontFamily: FONTS.sans, background: theme.paper,
+                    color: theme.ink, outline: 'none', boxSizing: 'border-box',
+                  }}
                 />
-                <Icon name="file" size={24} stroke={theme.dim} />
-                <div style={{ marginTop: 8, fontSize: 13, color: theme.ink }}>
-                  {docFileName ? (
-                    <span style={{ fontWeight: 500, color: theme.green }}>{docFileName}</span>
-                  ) : (
-                    'Click to upload or drag and drop — e.g. medical cert, excuse letter'
-                  )}
-                </div>
-                <div style={{ fontSize: 11, color: theme.dim, marginTop: 4 }}>PNG, JPG, or PDF up to 10MB</div>
               </div>
-              {docError && <div style={{ fontSize: 11.5, color: theme.red, marginTop: 4 }}>{docError}</div>}
+              <div style={{ fontSize: 11, color: theme.dim, marginTop: 4 }}>
+                Set sharing to "Anyone with the link" so your Section Head can open it.
+              </div>
             </div>
 
             <div style={{ marginTop: 18, padding: 14, background: theme.cream, border: `1px solid ${theme.line}`, borderRadius: 10, fontSize: 12.5, color: theme.dim, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
@@ -297,8 +261,8 @@ export function MemberExcuses() {
 
             <div style={{ marginTop: 20, display: 'flex', gap: 10, justifyContent: isMobile ? 'stretch' : 'flex-end', flexWrap: 'wrap' }}>
               <Button variant="outline">Save draft</Button>
-              <Button onClick={submit} icon="check" disabled={submitted}>
-                {submitted ? 'Submitted ✓' : 'Submit excuse'}
+              <Button onClick={submit} icon="check" disabled={submitted || submitting}>
+                {submitted ? 'Submitted ✓' : submitting ? 'Submitting…' : 'Submit excuse'}
               </Button>
             </div>
           </Card>
@@ -382,14 +346,15 @@ export function MemberExcuses() {
                     {e.allowsExcusedAbsence && <Chip tone="green" icon="check">Approved Absence eligible</Chip>}
                   </div>
                   <div style={{ fontSize: 13, color: theme.dim, lineHeight: 1.5 }}>{e.reason}</div>
-                  {e.documentDataUrl && (
+                  {e.documentUrl && (
                     <a
-                      href={e.documentDataUrl}
-                      download={e.documentFileName || 'attachment'}
+                      href={e.documentUrl}
+                      target="_blank"
+                      rel="noreferrer"
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, color: theme.green, textDecoration: 'none' }}
                     >
                       <Icon name="file" size={13} stroke={theme.green} />
-                      {e.documentFileName || 'View attachment'}
+                      Open supporting document
                     </a>
                   )}
                   {e.notes && (

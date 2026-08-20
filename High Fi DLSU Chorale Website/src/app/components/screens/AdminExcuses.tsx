@@ -30,8 +30,7 @@ type Excuse = {
   eta?: string;
   notes?: string;
   approvedBy?: string;
-  documentFileName?: string;
-  documentDataUrl?: string;
+  documentUrl?: string;
   eventName?: string;
   allowsExcusedAbsence?: boolean;
 };
@@ -52,13 +51,14 @@ export function AdminExcuses() {
 
   const handleApprove = async (e: Excuse) => {
     setActioning(e.id);
+    const adminName = user?.name ?? 'Admin';
     // Persist to Supabase
     await supabase
       .from('excuse_requests')
-      .update({ status: 'Approved' })
+      .update({ status: 'Approved', admin_response: 'Approved.', approved_by: adminName })
       .eq('request_id', e.id);
     // Update local state immediately
-    app.updateExcuse(e.id, { status: 'Approved', approvedBy: user?.name ?? 'Admin', notes: 'Approved.' });
+    app.updateExcuse(e.id, { status: 'Approved', approvedBy: adminName, notes: 'Approved.' });
     app.showToast(`Approved · ${e.memberName}`);
     notifyExcuseDecision({ email: memberEmail(e.memberId), name: e.memberName, excuseType: e.type, date: e.date, status: 'Approved', notes: 'Approved.' });
     setActioning(null);
@@ -67,12 +67,13 @@ export function AdminExcuses() {
   const handleDecline = async () => {
     if (!declineFor) return;
     setActioning(declineFor.id);
+    const adminName = user?.name ?? 'Admin';
+    const note = declineNote || 'Declined.';
     await supabase
       .from('excuse_requests')
-      .update({ status: 'Declined' })
+      .update({ status: 'Declined', admin_response: note, approved_by: adminName })
       .eq('request_id', declineFor.id);
-    const note = declineNote || 'Declined.';
-    app.updateExcuse(declineFor.id, { status: 'Declined', approvedBy: user?.name ?? 'Admin', notes: note });
+    app.updateExcuse(declineFor.id, { status: 'Declined', approvedBy: adminName, notes: note });
     notifyExcuseDecision({ email: memberEmail(declineFor.memberId), name: declineFor.memberName, excuseType: declineFor.type, date: declineFor.date, status: 'Declined', notes: note });
     app.showToast('Declined — member notified', 'error');
     setDeclineFor(null);
@@ -142,14 +143,15 @@ export function AdminExcuses() {
                       {e.allowsExcusedAbsence && <Chip tone="green" icon="check">Approved Absence eligible</Chip>}
                     </div>
                     <div style={{ fontSize: 13, color: theme.ink, lineHeight: 1.5, marginBottom: 4 }}>{e.reason}</div>
-                    {e.documentDataUrl && (
+                    {e.documentUrl && (
                       <a
-                        href={e.documentDataUrl}
-                        download={e.documentFileName || 'attachment'}
+                        href={e.documentUrl}
+                        target="_blank"
+                        rel="noreferrer"
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 4, fontSize: 12, color: theme.green, textDecoration: 'none' }}
                       >
                         <Icon name="file" size={13} stroke={theme.green} />
-                        {e.documentFileName || 'View attachment'}
+                        Open supporting document
                       </a>
                     )}
                     <div style={{ fontSize: 11, color: theme.dim, fontFamily: FONTS.mono, letterSpacing: 0.3 }}>

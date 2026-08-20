@@ -155,10 +155,10 @@ function AppStateProvider({ children }: { children: ReactNode }) {
 
   const addExcuse = (e: any) => {
     const newExcuse = {
-      ...e,
-      id: Date.now(),
       status: 'Pending',
       submittedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+      ...e,
+      id: e.id ?? Date.now(),
     };
     setExcuses(prev => [newExcuse, ...prev]);
   };

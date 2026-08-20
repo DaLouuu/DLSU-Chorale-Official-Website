@@ -467,6 +467,7 @@ export async function initializePublicData(): Promise<void> {
         description: ev.notes ?? '',
         mySignup: null,
         file_url: ev.file_url ?? null,
+        allowsExcusedAbsence: !!ev.allows_excused_absence,
       }));
 
       // Sync rehearsals to window so Calendar UI shows DB data on all screens
@@ -493,11 +494,13 @@ export async function initializePublicData(): Promise<void> {
       .order('created_at', { ascending: false });
 
     if (excuseData && excuseData.length > 0) {
+      const eventById = new Map(EVENTS.map(ev => [(ev as any)._eventId, ev]));
       EXCUSE_REQUESTS = excuseData.map(er => {
         const profile = (er as any).profiles;
         const firstName = profile?.first_name ?? '';
         const lastName = profile?.last_name ?? '';
         const memberName = [firstName, lastName].filter(Boolean).join(' ') || 'Unknown';
+        const linkedEvent = (er as any).event_id_fk != null ? eventById.get((er as any).event_id_fk) : null;
         return {
           id: er.request_id,
           memberId: profile?.school_id ?? 0,
@@ -509,7 +512,12 @@ export async function initializePublicData(): Promise<void> {
           status: er.status ?? 'Pending',
           submittedAt: er.created_at ? er.created_at.slice(0, 16).replace('T', ' ') : '',
           eta: er.eta ?? undefined,
-          notes: er.notes ?? undefined,
+          notes: (er as any).admin_response ?? undefined,
+          approvedBy: (er as any).approved_by ?? undefined,
+          eventId: (er as any).event_id_fk ?? undefined,
+          eventName: (linkedEvent as any)?.name ?? undefined,
+          allowsExcusedAbsence: (linkedEvent as any)?.allowsExcusedAbsence ?? false,
+          documentUrl: (er as any).document_url ?? undefined,
         };
       });
     }
