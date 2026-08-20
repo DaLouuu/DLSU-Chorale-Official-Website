@@ -14,6 +14,7 @@ import { MemberFees } from './components/screens/MemberFees';
 import { MemberAnnouncements } from './components/screens/MemberAnnouncements';
 import { MemberProfile } from './components/screens/MemberProfile';
 import { MemberMusicLibrary } from './components/screens/MemberMusicLibrary';
+import { MemberIncidents } from './components/screens/MemberIncidents';
 import { AdminHome } from './components/screens/AdminHome';
 import { AdminAttendance } from './components/screens/AdminAttendance';
 import { AdminExcuses } from './components/screens/AdminExcuses';
@@ -22,13 +23,14 @@ import { AdminAnalytics } from './components/screens/AdminAnalytics';
 import { AdminMembers } from './components/screens/AdminMembers';
 import { AdminMusicLibrary } from './components/screens/AdminMusicLibrary';
 import { AdminEvents } from './components/screens/AdminEvents';
+import { AdminIncidents } from './components/screens/AdminIncidents';
 import { Shell } from './components/layout/Shell';
 import { DecorativeAccent } from './components/ui/DecorativeAccent';
 
 // Router Context
 type Route = 'landing' | 'login' | 'role-select' | 'pending' | 'rfid' | 'member-home' | 'admin-home' |
-  'member-attendance' | 'member-excuses' | 'member-performances' | 'member-fees' | 'member-announcements' | 'member-profile' | 'member-music' |
-  'admin-attendance' | 'admin-excuses' | 'admin-fees' | 'admin-analytics' | 'admin-members' | 'admin-music' | 'admin-events';
+  'member-attendance' | 'member-excuses' | 'member-performances' | 'member-fees' | 'member-announcements' | 'member-profile' | 'member-music' | 'member-incidents' |
+  'admin-attendance' | 'admin-excuses' | 'admin-fees' | 'admin-analytics' | 'admin-members' | 'admin-music' | 'admin-events' | 'admin-incidents';
 type RouterContextType = {
   route: Route;
   role: 'member' | 'admin' | null;
@@ -342,6 +344,7 @@ function Router() {
   if (route === 'member-announcements') return <Shell><MemberAnnouncements /></Shell>;
   if (route === 'member-profile') return <Shell><MemberProfile /></Shell>;
   if (route === 'member-music') return <Shell><MemberMusicLibrary /></Shell>;
+  if (route === 'member-incidents') return <Shell><MemberIncidents /></Shell>;
 
   // Admin screens
   if (route === 'admin-home') return <Shell><AdminHome /></Shell>;
@@ -352,6 +355,7 @@ function Router() {
   if (route === 'admin-members') return <Shell><AdminMembers /></Shell>;
   if (route === 'admin-music') return <Shell><AdminMusicLibrary /></Shell>;
   if (route === 'admin-events') return <Shell><AdminEvents /></Shell>;
+  if (route === 'admin-incidents') return <Shell><AdminIncidents /></Shell>;
 
   return <Landing />;
 }

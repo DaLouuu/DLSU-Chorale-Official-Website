@@ -26,6 +26,7 @@ const MEMBER_NAV = [
   { key: 'member-music', label: 'Music Library', icon: 'folder' },
   { key: 'member-fees', label: 'Fees & Payments', icon: 'wallet' },
   { key: 'member-announcements', label: 'Announcements', icon: 'megaphone' },
+  { key: 'member-incidents', label: 'Report a Concern', icon: 'alertTriangle' },
   { key: 'rfid', label: 'Launch Kiosk', icon: 'check' },
   { key: 'member-profile', label: 'Profile', icon: 'user' },
 ];
@@ -39,6 +40,7 @@ const ADMIN_NAV = [
   { key: 'admin-fees', label: 'Fee Management', icon: 'wallet' },
   { key: 'admin-analytics', label: 'Analytics', icon: 'chart' },
   { key: 'admin-members', label: 'Members', icon: 'users' },
+  { key: 'admin-incidents', label: 'Incident Reports', icon: 'shield' },
   { key: 'rfid', label: 'Launch Kiosk', icon: 'check' },
 ];
 

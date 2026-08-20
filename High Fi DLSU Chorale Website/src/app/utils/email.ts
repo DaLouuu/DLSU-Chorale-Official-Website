@@ -226,6 +226,56 @@ export function notifyScheduleChange(opts: {
   return send(opts.email, `${icon} ${opts.title} ${opts.action.toLowerCase()}`, html);
 }
 
+export function notifyIncidentSubmitted(opts: { email: string; name: string }) {
+  const html = wrap(
+    h2('📝 Your Report Has Been Received') +
+    muted(`Hello ${opts.name}, thank you for coming forward.`) +
+    `<p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px">
+       Your incident report has been submitted and will be reviewed confidentially by HR.
+       You'll receive another email whenever there's an update or feedback on your report.
+     </p>
+     <p style="font-size:13px;color:#6b7280">If you feel unsafe right now, please reach out to a trusted officer directly rather than waiting for a response here.</p>`
+  );
+  return send(opts.email, '📝 Your incident report has been received', html);
+}
+
+export function notifyIncidentUpdate(opts: {
+  email: string;
+  name: string;
+  message: string;
+  status?: string;
+}) {
+  const html = wrap(
+    h2('📋 Update on Your Incident Report') +
+    muted(`Hello ${opts.name}, there's an update on the report you filed.`) +
+    (opts.status ? table([['Status', badge(opts.status, TEAL)]]) : '') +
+    `<p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px;white-space:pre-wrap">${opts.message}</p>
+     <p style="font-size:13px;color:#6b7280">Log in to the member portal to view the full status of your report.</p>`
+  );
+  return send(opts.email, '📋 Update on your incident report', html);
+}
+
+export function notifyIncidentNewReport(opts: { adminEmail: string }) {
+  const html = wrap(
+    h2('🔔 New Incident Report Filed') +
+    muted('A new incident report has been submitted and needs HR review.') +
+    `<p style="font-size:13px;color:#6b7280">Open the Incident Reports tab in the admin console to review it. Details are only visible after unlocking with the HR password.</p>`
+  );
+  return send(opts.adminEmail, '🔔 New incident report filed', html);
+}
+
+export function notifyHrIncidentOtp(opts: { email: string; code: string }) {
+  const html = wrap(
+    h2('🔐 Incident Reports Access Code') +
+    muted('Use this code to finish unlocking the Incident Reports tab. It expires in 10 minutes.') +
+    `<div style="background:${G};border-radius:10px;padding:20px 24px;color:#fff;margin-bottom:20px;text-align:center">
+       <p style="margin:0;font-size:32px;font-weight:700;letter-spacing:8px">${opts.code}</p>
+     </div>
+     <p style="font-size:13px;color:#6b7280">If you did not request this, someone may be trying to access confidential incident reports — consider changing the HR password.</p>`
+  );
+  return send(opts.email, '🔐 Your Incident Reports access code', html);
+}
+
 export function notifyRehearsalReminder(opts: {
   email: string;
   name: string;

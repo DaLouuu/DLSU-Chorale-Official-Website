@@ -62,6 +62,12 @@ export function StatusPill({ status }: StatusPillProps) {
     paid: { tone: 'green', label: 'Paid' },
     unpaid: { tone: 'red', label: 'Unpaid' },
     pending: { tone: 'amber', label: 'Pending Approval' },
+    'DM Review': { tone: 'amber', label: 'DM Review' },
+    'HR Investigation': { tone: 'blue', label: 'HR Investigation' },
+    'CM/ACM Investigation': { tone: 'blue', label: 'CM/ACM Investigation' },
+    'Conductor Investigation': { tone: 'blue', label: 'Conductor Investigation' },
+    'CAO Investigation': { tone: 'blue', label: 'CAO Investigation' },
+    Resolved: { tone: 'green', label: 'Resolved' },
   };
 
   const m = map[status] || { tone: 'neutral', label: status };
