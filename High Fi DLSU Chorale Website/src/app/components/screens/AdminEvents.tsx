@@ -9,6 +9,7 @@ import { Icon } from '../ui/Icon';
 import { supabase } from '../../supabase';
 import { EVENTS, MEMBERS } from '../../data';
 import {
+  EventMeta,
   EventSignup,
   RoleSlot,
   getEventMeta,
@@ -38,6 +39,9 @@ type DbEvent = {
   cast_size: number | null;
   file_url: string | null;
   allows_excused_absence: boolean | null;
+  excused_absence_open: boolean | null;
+  excused_absence_form_url: string | null;
+  is_closed: boolean | null;
   created_by: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -56,6 +60,9 @@ type FormData = {
   cast_size: string;
   file_url: string;
   allows_excused_absence: boolean;
+  excused_absence_open: boolean;
+  excused_absence_form_url: string;
+  is_closed: boolean;
   role_slots: RoleSlot[];
   major_event_enabled: boolean;
   exam_required: boolean;
@@ -68,6 +75,9 @@ const EMPTY_FORM: FormData = {
   name: '', type: 'production', date: '', venue: '',
   call_time: '', attire: '', repertoire: [], signup_deadline: '', cast_size: '', file_url: '',
   allows_excused_absence: false,
+  excused_absence_open: true,
+  excused_absence_form_url: '',
+  is_closed: false,
   role_slots: [], major_event_enabled: false, exam_required: false, ensemble_type: '',
 };
 
@@ -288,6 +298,9 @@ function mapFormToEventRow(
     cast_size: source.cast_size ? parseInt(source.cast_size, 10) : null,
     file_url: source.file_url || null,
     allows_excused_absence: source.allows_excused_absence,
+    excused_absence_open: source.excused_absence_open,
+    excused_absence_form_url: source.excused_absence_form_url || null,
+    is_closed: source.is_closed,
     ...(opts?.includeUpdatedBy ? { updated_by: profileId } : {}),
     ...(opts?.includeCreatedBy ? { created_by: profileId } : {}),
   } as Record<string, any>;
@@ -308,6 +321,9 @@ function mapEventRowToForm(row: DbEvent, meta: EventMeta): FormData {
     cast_size: row.cast_size != null ? String(row.cast_size) : '',
     file_url: row.file_url ?? '',
     allows_excused_absence: !!row.allows_excused_absence,
+    excused_absence_open: row.excused_absence_open ?? true,
+    excused_absence_form_url: row.excused_absence_form_url ?? '',
+    is_closed: !!row.is_closed,
     role_slots: meta.roleSlots,
     major_event_enabled: meta.majorEvent.enabled,
     exam_required: meta.majorEvent.examRequired,
@@ -1185,6 +1201,64 @@ function EventDrawer({
               <div style={{ fontSize: 11.5, color: theme.dim, marginTop: 4 }}>
                 Lets members select this event when filing an excused-absence request.
               </div>
+
+              {form.allows_excused_absence && (
+                <div style={{ marginTop: 12, paddingLeft: 2, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {([['open', 'Submissions open'], ['closed', 'Submissions closed']] as const).map(([val, label]) => {
+                      const active = (val === 'open') === form.excused_absence_open;
+                      return (
+                        <button
+                          key={val}
+                          onClick={() => set('excused_absence_open', val === 'open')}
+                          style={{
+                            padding: '7px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 12.5, fontFamily: FONTS.sans,
+                            border: `1px solid ${active ? (val === 'open' ? theme.green : theme.red) : theme.lineDark}`,
+                            background: active ? (val === 'open' ? theme.green : theme.red) : theme.paper,
+                            color: active ? '#fff' : theme.ink,
+                          }}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <input
+                    value={form.excused_absence_form_url}
+                    onChange={e => set('excused_absence_form_url', e.target.value)}
+                    placeholder="Approved Absence form link (e.g. Google Form) — optional"
+                    style={inputStyle(theme, false)}
+                  />
+                  <div style={{ fontSize: 11.5, color: theme.dim }}>
+                    If set, members will be directed to this form to file for this event instead of the in-app request.
+                  </div>
+                </div>
+              )}
+            </FormField>
+
+            <FormField label="Event status">
+              <div style={{ display: 'flex', gap: 8 }}>
+                {([[false, 'Open'], [true, 'Closed']] as const).map(([val, label]) => {
+                  const active = val === form.is_closed;
+                  return (
+                    <button
+                      key={label}
+                      onClick={() => set('is_closed', val)}
+                      style={{
+                        padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontFamily: FONTS.sans,
+                        border: `1px solid ${active ? (val ? theme.red : theme.green) : theme.lineDark}`,
+                        background: active ? (val ? theme.red : theme.green) : theme.paper,
+                        color: active ? '#fff' : theme.ink,
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: 11.5, color: theme.dim, marginTop: 4 }}>
+                Closed events are marked as such for members and no longer accept sign-ups.
+              </div>
             </FormField>
 
             {/* Date + Signup deadline */}
@@ -1349,6 +1423,9 @@ function mockDbEvents(): DbEvent[] {
     cast_size: e.castSize ?? null,
     file_url: null,
     allows_excused_absence: false,
+    excused_absence_open: true,
+    excused_absence_form_url: null,
+    is_closed: false,
     created_by: null,
     created_at: null,
     updated_at: null,
@@ -1378,13 +1455,17 @@ export function AdminEvents() {
     setLoading(true);
     setFetchError(null);
     try {
-      // allows_excused_absence is a newer column — if its migration hasn't been
-      // run yet, drop it and retry rather than losing the whole events list.
-      let cols = 'event_id, event_date, start_time, end_time, notes, event_type, is_castable, name, venue, call_time, attire, repertoire, signup_deadline, cast_size, file_url, allows_excused_absence, created_by, created_at, updated_at, updated_by';
-      let { data, error } = await supabase.from('events').select(cols).order('event_date', { ascending: true });
-      if (error?.message?.includes('allows_excused_absence')) {
-        cols = cols.replace(', allows_excused_absence', '');
+      // Newer columns — if their migrations haven't been run yet, drop whichever
+      // one the error names and retry rather than losing the whole events list.
+      const newerCols = ['allows_excused_absence', 'excused_absence_open', 'excused_absence_form_url', 'is_closed'];
+      let cols = `event_id, event_date, start_time, end_time, notes, event_type, is_castable, name, venue, call_time, attire, repertoire, signup_deadline, cast_size, file_url, ${newerCols.join(', ')}, created_by, created_at, updated_at, updated_by`;
+      let data: any = null;
+      let error: any = null;
+      for (let i = 0; i < newerCols.length + 1; i++) {
         ({ data, error } = await supabase.from('events').select(cols).order('event_date', { ascending: true }));
+        const missing = newerCols.find(c => error?.message?.includes(c) && cols.includes(c));
+        if (!missing) break;
+        cols = cols.replace(`${missing}, `, '').replace(`, ${missing}`, '');
       }
 
       if (error) {
@@ -1423,6 +1504,15 @@ export function AdminEvents() {
   const openEdit = (ev: DbEvent) => { setEditing(ev); setDrawerOpen(true); };
   const closeDrawer = () => { setDrawerOpen(false); setEditing(null); };
   const onSaved = () => { load(); setSignupsVersion(v => v + 1); };
+
+  const toggleEventClosed = async (ev: DbEvent) => {
+    const nextClosed = !ev.is_closed;
+    setEvents(prev => prev.map(e => (e.event_id === ev.event_id ? { ...e, is_closed: nextClosed } : e)));
+    const { error } = await safeUpdateEventRow(ev.event_id, { is_closed: nextClosed });
+    if (error) {
+      setEvents(prev => prev.map(e => (e.event_id === ev.event_id ? { ...e, is_closed: ev.is_closed } : e)));
+    }
+  };
 
   const filterTab = (key: FilterType, label: string) => (
     <button
@@ -1514,7 +1604,10 @@ export function AdminEvents() {
                       return (
                         <>
                     <td style={tdStyle}>
-                      <div style={{ fontWeight: 500 }}>{displayName(ev)}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontWeight: 500 }}>{displayName(ev)}</span>
+                        {ev.is_closed && <Chip tone="red">Closed</Chip>}
+                      </div>
                       {ev.attire && <div style={{ fontSize: 11, color: theme.dim, marginTop: 2 }}>{ev.attire}</div>}
                     </td>
                     <td style={tdStyle}>
@@ -1555,10 +1648,20 @@ export function AdminEvents() {
                           background: 'transparent', border: `1px solid ${theme.lineDark}`,
                           borderRadius: 7, padding: '5px 12px', cursor: 'pointer',
                           fontSize: 12, color: theme.ink, fontFamily: FONTS.sans,
-                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          display: 'inline-flex', alignItems: 'center', gap: 5, marginRight: 8,
                         }}
                       >
                         <Icon name="edit" size={13} /> Edit
+                      </button>
+                      <button
+                        onClick={e => { e.stopPropagation(); toggleEventClosed(ev); }}
+                        style={{
+                          background: 'transparent', border: `1px solid ${ev.is_closed ? theme.green : theme.red}`,
+                          borderRadius: 7, padding: '5px 12px', cursor: 'pointer',
+                          fontSize: 12, color: ev.is_closed ? theme.green : theme.red, fontFamily: FONTS.sans,
+                        }}
+                      >
+                        {ev.is_closed ? 'Reopen' : 'Close'}
                       </button>
                     </td>
                         </>

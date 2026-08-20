@@ -22,13 +22,16 @@ export function MemberExcuses() {
   const minDateIso = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const maxDateIso = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const [date, setDate] = useState(todayIso);
-  const events: { id: string; _eventId: number | null; name: string; date: string; allowsExcusedAbsence: boolean }[] =
+  const events: { id: string; _eventId: number | null; name: string; date: string; allowsExcusedAbsence: boolean; excusedAbsenceOpen: boolean; excusedAbsenceFormUrl: string | null; isClosed: boolean }[] =
     (app.events as any[]).map(ev => ({
       id: ev.id,
       _eventId: ev._eventId ?? null,
       name: ev.name ?? 'Untitled event',
       date: ev.date ?? '',
       allowsExcusedAbsence: !!ev.allowsExcusedAbsence,
+      excusedAbsenceOpen: ev.excusedAbsenceOpen ?? true,
+      excusedAbsenceFormUrl: ev.excusedAbsenceFormUrl ?? null,
+      isClosed: !!ev.isClosed,
     }));
   const [eventId, setEventId] = useState('');
   const [reason, setReason] = useState('');
@@ -193,7 +196,8 @@ export function MemberExcuses() {
                     {events.map(ev => (
                       <option key={ev.id} value={ev.id}>
                         {ev.name}{ev.date ? ` — ${new Date(ev.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
-                        {ev.allowsExcusedAbsence ? ' (Approved Absence eligible)' : ''}
+                        {ev.allowsExcusedAbsence ? (ev.excusedAbsenceOpen ? ' (Approved Absence eligible)' : ' (Approved Absence closed)') : ''}
+                        {ev.isClosed ? ' (Closed)' : ''}
                       </option>
                     ))}
                   </select>
@@ -202,10 +206,34 @@ export function MemberExcuses() {
               {(type === 'Late' || type === 'Stepping Out') && <Field label="Estimated arrival / return" type="time" value={eta} onChange={e => setEta(e.target.value)} />}
             </div>
 
-            {selectedEvent?.allowsExcusedAbsence && (
-              <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 8, background: theme.greenSoft, border: `1px solid ${theme.green}`, fontSize: 12.5, color: theme.ink, display: 'flex', gap: 8, alignItems: 'center' }}>
-                <Icon name="check" size={14} stroke={theme.green} />
-                This event is eligible for a fee-free Approved Absence.
+            {selectedEvent?.allowsExcusedAbsence && selectedEvent.excusedAbsenceOpen && (
+              <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 8, background: theme.greenSoft, border: `1px solid ${theme.green}`, fontSize: 12.5, color: theme.ink, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <Icon name="check" size={14} stroke={theme.green} />
+                  This event is eligible for a fee-free Approved Absence.
+                </div>
+                {selectedEvent.excusedAbsenceFormUrl && (
+                  <a
+                    href={selectedEvent.excusedAbsenceFormUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+                      padding: '7px 12px', borderRadius: 8, background: theme.green, color: '#fff',
+                      fontSize: 12.5, fontFamily: FONTS.sans, textDecoration: 'none',
+                    }}
+                  >
+                    <Icon name="file" size={13} stroke="#fff" />
+                    Fill out the Approved Absence form
+                  </a>
+                )}
+              </div>
+            )}
+
+            {selectedEvent?.allowsExcusedAbsence && !selectedEvent.excusedAbsenceOpen && (
+              <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 8, background: theme.redSoft, border: `1px solid ${theme.red}`, fontSize: 12.5, color: theme.ink, display: 'flex', gap: 8, alignItems: 'center' }}>
+                <Icon name="alert" size={14} stroke={theme.red} />
+                Approved Absence submissions for this event are currently closed.
               </div>
             )}
 

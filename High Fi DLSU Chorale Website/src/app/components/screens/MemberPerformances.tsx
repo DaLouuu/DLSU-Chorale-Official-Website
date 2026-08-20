@@ -57,6 +57,7 @@ type UnifiedEvent = {
   mySignup?: any;
   image?: string;
   forms?: { waiver?: FormConfig; excuse?: FormConfig };
+  isClosed?: boolean;
 };
 
 type RoleSignupModalState = {
@@ -98,6 +99,7 @@ function normalize(e: any, defaultCategory?: string): UnifiedEvent {
     mySignup: e.mySignup ?? null,
     image: e.image,
     forms: e.forms,
+    isClosed: !!e.isClosed,
   };
 }
 
@@ -288,6 +290,7 @@ function EventCard({ event: e, theme, onSignUp, highlighted }: { event: UnifiedE
                 {e.category}
               </span>
               {hasForm && <Chip tone="amber">Forms required</Chip>}
+              {e.isClosed && <Chip tone="red">Closed</Chip>}
             </div>
             <div style={{ fontFamily: FONTS.serif, fontSize: 20, fontWeight: 500, marginTop: 8, lineHeight: 1.2 }}>{e.name}</div>
           </div>
@@ -303,6 +306,7 @@ function EventCard({ event: e, theme, onSignUp, highlighted }: { event: UnifiedE
             {e.category}
           </span>
           <div style={{ fontFamily: FONTS.serif, fontSize: 17, fontWeight: 500, color: '#1f2937' }}>{e.name}</div>
+          {e.isClosed && <Chip tone="red">Closed</Chip>}
           {e.mySignup && <div style={{ marginLeft: 'auto' }}><Chip tone="green" icon="check">Signed up</Chip></div>}
         </div>
       )}
@@ -384,8 +388,10 @@ function EventCard({ event: e, theme, onSignUp, highlighted }: { event: UnifiedE
               </div>
             )}
           </div>
-          <Button variant={e.mySignup ? 'outline' : 'primary'} onClick={onSignUp}>
-            {e.mySignup === 'Pending' ? 'Cancel request' : e.mySignup ? 'Withdraw' : hasForm ? 'Sign up + forms' : 'Sign up'}
+          <Button variant={e.mySignup ? 'outline' : 'primary'} onClick={onSignUp} disabled={e.isClosed && !e.mySignup}>
+            {e.isClosed && !e.mySignup
+              ? 'Closed'
+              : e.mySignup === 'Pending' ? 'Cancel request' : e.mySignup ? 'Withdraw' : hasForm ? 'Sign up + forms' : 'Sign up'}
           </Button>
         </div>
 

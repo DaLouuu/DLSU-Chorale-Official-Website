@@ -474,6 +474,9 @@ export async function initializePublicData(): Promise<void> {
         mySignup: null,
         file_url: ev.file_url ?? null,
         allowsExcusedAbsence: !!ev.allows_excused_absence,
+        excusedAbsenceOpen: ev.excused_absence_open ?? true,
+        excusedAbsenceFormUrl: ev.excused_absence_form_url ?? null,
+        isClosed: !!ev.is_closed,
       }));
 
       // Sync rehearsals to window so Calendar UI shows DB data on all screens
