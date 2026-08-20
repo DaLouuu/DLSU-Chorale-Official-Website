@@ -80,6 +80,24 @@ function LockScreen({ onUnlocked }: { onUnlocked: () => void }) {
   const [forgotAnswer1, setForgotAnswer1] = useState('');
   const [forgotAnswer2, setForgotAnswer2] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [showSetupPw, setShowSetupPw] = useState(false);
+  const [showSetupConfirmPw, setShowSetupConfirmPw] = useState(false);
+  const [showEnterPw, setShowEnterPw] = useState(false);
+  const [showResetPw, setShowResetPw] = useState(false);
+
+  const showHideBtn = (show: boolean, toggle: () => void) => (
+    <button
+      type="button"
+      onClick={toggle}
+      style={{
+        position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+        background: 'transparent', border: 'none', cursor: 'pointer',
+        color: theme.dim, fontSize: 11, fontFamily: FONTS.mono, letterSpacing: 0.5, padding: 4,
+      }}
+    >
+      {show ? 'HIDE' : 'SHOW'}
+    </button>
+  );
 
   useEffect(() => {
     (async () => {
@@ -186,8 +204,20 @@ function LockScreen({ onUnlocked }: { onUnlocked: () => void }) {
   if (stage === 'setup-password') {
     return shell('Set up HR access', 'First time opening Incident Reports — set a password only you (HR) will know.', (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <input type="password" placeholder="New password" value={password} onChange={e => setPassword(e.target.value)} style={inputStyle(theme)} />
-        <input type="password" placeholder="Confirm password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} style={inputStyle(theme)} />
+        <div style={{ position: 'relative' }}>
+          <input
+            type={showSetupPw ? 'text' : 'password'} placeholder="New password" value={password}
+            onChange={e => setPassword(e.target.value)} style={{ ...inputStyle(theme), paddingRight: 56 }}
+          />
+          {showHideBtn(showSetupPw, () => setShowSetupPw(s => !s))}
+        </div>
+        <div style={{ position: 'relative' }}>
+          <input
+            type={showSetupConfirmPw ? 'text' : 'password'} placeholder="Confirm password" value={confirmPassword}
+            onChange={e => setConfirmPassword(e.target.value)} style={{ ...inputStyle(theme), paddingRight: 56 }}
+          />
+          {showHideBtn(showSetupConfirmPw, () => setShowSetupConfirmPw(s => !s))}
+        </div>
         <Button onClick={handleSetupPassword} disabled={busy}>{busy ? 'Saving…' : 'Continue'}</Button>
       </div>
     ));
@@ -212,7 +242,14 @@ function LockScreen({ onUnlocked }: { onUnlocked: () => void }) {
   if (stage === 'enter-password') {
     return shell('Enter HR password', 'Access to Incident Reports is restricted. A code will be emailed to confirm it’s you.', (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleEnterPassword()} style={inputStyle(theme)} />
+        <div style={{ position: 'relative' }}>
+          <input
+            type={showEnterPw ? 'text' : 'password'} placeholder="Password" value={password}
+            onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleEnterPassword()}
+            style={{ ...inputStyle(theme), paddingRight: 56 }}
+          />
+          {showHideBtn(showEnterPw, () => setShowEnterPw(s => !s))}
+        </div>
         <Button onClick={handleEnterPassword} disabled={busy}>{busy ? 'Checking…' : 'Continue'}</Button>
         <button onClick={openForgotPassword} style={{ background: 'transparent', border: 'none', color: theme.green, fontSize: 12.5, cursor: 'pointer', padding: 0, textAlign: 'left' }}>
           Forgot password?
@@ -248,7 +285,13 @@ function LockScreen({ onUnlocked }: { onUnlocked: () => void }) {
         <div style={{ fontSize: 12.5, color: theme.ink, marginBottom: 6 }}>{questions?.question_2}</div>
         <input value={forgotAnswer2} onChange={e => setForgotAnswer2(e.target.value)} style={inputStyle(theme)} />
       </div>
-      <input type="password" placeholder="New password" value={newPassword} onChange={e => setNewPassword(e.target.value)} style={inputStyle(theme)} />
+      <div style={{ position: 'relative' }}>
+        <input
+          type={showResetPw ? 'text' : 'password'} placeholder="New password" value={newPassword}
+          onChange={e => setNewPassword(e.target.value)} style={{ ...inputStyle(theme), paddingRight: 56 }}
+        />
+        {showHideBtn(showResetPw, () => setShowResetPw(s => !s))}
+      </div>
       <Button onClick={handleResetPassword} disabled={busy}>{busy ? 'Resetting…' : 'Reset password'}</Button>
       <button onClick={() => { setStage('enter-password'); setError(''); }} style={{ background: 'transparent', border: 'none', color: theme.dim, fontSize: 12.5, cursor: 'pointer', padding: 0, textAlign: 'left' }}>
         Back

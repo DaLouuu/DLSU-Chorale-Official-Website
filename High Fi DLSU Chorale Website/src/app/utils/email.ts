@@ -56,8 +56,17 @@ function table(rows: [string, string][]) {
 function badge(text: string, color: string) {
   return `<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:${color}20;color:${color}">${text}</span>`;
 }
+// This app has no server-side URL routing (a single-page app driven by
+// in-memory state, not browser history) — every link goes to the site root.
+// The existing "keep me logged in" session restore already lands the
+// visitor on their correct admin/member dashboard automatically if a
+// valid session exists; otherwise it falls through to the login screen.
+// window.location.origin is safe here because this file only ever runs
+// client-side, triggered from someone's own browser session.
+const SITE_URL = typeof window !== 'undefined' ? window.location.origin : '';
+
 function cta(text: string) {
-  return `<a style="display:inline-block;margin-top:20px;padding:10px 22px;background:${G};color:#fff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500">${text}</a>`;
+  return `<a href="${SITE_URL}" style="display:inline-block;margin-top:20px;padding:10px 22px;background:${G};color:#fff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500">${text}</a>`;
 }
 
 // ── Notification types ────────────────────────────────────────────────────────

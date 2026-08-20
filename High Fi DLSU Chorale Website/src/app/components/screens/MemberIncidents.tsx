@@ -56,6 +56,7 @@ export function MemberIncidents() {
   const [additionalNotes, setAdditionalNotes] = useState('');
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [evidenceLabel, setEvidenceLabel] = useState('');
+  const [evidenceLinkUrl, setEvidenceLinkUrl] = useState('');
   const [uploading, setUploading] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
   const [signature, setSignature] = useState('');
@@ -132,13 +133,32 @@ export function MemberIncidents() {
     setUploading(false);
   };
 
-  const canSubmit = () =>
-    personComplained.trim() && whatHappened.trim().length >= 10 && consentChecked && signature.trim() &&
-    (isAnonymous || witnessName.trim());
+  const handleAddEvidenceLink = () => {
+    const url = evidenceLinkUrl.trim();
+    if (!url) return;
+    if (!/^https?:\/\//i.test(url)) {
+      app.showToast('Evidence links must start with http:// or https://', 'error');
+      return;
+    }
+    setEvidence(prev => [...prev, { label: evidenceLabel.trim() || url, url }]);
+    setEvidenceLabel('');
+    setEvidenceLinkUrl('');
+  };
+
+  const missingFields = (): string[] => {
+    const missing: string[] = [];
+    if (!isAnonymous && !witnessName.trim()) missing.push('your name (or check "Submit anonymously")');
+    if (!personComplained.trim()) missing.push('the person being complained about');
+    if (whatHappened.trim().length < 10) missing.push('a fuller description of what happened (at least 10 characters)');
+    if (!consentChecked) missing.push('the consent checkbox');
+    if (!signature.trim()) missing.push('your signature over printed name');
+    return missing;
+  };
 
   const submit = async () => {
-    if (!canSubmit()) {
-      app.showToast('Please fill in the required fields and confirm the consent statement.', 'error');
+    const missing = missingFields();
+    if (missing.length > 0) {
+      app.showToast(`Please fill in: ${missing.join(', ')}.`, 'error');
       return;
     }
     setSubmitting(true);
@@ -311,7 +331,7 @@ export function MemberIncidents() {
             <div>
               <label style={labelStyle(theme)}>8. Photo / Screenshot Evidence</label>
               <div style={{ fontSize: 11.5, color: theme.dim, marginTop: 2, marginBottom: 8 }}>
-                Attach supporting files. Label them clearly — e.g. "Photo A – Event Venue", "Screenshot B – Conversation Extract".
+                Attach supporting files, or paste a link (Google Drive, Facebook post, etc.). Label them clearly — e.g. "Photo A – Event Venue", "Screenshot B – Conversation Extract".
               </div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
                 <input
@@ -334,6 +354,17 @@ export function MemberIncidents() {
                     onChange={e => { const f = e.target.files?.[0]; if (f) handleAddEvidence(f); e.target.value = ''; }}
                   />
                 </label>
+              </div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                <input
+                  value={evidenceLinkUrl}
+                  onChange={e => setEvidenceLinkUrl(e.target.value)}
+                  placeholder="…or paste a link — https://drive.google.com/…"
+                  style={{ flex: 1, minWidth: 220, padding: '10px 12px', border: `1px solid ${theme.lineDark}`, borderRadius: 8, fontSize: 13, fontFamily: FONTS.sans, background: theme.paper, color: theme.ink, outline: 'none' }}
+                />
+                <Button variant="outline" onClick={handleAddEvidenceLink} disabled={!evidenceLinkUrl.trim()}>
+                  Add link
+                </Button>
               </div>
               {evidence.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -368,7 +399,7 @@ export function MemberIncidents() {
           </div>
 
           <div style={{ marginTop: 22, display: 'flex', justifyContent: 'flex-end' }}>
-            <Button icon="check" onClick={submit} disabled={submitted || submitting || !canSubmit()}>
+            <Button icon="check" onClick={submit} disabled={submitted || submitting}>
               {submitted ? 'Submitted ✓' : submitting ? 'Submitting…' : 'Submit report'}
             </Button>
           </div>

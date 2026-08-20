@@ -607,7 +607,7 @@ export function AdminFees() {
               fontFamily: FONTS.sans,
               fontSize: 13.5,
               fontWeight: tab === t.k ? 500 : 400,
-              color: tab === t.k ? theme.greenDark : theme.dim,
+              color: tab === t.k ? theme.green : theme.dim,
               borderBottom: `2px solid ${tab === t.k ? theme.green : 'transparent'}`,
               marginBottom: -1,
             }}

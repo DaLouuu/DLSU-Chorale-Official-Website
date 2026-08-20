@@ -35,6 +35,7 @@ type RouterContextType = {
   route: Route;
   role: 'member' | 'admin' | null;
   user: any;
+  previousRoute: Route;
   go: (route: Route, opts?: { role?: 'member' | 'admin'; user?: any }) => void;
 };
 
@@ -48,6 +49,7 @@ export const useRouter = () => {
       route: 'member-home' as Route,
       role: 'member' as const,
       user: { id: 12100234, name: 'Preview User', section: 'Soprano', year: '3rd Year', email: 'preview@dlsu.edu.ph' },
+      previousRoute: 'member-home' as Route,
       go: () => {}
     };
   }
@@ -373,6 +375,7 @@ function PlaceholderScreen({ title }: { title: string }) {
 export default function App() {
   const [ready, setReady] = useState(false);
   const [route, setRoute] = useState<Route>('landing');
+  const [previousRoute, setPreviousRoute] = useState<Route>('landing');
   const [role, setRole] = useState<'member' | 'admin' | null>(null);
   const [user, setUser] = useState<any>(null);
 
@@ -454,6 +457,12 @@ export default function App() {
   }, []);
 
   const go = (r: Route, opts: { role?: 'member' | 'admin'; user?: any } = {}) => {
+    // Remember whatever route we're leaving, unless we're already on the
+    // kiosk — otherwise exiting it would overwrite the "return to" target
+    // with 'rfid' itself. This is what lets the kiosk send you back to
+    // wherever you actually launched it from (a dashboard, role-select, or
+    // the login page) instead of a hardcoded destination.
+    if (route !== 'rfid') setPreviousRoute(route);
     if (opts.role) setRole(opts.role);
     if (opts.user !== undefined) setUser(opts.user);
     setRoute(r);
@@ -499,7 +508,7 @@ export default function App() {
 
   return (
     <ThemeProvider>
-      <RouterContext.Provider value={{ route, role, user, go }}>
+      <RouterContext.Provider value={{ route, role, user, previousRoute, go }}>
         <AppStateProvider>
           <Router />
         </AppStateProvider>

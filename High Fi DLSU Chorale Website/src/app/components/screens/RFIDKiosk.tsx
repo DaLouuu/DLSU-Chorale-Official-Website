@@ -49,12 +49,11 @@ function getTodayOrNextEvent() {
 
 
 export function RFIDKiosk() {
-  const { go, role } = useRouter();
+  const { go, previousRoute } = useRouter();
   const { theme } = useTheme();
-  // Admins only ever reach the kiosk via the role-select screen (there's no
-  // in-console "launch kiosk" entry point), so exiting should return them to
-  // that same choice screen rather than dropping straight into the console.
-  const exitRoute = role === 'admin' ? 'role-select' : role === 'member' ? 'member-home' : 'landing';
+  // Wherever the kiosk was actually launched from — a dashboard, role-select,
+  // or the public login page — is where exiting should return to.
+  const exitRoute = previousRoute;
   const vw = useViewportWidth();
   const isMobile = vw < 768;
   const isSmall = vw < 480;
