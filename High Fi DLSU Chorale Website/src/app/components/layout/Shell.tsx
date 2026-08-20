@@ -5,8 +5,13 @@ import { Icon } from '../ui/Icon';
 import { Avatar } from '../ui/Avatar';
 import { NotificationBell } from '../ui/NotificationBell';
 import { DecorativeAccent } from '../ui/DecorativeAccent';
+import { Tutorial } from '../ui/Tutorial';
 import logo from '../../../imports/dlsu-chorale-logo.png';
 import { MEMBERS, SOCIAL_EVENTS } from '../../data';
+
+function tutorialSeenKey(role: string, userId: string | number) {
+  return `chorale_tutorial_seen_${role}_${userId}`;
+}
 
 function useViewportWidth() {
   const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
@@ -142,7 +147,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
   );
 }
 
-function Topbar({ onMenuClick, isMobile }: { onMenuClick?: () => void; isMobile?: boolean }) {
+function Topbar({ onMenuClick, isMobile, onOpenTutorial }: { onMenuClick?: () => void; isMobile?: boolean; onOpenTutorial: () => void }) {
   const { user, role, go } = useRouter();
   const { theme, mode, setMode } = useTheme();
   const app = useApp();
@@ -524,6 +529,18 @@ function Topbar({ onMenuClick, isMobile }: { onMenuClick?: () => void; isMobile?
       <NotificationBell />
 
       <button
+        onClick={onOpenTutorial}
+        title="Show tutorial"
+        style={{
+          background: 'transparent', border: `1px solid ${theme.line}`, borderRadius: 8,
+          padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center',
+          color: theme.dim, flexShrink: 0, fontSize: 13, fontWeight: 600, fontFamily: FONTS.sans,
+        }}
+      >
+        ?
+      </button>
+
+      <button
         onClick={() => setMode(mode === 'light' ? 'dark' : 'light')}
         title={mode === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
         style={{
@@ -582,13 +599,29 @@ type ShellProps = {
 
 export function Shell({ children }: ShellProps) {
   const { theme } = useTheme();
+  const { role, user } = useRouter();
   const vw = useViewportWidth();
   const isMobile = vw < 768;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   // Close sidebar on route change (any click that triggers navigate already calls onClose)
   useEffect(() => { if (!isMobile) setSidebarOpen(false); }, [isMobile]);
+
+  // First time this role/user combo has ever seen the console — auto-show
+  // the tutorial once, then never again unless they reopen it themselves
+  // via the "?" button.
+  useEffect(() => {
+    if (!role || !user?.id) return;
+    try {
+      const key = tutorialSeenKey(role, user.id);
+      if (!localStorage.getItem(key)) {
+        setShowTutorial(true);
+        localStorage.setItem(key, '1');
+      }
+    } catch {}
+  }, [role, user?.id]);
 
   return (
     <div
@@ -635,11 +668,15 @@ export function Shell({ children }: ShellProps) {
 
       {/* Main content */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <Topbar onMenuClick={() => setSidebarOpen(o => !o)} isMobile={isMobile} />
+        <Topbar onMenuClick={() => setSidebarOpen(o => !o)} isMobile={isMobile} onOpenTutorial={() => setShowTutorial(true)} />
         <div style={{ flex: 1, overflow: 'auto', padding: isMobile ? '20px 16px' : '32px 40px' }}>
           {children}
         </div>
       </div>
+
+      {showTutorial && role && (
+        <Tutorial role={role} onClose={() => setShowTutorial(false)} />
+      )}
     </div>
   );
 }

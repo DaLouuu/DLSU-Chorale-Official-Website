@@ -1676,6 +1676,19 @@ export function Login({ startAtRoleSelect }: { startAtRoleSelect?: boolean } = {
           >
             Forgot password?
           </button>
+
+          <div style={{ borderTop: `1px solid ${theme.line}`, marginTop: 4, paddingTop: 14, textAlign: 'center' as const }}>
+            <button
+              type="button"
+              onClick={() => go('rfid')}
+              style={{
+                background: 'transparent', border: 'none', color: theme.dim, cursor: 'pointer',
+                fontSize: 12.5, padding: 0, fontFamily: FONTS.sans,
+              }}
+            >
+              Just here to check in? Launch the attendance kiosk →
+            </button>
+          </div>
         </form>
       </Card>
     </div>

@@ -1,6 +1,6 @@
 import { CSSProperties } from 'react';
 
-type IconName =
+export type IconName =
   | 'home' | 'calendar' | 'music' | 'user' | 'ticket' | 'bell' | 'wallet'
   | 'chart' | 'users' | 'settings' | 'logout' | 'check' | 'x' | 'plus'
   | 'clock' | 'search' | 'filter' | 'download' | 'chevronRight' | 'chevronLeft'
