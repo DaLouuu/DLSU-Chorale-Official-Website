@@ -354,7 +354,10 @@ export function AdminMusicLibrary() {
 
   const handleDeleteItem = async () => {
     const category = musicLibrary.find((c: any) => c.category === selectedCategory);
-    if (!category || !editingItem?._itemId) return;
+    if (!category || !editingItem?._itemId) {
+      app.showToast("This item isn't linked to a saved record yet — edit and re-save it first, then delete.", 'error');
+      return;
+    }
 
     const { error } = await supabase.from('music_items').delete().eq('id', editingItem._itemId);
     if (error) { app.showToast(`Could not delete item: ${error.message}`, 'error'); return; }
