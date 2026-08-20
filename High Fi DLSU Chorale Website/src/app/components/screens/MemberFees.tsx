@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTheme, useApp, useRouter } from '../../App';
+import { supabase } from '../../supabase';
+import { FEE_RULES } from '../../data';
 import { FONTS } from '../../theme';
 
 function useViewportWidth() {
@@ -18,26 +20,14 @@ import { StatusPill } from '../ui/Chip';
 import { Icon } from '../ui/Icon';
 
 type FeeRecord = {
-  id: string;
+  id: string | number;
   date: string;
   type: string;
   reference: string;
   amount: number;
-  status: 'paid' | 'unpaid';
+  status: 'paid' | 'unpaid' | 'pending';
   paidAt?: string;
 };
-
-type FeeRule = {
-  id: string;
-  type: string;
-  amount: number;
-};
-
-declare global {
-  interface Window {
-    FEE_RULES: FeeRule[];
-  }
-}
 
 export function MemberFees() {
   const app = useApp();
@@ -145,7 +135,7 @@ export function MemberFees() {
           </Card>
           <Card>
             <h3 style={{ fontFamily: FONTS.serif, fontSize: 18, margin: '0 0 12px', fontWeight: 500 }}>Fee schedule</h3>
-            {window.FEE_RULES.map(r => (
+            {FEE_RULES.map(r => (
               <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: `1px solid ${theme.line}` }}>
                 <span style={{ fontSize: 13, color: theme.ink }}>{r.type}</span>
                 <span style={{ fontFamily: FONTS.serif, fontSize: 16, fontWeight: 500 }}>₱{r.amount}</span>
@@ -203,8 +193,8 @@ function PaymentModal({
   const [referenceNumber, setReferenceNumber] = useState('');
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofFileName, setProofFileName] = useState('');
-  const [proofDataUrl, setProofDataUrl] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -219,9 +209,6 @@ function PaymentModal({
     if (!file) return;
     setProofFile(file);
     setProofFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = ev => setProofDataUrl(ev.target?.result as string);
-    reader.readAsDataURL(file);
     setErrors(prev => { const n = { ...prev }; delete n.proofFile; return n; });
   };
 
@@ -248,19 +235,58 @@ function PaymentModal({
     } else if (referenceNumber.trim().length < 4) {
       errs.referenceNumber = 'Reference number is too short.';
     }
-    if (!proofFileName) {
+    if (!proofFile) {
       errs.proofFile = 'Please upload your proof of payment.';
     }
     return errs;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       return;
     }
+
+    setSubmitting(true);
+
+    let proofUrl = '';
+    try {
+      const path = `${Date.now()}_${proofFile!.name.replace(/\s+/g, '_')}`;
+      const { data: uploadData, error: uploadErr } = await supabase.storage
+        .from('payment-proofs')
+        .upload(path, proofFile!, { cacheControl: '3600', upsert: false });
+      if (uploadErr) throw uploadErr;
+      proofUrl = supabase.storage.from('payment-proofs').getPublicUrl(uploadData.path).data.publicUrl;
+    } catch (err: any) {
+      setSubmitting(false);
+      setErrors({ proofFile: `Could not upload proof of payment: ${err?.message ?? 'unknown error'}` });
+      return;
+    }
+
+    const submittedAt = new Date().toISOString();
+    const { error: updateErr } = await supabase
+      .from('fee_records')
+      .update({
+        status: 'pending',
+        payment_date: paymentDate,
+        sender_account: senderAccount,
+        sender_account_name: senderAccountName,
+        receiver_account: receiverAccount,
+        reference_number: referenceNumber,
+        proof_url: proofUrl,
+        submitted_at: submittedAt,
+      })
+      .eq('id', fee.id);
+
+    setSubmitting(false);
+
+    if (updateErr) {
+      setErrors({ proofFile: `Could not save payment: ${updateErr.message}` });
+      return;
+    }
+
     onSubmit({
       paymentDate,
       senderAccount,
@@ -268,13 +294,10 @@ function PaymentModal({
       receiverAccount,
       referenceNumber,
       proofFileName,
-      proofDataUrl,
+      proofDataUrl: proofUrl,
       amount: fee.amount,
     });
   };
-
-  // Suppress unused variable warning
-  void proofFile;
 
   const inputStyle = {
     width: '100%',
@@ -466,11 +489,11 @@ function PaymentModal({
           </div>
 
           <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
-            <Button variant="outline" onClick={onClose} type="button">
+            <Button variant="outline" onClick={onClose} type="button" disabled={submitting}>
               Cancel
             </Button>
-            <Button type="submit" icon="check">
-              Submit Payment
+            <Button type="submit" icon="check" disabled={submitting}>
+              {submitting ? 'Submitting…' : 'Submit Payment'}
             </Button>
           </div>
         </form>

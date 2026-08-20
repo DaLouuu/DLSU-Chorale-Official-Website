@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTheme, useApp } from '../../App';
+import { supabase } from '../../supabase';
+import { FEE_SUMMARIES, FEE_RULES, MEMBERS } from '../../data';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
@@ -8,30 +10,6 @@ import { Avatar } from '../ui/Avatar';
 import { SectionTag } from '../ui/SectionTag';
 import { Chip } from '../ui/Chip';
 import { Icon } from '../ui/Icon';
-
-type FeeSummary = {
-  memberId: string;
-  memberName: string;
-  section: string;
-  outstanding: number;
-  paid: number;
-  lastPayment?: string;
-};
-
-type FeeRule = {
-  id: string;
-  type: string;
-  amount: number;
-  effective: string;
-};
-
-declare global {
-  interface Window {
-    FEE_SUMMARIES: FeeSummary[];
-    FEE_RULES: FeeRule[];
-    MEMBERS: any[];
-  }
-}
 
 function PaymentDetailsModal({ payment, onClose, onApprove, onReject }: { payment: any; onClose: () => void; onApprove: () => void; onReject: () => void }) {
   const { theme } = useTheme();
@@ -184,6 +162,21 @@ export function AdminFees() {
 
   const pendingPayments = (app.fees as any[]).filter((f: any) => f.status === 'pending');
 
+  const topDebtor = FEE_SUMMARIES.reduce((top: any, f: any) => (f.outstanding > (top?.outstanding ?? 0) ? f : top), null);
+
+  const handleApprovePayment = async (p: any) => {
+    const paidAt = p.paymentData?.paymentDate || new Date().toISOString().slice(0, 10);
+    await supabase.from('fee_records').update({ status: 'paid', paid_at: paidAt }).eq('id', p.id);
+    app.approvePayment(p.id);
+    app.showToast(`Approved payment from ${p.memberName}`);
+  };
+
+  const handleRejectPayment = async (p: any, reason: string) => {
+    await supabase.from('fee_records').update({ status: 'unpaid', rejection_reason: reason }).eq('id', p.id);
+    app.rejectPayment(p.id, reason);
+    app.showToast(`Rejected payment from ${p.memberName}`, 'error');
+  };
+
   return (
     <>
       <PageHeader
@@ -202,12 +195,17 @@ export function AdminFees() {
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 16, marginBottom: 22 }}>
         <StatCard
           label="Total outstanding"
-          value={`₱${window.FEE_SUMMARIES.reduce((s, f) => s + f.outstanding, 0).toLocaleString()}`}
-          trend={`${window.FEE_SUMMARIES.filter(f => f.outstanding > 0).length} members with balance`}
+          value={`₱${FEE_SUMMARIES.reduce((s, f) => s + f.outstanding, 0).toLocaleString()}`}
+          trend={`${FEE_SUMMARIES.filter(f => f.outstanding > 0).length} members with balance`}
           tone="red"
         />
-        <StatCard label="Collected YTD" value={`₱${window.FEE_SUMMARIES.reduce((s, f) => s + f.paid, 0).toLocaleString()}`} trend="2026 AY" tone="green" />
-        <StatCard label="Top debtor" value="₱750" trend="Lorenzo Aquino (Bass)" tone="amber" />
+        <StatCard label="Collected YTD" value={`₱${FEE_SUMMARIES.reduce((s, f) => s + f.paid, 0).toLocaleString()}`} trend="2026 AY" tone="green" />
+        <StatCard
+          label="Top debtor"
+          value={topDebtor ? `₱${topDebtor.outstanding.toLocaleString()}` : '₱0'}
+          trend={topDebtor ? `${topDebtor.memberName} (${topDebtor.section})` : 'No outstanding balances'}
+          tone="amber"
+        />
       </div>
 
       <div style={{ display: 'flex', gap: 0, marginBottom: 18, borderBottom: `1px solid ${theme.line}`, overflowX: 'auto' }}>
@@ -301,23 +299,10 @@ export function AdminFees() {
                       </button>
                     </td>
                     <td style={{ ...tdStyle, display: 'flex', gap: 6 }}>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          app.approvePayment(p.id);
-                          app.showToast(`Approved payment from ${p.memberName}`);
-                        }}
-                      >
+                      <Button size="sm" onClick={() => handleApprovePayment(p)}>
                         Approve
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          app.rejectPayment(p.id, 'Invalid receipt');
-                          app.showToast(`Rejected payment from ${p.memberName}`, 'error');
-                        }}
-                      >
+                      <Button size="sm" variant="outline" onClick={() => handleRejectPayment(p, 'Invalid receipt')}>
                         Reject
                       </Button>
                     </td>
@@ -354,8 +339,8 @@ export function AdminFees() {
               </tr>
             </thead>
             <tbody>
-              {window.FEE_SUMMARIES.map(f => {
-                const m = window.MEMBERS.find(x => x.id === f.memberId);
+              {FEE_SUMMARIES.map(f => {
+                const m = MEMBERS.find(x => x.id === f.memberId);
                 return (
                   <tr key={f.memberId} style={{ borderTop: `1px solid ${theme.line}` }}>
                     <td style={{ ...tdStyle, display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -397,7 +382,7 @@ export function AdminFees() {
       {tab === 'rules' && (
         <Card>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            {window.FEE_RULES.map((r, i) => (
+            {FEE_RULES.map((r, i) => (
               <div
                 key={r.id}
                 style={{
@@ -438,13 +423,11 @@ export function AdminFees() {
           payment={selectedPayment}
           onClose={() => setSelectedPayment(null)}
           onApprove={() => {
-            app.approvePayment(selectedPayment.id);
-            app.showToast(`Approved payment from ${selectedPayment.memberName}`);
+            handleApprovePayment(selectedPayment);
             setSelectedPayment(null);
           }}
           onReject={() => {
-            app.rejectPayment(selectedPayment.id, 'Invalid receipt');
-            app.showToast(`Rejected payment from ${selectedPayment.memberName}`, 'error');
+            handleRejectPayment(selectedPayment, 'Invalid receipt');
             setSelectedPayment(null);
           }}
         />

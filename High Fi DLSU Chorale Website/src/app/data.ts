@@ -221,6 +221,33 @@ const MOCK_EXCUSE_REQUESTS = [
   { id: 5, memberId: 12101120, memberName: "Sophia Garcia", section: "Alto", date: "2026-04-26", type: "Absent", reason: "Out of town — family obligation", status: "Pending", submittedAt: "2026-04-22 08:30" },
 ];
 
+const MOCK_FEE_RECORDS = [
+  { id: "f1", date: "2026-04-22", type: "Late", amount: 50, status: "unpaid", reference: "Rehearsal late arrival (18:24)", memberId: 12100234, memberName: "Althea Marquez" },
+  { id: "f2", date: "2026-04-10", type: "Absent (unexcused)", amount: 150, status: "pending", reference: "Rehearsal no-show", memberId: 12100234, memberName: "Althea Marquez", submittedAt: "2026-04-24 10:30", paymentData: { paymentDate: "2026-04-24", senderAccount: "0917-555-1234", senderAccountName: "Althea Marquez", receiverAccount: "0917-123-4567 (GCash - Isabela Cruz)", referenceNumber: "GCash-2026424-001", proofFileName: "gcash_receipt_001.jpg", proofDataUrl: lpep, amount: 150 } },
+  { id: "f3", date: "2026-04-01", type: "Late", amount: 50, status: "paid", reference: "Rehearsal late arrival (18:19)", paidAt: "2026-04-08", memberId: 12100234, memberName: "Althea Marquez" },
+  { id: "f4", date: "2026-03-11", type: "Absent (unexcused)", amount: 150, status: "paid", reference: "Rehearsal no-show", paidAt: "2026-03-20", memberId: 12100234, memberName: "Althea Marquez" },
+  { id: "f5", date: "2026-04-20", type: "Late", amount: 50, status: "pending", reference: "Rehearsal late arrival", memberId: 12102344, memberName: "Joaquin Reyes", submittedAt: "2026-04-23 14:15", paymentData: { paymentDate: "2026-04-23", senderAccount: "0917-555-9876", senderAccountName: "Joaquin Reyes", receiverAccount: "0917-123-4567 (GCash - Isabela Cruz)", referenceNumber: "GCash-2026423-002", proofFileName: "payment_proof.png", proofDataUrl: tcc, amount: 50 } },
+];
+
+// Outstanding/paid/lastPayment are derived from fee records so mock and
+// live-Supabase data stay consistent instead of using separately seeded numbers.
+function computeFeeSummaries(records: any[]): any[] {
+  const byMember = new Map<number, { memberId: number; memberName: string; section: string; outstanding: number; paid: number; lastPayment: string | null }>();
+  for (const r of records) {
+    const key = r.memberId;
+    if (!byMember.has(key)) {
+      byMember.set(key, { memberId: r.memberId, memberName: r.memberName, section: r.section ?? '', outstanding: 0, paid: 0, lastPayment: null });
+    }
+    const summary = byMember.get(key)!;
+    if (r.status === 'unpaid' || r.status === 'pending') summary.outstanding += r.amount;
+    if (r.status === 'paid') {
+      summary.paid += r.amount;
+      if (!summary.lastPayment || (r.paidAt && r.paidAt > summary.lastPayment)) summary.lastPayment = r.paidAt ?? summary.lastPayment;
+    }
+  }
+  return MOCK_MEMBERS.map(m => byMember.get(m.id) ?? { memberId: m.id, memberName: m.name, section: m.section, outstanding: 0, paid: 0, lastPayment: null });
+}
+
 // ── Mutable live exports — replaced by Supabase data at runtime ───────────────
 // ESM live bindings mean consumers will see the updated value after assignment.
 
@@ -230,29 +257,8 @@ export let CURRENT_ADMIN: any = MOCK_MEMBERS[2];
 export let ATTENDANCE_LOG: any[] = MOCK_ATTENDANCE_LOG;
 export let EVENTS: any[] = MOCK_EVENTS;
 export let EXCUSE_REQUESTS: any[] = MOCK_EXCUSE_REQUESTS;
-
-// ── Static data (no real DB table yet — always mock) ─────────────────────────
-
-export const FEE_RECORDS = [
-  { id: "f1", date: "2026-04-22", type: "Late", amount: 50, status: "unpaid", reference: "Rehearsal late arrival (18:24)", memberId: 12100234, memberName: "Althea Marquez" },
-  { id: "f2", date: "2026-04-10", type: "Absent (unexcused)", amount: 150, status: "pending", reference: "Rehearsal no-show", memberId: 12100234, memberName: "Althea Marquez", submittedAt: "2026-04-24 10:30", paymentData: { paymentDate: "2026-04-24", senderAccount: "0917-555-1234", senderAccountName: "Althea Marquez", receiverAccount: "0917-123-4567 (GCash - Isabela Cruz)", referenceNumber: "GCash-2026424-001", proofFileName: "gcash_receipt_001.jpg", proofDataUrl: lpep, amount: 150 } },
-  { id: "f3", date: "2026-04-01", type: "Late", amount: 50, status: "paid", reference: "Rehearsal late arrival (18:19)", paidAt: "2026-04-08", memberId: 12100234, memberName: "Althea Marquez" },
-  { id: "f4", date: "2026-03-11", type: "Absent (unexcused)", amount: 150, status: "paid", reference: "Rehearsal no-show", paidAt: "2026-03-20", memberId: 12100234, memberName: "Althea Marquez" },
-  { id: "f5", date: "2026-04-20", type: "Late", amount: 50, status: "pending", reference: "Rehearsal late arrival", memberId: 12102344, memberName: "Joaquin Reyes", submittedAt: "2026-04-23 14:15", paymentData: { paymentDate: "2026-04-23", senderAccount: "0917-555-9876", senderAccountName: "Joaquin Reyes", receiverAccount: "0917-123-4567 (GCash - Isabela Cruz)", referenceNumber: "GCash-2026423-002", proofFileName: "payment_proof.png", proofDataUrl: tcc, amount: 50 } },
-];
-
-export const FEE_SUMMARIES = MOCK_MEMBERS.map((m, i) => {
-  const seeds = [200, 0, 0, 350, 0, 500, 50, 0, 100, 750, 50, 200, 0, 450, 150, 100];
-  const paid = [400, 0, 200, 150, 0, 300, 100, 0, 0, 250, 200, 100, 0, 150, 50, 0];
-  return {
-    memberId: m.id,
-    memberName: m.name,
-    section: m.section,
-    outstanding: seeds[i] || 0,
-    paid: paid[i] || 0,
-    lastPayment: paid[i] ? "2026-04-12" : null,
-  };
-});
+export let FEE_RECORDS: any[] = MOCK_FEE_RECORDS;
+export let FEE_SUMMARIES: any[] = computeFeeSummaries(MOCK_FEE_RECORDS);
 
 export const FEE_RULES = [
   { id: "r1", type: "Late (Rehearsal)", amount: 50, effective: "2026-01-01" },
@@ -520,6 +526,49 @@ export async function initializePublicData(): Promise<void> {
           documentUrl: (er as any).document_url ?? undefined,
         };
       });
+    }
+
+    // 4. All fee records joined with profiles (admin view needs all; member
+    // screens filter client-side by memberId, same pattern as excuses above)
+    const { data: feeData } = await supabase
+      .from('fee_records')
+      .select('*, profiles!account_id_fk(first_name, last_name, voice_section, school_id)')
+      .order('fee_date', { ascending: false });
+
+    if (feeData && feeData.length > 0) {
+      FEE_RECORDS = feeData.map(fr => {
+        const profile = (fr as any).profiles;
+        const firstName = profile?.first_name ?? '';
+        const lastName = profile?.last_name ?? '';
+        const memberName = [firstName, lastName].filter(Boolean).join(' ') || 'Unknown';
+        const hasPaymentInfo = fr.status === 'pending' || fr.status === 'paid';
+        const proofUrl: string | null = (fr as any).proof_url ?? null;
+        return {
+          id: fr.id,
+          date: fr.fee_date ?? '',
+          type: fr.type ?? '',
+          amount: Number(fr.amount ?? 0),
+          status: fr.status ?? 'unpaid',
+          reference: fr.reference ?? '',
+          memberId: profile?.school_id ?? 0,
+          memberName,
+          section: profile?.voice_section ?? '',
+          submittedAt: fr.submitted_at ? fr.submitted_at.slice(0, 16).replace('T', ' ') : undefined,
+          paidAt: fr.paid_at ?? undefined,
+          paymentData: hasPaymentInfo ? {
+            paymentDate: (fr as any).payment_date ?? undefined,
+            senderAccount: (fr as any).sender_account ?? undefined,
+            senderAccountName: (fr as any).sender_account_name ?? undefined,
+            receiverAccount: (fr as any).receiver_account ?? undefined,
+            referenceNumber: (fr as any).reference_number ?? undefined,
+            proofFileName: proofUrl ? decodeURIComponent(proofUrl.split('/').pop() ?? 'proof').replace(/^\d+_/, '') : undefined,
+            proofDataUrl: proofUrl ?? undefined,
+            amount: Number(fr.amount ?? 0),
+            rejectionReason: (fr as any).rejection_reason ?? undefined,
+          } : undefined,
+        };
+      });
+      FEE_SUMMARIES = computeFeeSummaries(FEE_RECORDS);
     }
   } catch {
     // On failure, keep mock data as fallback

@@ -102,9 +102,9 @@ type AppStateContextType = {
   updateExcuse: (id: number, patch: any) => void;
   signUpEvent: (id: string) => void;
   updateEventForms: (id: string, forms: any) => void;
-  payFee: (id: string, paymentData?: any) => void;
-  approvePayment: (id: string) => void;
-  rejectPayment: (id: string, reason?: string) => void;
+  payFee: (id: string | number, paymentData?: any) => void;
+  approvePayment: (id: string | number) => void;
+  rejectPayment: (id: string | number, reason?: string) => void;
   addAnnouncement: (announcement: any) => void;
   focusEventId: string | null;
   setFocusEvent: (id: string | null) => void;
@@ -126,9 +126,9 @@ export const useApp = () => {
       updateExcuse: () => {},
       signUpEvent: () => {},
       updateEventForms: () => {},
-      payFee: (_id: string, _paymentData?: any) => {},
-      approvePayment: (_id: string) => {},
-      rejectPayment: (_id: string, _reason?: string) => {},
+      payFee: (_id: string | number, _paymentData?: any) => {},
+      approvePayment: (_id: string | number) => {},
+      rejectPayment: (_id: string | number, _reason?: string) => {},
       addAnnouncement: () => {},
       focusEventId: null,
       setFocusEvent: () => {},
@@ -191,7 +191,7 @@ function AppStateProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const payFee = (id: string, paymentData?: any) => {
+  const payFee = (id: string | number, paymentData?: any) => {
     setFees(prev =>
       prev.map(f =>
         f.id === id
@@ -206,7 +206,7 @@ function AppStateProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const approvePayment = (id: string) => {
+  const approvePayment = (id: string | number) => {
     setFees(prev =>
       prev.map(f =>
         f.id === id
@@ -220,7 +220,7 @@ function AppStateProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const rejectPayment = (id: string, reason?: string) => {
+  const rejectPayment = (id: string | number, reason?: string) => {
     setFees(prev =>
       prev.map(f =>
         f.id === id

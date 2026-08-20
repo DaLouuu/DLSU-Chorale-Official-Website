@@ -17,7 +17,7 @@ type Notification = {
 export function NotificationBell() {
   const { theme } = useTheme();
   const app = useApp();
-  const { role, go } = useRouter();
+  const { role, go, user } = useRouter();
   const [showPanel, setShowPanel] = useState(false);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const panelRef = useRef<HTMLDivElement>(null);
@@ -62,7 +62,7 @@ export function NotificationBell() {
     }
   } else {
     // Member notifications
-    const myExcuses = app.excuses.filter((e: any) => e.memberId === 12100234);
+    const myExcuses = app.excuses.filter((e: any) => e.memberId === user.id);
     const decidedExcuses = myExcuses.filter((e: any) => e.status !== 'Pending' && !e.notified);
 
     if (decidedExcuses.length > 0) {
@@ -79,7 +79,7 @@ export function NotificationBell() {
       });
     }
 
-    const myPendingPayments = (app.fees as any[]).filter((f: any) => f.status === 'pending' && f.memberId === 12100234);
+    const myPendingPayments = (app.fees as any[]).filter((f: any) => f.status === 'pending' && f.memberId === user.id);
     if (myPendingPayments.length > 0) {
       notifications.push({
         id: 'payment-pending',
