@@ -415,6 +415,22 @@ export function AdminFees() {
   const [editingRule, setEditingRule] = useState<any | null>(null);
   const [showRuleModal, setShowRuleModal] = useState(false);
   const [showRefreshPrompt, setShowRefreshPrompt] = useState(false);
+  const [termStart, setTermStart] = useState('');
+  const [savingTermStart, setSavingTermStart] = useState(false);
+
+  useEffect(() => {
+    supabase.from('org_settings').select('current_term_started_at').eq('id', 1).maybeSingle()
+      .then(({ data }) => { if (data?.current_term_started_at) setTermStart(data.current_term_started_at); });
+  }, []);
+
+  const handleSaveTermStart = async () => {
+    if (!termStart) return;
+    setSavingTermStart(true);
+    const { error } = await supabase.from('org_settings').update({ current_term_started_at: termStart }).eq('id', 1);
+    setSavingTermStart(false);
+    if (error) { app.showToast(`Could not save term start date: ${error.message}`, 'error'); return; }
+    app.showToast('Term start date updated — petty cash counts reset from this date.');
+  };
   const selfChargedIds = useRef<Set<number>>(new Set());
 
   // Fees can now be auto-charged by a database trigger the moment attendance
@@ -761,6 +777,27 @@ export function AdminFees() {
       )}
 
       {tab === 'rules' && (
+        <>
+        <Card style={{ marginBottom: 16 }}>
+          <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 1.5, color: theme.green, textTransform: 'uppercase', marginBottom: 8 }}>
+            Petty Cash Fund — Term Boundary
+          </div>
+          <div style={{ fontSize: 12.5, color: theme.dim, marginBottom: 14, lineHeight: 1.5 }}>
+            Unexcused lates/absences are auto-charged to the petty cash fund at every 2nd occurrence (₱100, ₱200, ₱300…),
+            counted from this date. Update it at the start of each new term to reset the count.
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="date"
+              value={termStart}
+              onChange={e => setTermStart(e.target.value)}
+              style={{ padding: '9px 12px', border: `1px solid ${theme.lineDark}`, borderRadius: 8, fontSize: 13.5, background: theme.paper, color: theme.ink, outline: 'none' }}
+            />
+            <Button size="sm" onClick={handleSaveTermStart} disabled={savingTermStart || !termStart}>
+              {savingTermStart ? 'Saving…' : 'Save'}
+            </Button>
+          </div>
+        </Card>
         <Card>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
             <Button size="sm" icon="plus" onClick={() => { setEditingRule(null); setShowRuleModal(true); }}>
@@ -795,6 +832,7 @@ export function AdminFees() {
             ))}
           </div>
         </Card>
+        </>
       )}
 
       {tab === 'payments' && (

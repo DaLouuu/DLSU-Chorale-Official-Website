@@ -349,7 +349,7 @@ export function MemberExcuses() {
             <div style={{ marginTop: 18, padding: 14, background: theme.cream, border: `1px solid ${theme.line}`, borderRadius: 10, fontSize: 12.5, color: theme.dim, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <Icon name="bell" size={14} stroke={theme.amber} />
               <div>
-                <strong style={{ color: theme.ink }}>Please note:</strong> Late rehearsals incur a ₱50 fee, unexcused absences ₱150. Approved excuses carry no fee. Repeat excuses may be flagged.
+                <strong style={{ color: theme.ink }}>Please note:</strong> Unexcused lates and absences count toward the group's petty cash fund — ₱100 at your 2nd, ₱200 at your 4th, ₱300 at your 6th (and so on) each term. Approved excuses carry no fee.
               </div>
             </div>
 
