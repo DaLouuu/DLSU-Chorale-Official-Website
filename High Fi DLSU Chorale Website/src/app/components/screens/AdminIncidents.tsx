@@ -9,6 +9,29 @@ import { Icon } from '../ui/Icon';
 import { supabase } from '../../supabase';
 import { notifyHrIncidentOtp, notifyIncidentUpdate } from '../../utils/email';
 
+// incident_reports has no client-readable RLS policy at all (see
+// 20260832_lock_down_incident_reports.sql) — every read/write goes through
+// this Edge Function, which only proceeds once it verifies the session
+// token issued right after a successful password + OTP unlock.
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const HR_API_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/hr-incident-reports` : undefined;
+
+async function callHrApi(token: string, action: string, payload?: any) {
+  if (!HR_API_URL) throw new Error('Supabase URL is not configured.');
+  const res = await fetch(HR_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(SUPABASE_ANON_KEY ? { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, apikey: SUPABASE_ANON_KEY } : {}),
+    },
+    body: JSON.stringify({ token, action, payload }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
+  return data;
+}
+
 const STATUSES = [
   'Pending', 'DM Review', 'HR Investigation', 'CM/ACM Investigation',
   'Conductor Investigation', 'CAO Investigation', 'Resolved',
@@ -59,7 +82,7 @@ function inputStyle(theme: any) {
 
 // ── Lock screen ──────────────────────────────────────────────────────────────
 
-function LockScreen({ onUnlocked }: { onUnlocked: () => void }) {
+function LockScreen({ onUnlocked }: { onUnlocked: (token: string) => void }) {
   const { theme } = useTheme();
   const { user } = useRouter();
   const app = useApp();
@@ -156,9 +179,15 @@ function LockScreen({ onUnlocked }: { onUnlocked: () => void }) {
   const handleEnterOtp = async () => {
     setBusy(true);
     const { data, error: err } = await supabase.rpc('verify_hr_incident_otp', { p_code: otp.trim() });
+    if (err || !data) {
+      setBusy(false);
+      setError('Incorrect or expired code.');
+      return;
+    }
+    const { data: sessionToken, error: tokenErr } = await supabase.rpc('issue_hr_session_token');
     setBusy(false);
-    if (err || !data) { setError('Incorrect or expired code.'); return; }
-    onUnlocked();
+    if (tokenErr || !sessionToken) { setError('Could not start a session. Try again.'); return; }
+    onUnlocked(sessionToken);
   };
 
   const openForgotPassword = async () => {
@@ -313,23 +342,18 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
   );
 }
 
-function ReportDetail({ report, onClose, onUpdated }: { report: Report; onClose: () => void; onUpdated: () => void }) {
+function ReportDetail({
+  report, token, initialComments, onClose, onUpdated,
+}: { report: Report; token: string; initialComments: Comment[]; onClose: () => void; onUpdated: () => void }) {
   const { theme } = useTheme();
   const { user } = useRouter();
   const app = useApp();
   const [status, setStatus] = useState(report.status);
   const [verdict, setVerdict] = useState(report.verdict ?? '');
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [comments, setComments] = useState<Comment[]>(initialComments);
   const [newComment, setNewComment] = useState('');
   const [isFeedback, setIsFeedback] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.from('incident_report_comments').select('*').eq('report_id', report.id).order('created_at', { ascending: true });
-      setComments((data ?? []) as Comment[]);
-    })();
-  }, [report.id]);
 
   const notifyReporter = async (message: string) => {
     if (!report.reporter_email) return;
@@ -339,9 +363,14 @@ function ReportDetail({ report, onClose, onUpdated }: { report: Report; onClose:
 
   const handleSaveStatus = async () => {
     setSaving(true);
-    const { error } = await supabase.from('incident_reports').update({ status }).eq('id', report.id);
+    try {
+      await callHrApi(token, 'update_status', { report_id: report.id, status });
+    } catch (e: any) {
+      setSaving(false);
+      app.showToast(`Could not update status: ${e.message}`, 'error');
+      return;
+    }
     setSaving(false);
-    if (error) { app.showToast(`Could not update status: ${error.message}`, 'error'); return; }
     app.showToast('Status updated');
     await notifyReporter(`Your report's status has been updated to: ${status}.`);
     onUpdated();
@@ -349,9 +378,14 @@ function ReportDetail({ report, onClose, onUpdated }: { report: Report; onClose:
 
   const handleSaveVerdict = async () => {
     setSaving(true);
-    const { error } = await supabase.from('incident_reports').update({ verdict: verdict.trim() || null }).eq('id', report.id);
+    try {
+      await callHrApi(token, 'update_verdict', { report_id: report.id, verdict: verdict.trim() });
+    } catch (e: any) {
+      setSaving(false);
+      app.showToast(`Could not save verdict: ${e.message}`, 'error');
+      return;
+    }
     setSaving(false);
-    if (error) { app.showToast(`Could not save verdict: ${error.message}`, 'error'); return; }
     app.showToast('Verdict saved');
     if (verdict.trim()) await notifyReporter(`A verdict has been reached on your report:\n\n${verdict.trim()}`);
     onUpdated();
@@ -360,11 +394,18 @@ function ReportDetail({ report, onClose, onUpdated }: { report: Report; onClose:
   const handleAddComment = async () => {
     if (!newComment.trim()) return;
     setSaving(true);
-    const { data, error } = await supabase.from('incident_report_comments').insert({
-      report_id: report.id, author_name: user?.name ?? 'HR', body: newComment.trim(), is_feedback: isFeedback,
-    }).select('*').single();
+    let data: any;
+    try {
+      const res = await callHrApi(token, 'add_comment', {
+        report_id: report.id, author_name: user?.name ?? 'HR', comment_body: newComment.trim(), is_feedback: isFeedback,
+      });
+      data = res.comment;
+    } catch (e: any) {
+      setSaving(false);
+      app.showToast(`Could not add comment: ${e.message}`, 'error');
+      return;
+    }
     setSaving(false);
-    if (error) { app.showToast(`Could not add comment: ${error.message}`, 'error'); return; }
     setComments(prev => [...prev, data as Comment]);
     if (isFeedback) await notifyReporter(newComment.trim());
     setNewComment('');
@@ -477,29 +518,35 @@ function ReportDetail({ report, onClose, onUpdated }: { report: Report; onClose:
 export function AdminIncidents() {
   const { theme } = useTheme();
   const app = useApp();
-  const [unlocked, setUnlocked] = useState(false);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All');
   const [selected, setSelected] = useState<Report | null>(null);
 
-  async function load(): Promise<Report[]> {
+  async function load(token: string): Promise<Report[]> {
     setLoading(true);
-    const { data, error } = await supabase.from('incident_reports').select('*').order('created_at', { ascending: false });
-    if (error) app.showToast(`Could not load reports: ${error.message}`, 'error');
-    const rows = (data ?? []) as Report[];
-    setReports(rows);
-    setLoading(false);
-    return rows;
+    try {
+      const { reports: rows, comments: allComments } = await callHrApi(token, 'list');
+      setReports((rows ?? []) as Report[]);
+      setComments((allComments ?? []) as Comment[]);
+      setLoading(false);
+      return (rows ?? []) as Report[];
+    } catch (e: any) {
+      app.showToast(`Could not load reports: ${e.message}`, 'error');
+      setLoading(false);
+      return [];
+    }
   }
 
-  useEffect(() => { if (unlocked) load(); }, [unlocked]);
+  useEffect(() => { if (sessionToken) load(sessionToken); }, [sessionToken]);
 
-  if (!unlocked) {
+  if (!sessionToken) {
     return (
       <>
         <PageHeader eyebrow="Admin — HR" title="Incident Reports" subtitle="Password-protected. Only HR has access." />
-        <LockScreen onUnlocked={() => setUnlocked(true)} />
+        <LockScreen onUnlocked={(token) => setSessionToken(token)} />
       </>
     );
   }
@@ -569,9 +616,11 @@ export function AdminIncidents() {
       {selected && (
         <ReportDetail
           report={selected}
+          token={sessionToken}
+          initialComments={comments.filter(c => c.report_id === selected.id)}
           onClose={() => setSelected(null)}
           onUpdated={async () => {
-            const fresh = await load();
+            const fresh = await load(sessionToken);
             setSelected(prev => (prev ? fresh.find(r => r.id === prev.id) ?? null : null));
           }}
         />

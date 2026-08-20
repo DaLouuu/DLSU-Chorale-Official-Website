@@ -10,6 +10,13 @@ import { Field } from '../ui/Field';
 import { supabase } from '../../supabase';
 import { notifyIncidentSubmitted, notifyIncidentNewReport } from '../../utils/email';
 
+// incident_reports has no client-readable SELECT policy at all (see
+// 20260832_lock_down_incident_reports.sql) — "My Reports" goes through
+// this Edge Function instead, which reads with the service role key.
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const MEMBER_REPORTS_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/member-incident-reports` : undefined;
+
 type Evidence = { label: string; url: string };
 
 type MyReport = {
@@ -70,28 +77,29 @@ export function MemberIncidents() {
   const profileUuid: string | null = (user as any)?._uuid ?? (user as any)?.profileUuid ?? null;
 
   async function loadMine() {
-    if (!profileUuid) { setLoadingMine(false); return; }
+    if (!profileUuid || !MEMBER_REPORTS_URL) { setLoadingMine(false); return; }
     setLoadingMine(true);
-    const { data: reports } = await supabase
-      .from('incident_reports')
-      .select('id, status, verdict, created_at, person_complained, what_happened')
-      .eq('account_id_fk', profileUuid)
-      .order('created_at', { ascending: false });
-
-    if (!reports || reports.length === 0) { setMyReports([]); setLoadingMine(false); return; }
-
-    const ids = reports.map(r => r.id);
-    const { data: comments } = await supabase
-      .from('incident_report_comments')
-      .select('id, report_id, body, created_at')
-      .in('report_id', ids)
-      .eq('is_feedback', true)
-      .order('created_at', { ascending: true });
-
-    setMyReports(reports.map((r: any) => ({
-      ...r,
-      comments: (comments ?? []).filter((c: any) => c.report_id === r.id),
-    })));
+    try {
+      const res = await fetch(MEMBER_REPORTS_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(SUPABASE_ANON_KEY ? { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, apikey: SUPABASE_ANON_KEY } : {}),
+        },
+        body: JSON.stringify({ account_id_fk: profileUuid }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
+      const reports = data.reports ?? [];
+      const comments = data.comments ?? [];
+      setMyReports(reports.map((r: any) => ({
+        ...r,
+        comments: comments.filter((c: any) => c.report_id === r.id),
+      })));
+    } catch (e: any) {
+      app.showToast(`Could not load your reports: ${e.message}`, 'error');
+      setMyReports([]);
+    }
     setLoadingMine(false);
   }
 
