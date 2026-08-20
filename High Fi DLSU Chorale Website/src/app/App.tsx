@@ -105,6 +105,7 @@ type AppStateContextType = {
   payFee: (id: string | number, paymentData?: any) => void;
   approvePayment: (id: string | number) => void;
   rejectPayment: (id: string | number, reason?: string) => void;
+  addFee: (fee: any) => void;
   addAnnouncement: (announcement: any) => void;
   focusEventId: string | null;
   setFocusEvent: (id: string | null) => void;
@@ -129,6 +130,7 @@ export const useApp = () => {
       payFee: (_id: string | number, _paymentData?: any) => {},
       approvePayment: (_id: string | number) => {},
       rejectPayment: (_id: string | number, _reason?: string) => {},
+      addFee: () => {},
       addAnnouncement: () => {},
       focusEventId: null,
       setFocusEvent: () => {},
@@ -235,6 +237,11 @@ function AppStateProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  const addFee = (fee: any) => {
+    const newFee = { status: 'unpaid', ...fee, id: fee.id ?? Date.now() };
+    setFees(prev => [newFee, ...prev]);
+  };
+
   const addAnnouncement = (announcement: any) => {
     const newAnnouncement = {
       ...announcement,
@@ -259,6 +266,7 @@ function AppStateProvider({ children }: { children: ReactNode }) {
         payFee,
         approvePayment,
         rejectPayment,
+        addFee,
         addAnnouncement,
         focusEventId,
         setFocusEvent,

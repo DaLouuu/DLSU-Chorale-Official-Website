@@ -131,6 +131,188 @@ function PaymentDetailsModal({ payment, onClose, onApprove, onReject }: { paymen
   );
 }
 
+function ChargeFeeModal({ onClose, onCharge }: { onClose: () => void; onCharge: (payload: { memberIds: number[]; type: string; amount: number; date: string; reference: string }) => Promise<void> }) {
+  const { theme, mode } = useTheme();
+  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setVw(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  const isMobile = vw < 640;
+
+  const [search, setSearch] = useState('');
+  const [sectionFilter, setSectionFilter] = useState('All');
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [ruleId, setRuleId] = useState<string>(FEE_RULES[0]?.id ?? 'custom');
+  const [customType, setCustomType] = useState('');
+  const [amount, setAmount] = useState(String(FEE_RULES[0]?.amount ?? ''));
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [reference, setReference] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const isCustom = ruleId === 'custom';
+  const feeType = isCustom ? customType : (FEE_RULES.find(r => r.id === ruleId)?.type ?? '');
+
+  const filteredMembers = MEMBERS.filter((m: any) =>
+    (sectionFilter === 'All' || m.section === sectionFilter) &&
+    (search.trim() === '' || m.name?.toLowerCase().includes(search.trim().toLowerCase()) || String(m.id).includes(search.trim()))
+  );
+
+  const toggleMember = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const inputStyle = {
+    width: '100%', padding: '10px 12px', border: `1px solid ${theme.lineDark}`,
+    borderRadius: 8, fontSize: 13.5, fontFamily: FONTS.sans, background: theme.paper,
+    color: theme.ink, outline: 'none', boxSizing: 'border-box' as const, colorScheme: mode,
+  };
+
+  const labelStyle = {
+    fontSize: 11, fontFamily: FONTS.mono, letterSpacing: 1, color: theme.dim,
+    textTransform: 'uppercase' as const, display: 'block', marginBottom: 5,
+  };
+
+  const handleSubmit = async () => {
+    const amt = parseFloat(amount);
+    if (selectedIds.size === 0) { setError('Select at least one member.'); return; }
+    if (!feeType.trim()) { setError('Enter a fee type.'); return; }
+    if (!amt || amt <= 0) { setError('Enter a valid amount.'); return; }
+    if (!date) { setError('Select a date.'); return; }
+    setError('');
+    setSubmitting(true);
+    await onCharge({
+      memberIds: [...selectedIds],
+      type: feeType.trim(),
+      amount: amt,
+      date,
+      reference: reference.trim() || feeType.trim(),
+    });
+    setSubmitting(false);
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(8,32,26,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24 }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ background: theme.paper, color: theme.ink, borderRadius: 14, width: isMobile ? '100%' : 640, maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', border: `1px solid ${theme.line}` }}
+      >
+        <div style={{ padding: '22px 28px', borderBottom: `1px solid ${theme.line}`, background: theme.cream }}>
+          <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, color: theme.green, textTransform: 'uppercase' }}>Charge Fee</div>
+          <h3 style={{ fontFamily: FONTS.serif, fontSize: 24, margin: '6px 0 0', fontWeight: 500 }}>Charge members</h3>
+        </div>
+
+        <div style={{ padding: isMobile ? 20 : 28 }}>
+          <label style={labelStyle}>Fee type</label>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: isCustom ? 10 : 16 }}>
+            {FEE_RULES.map(r => (
+              <button
+                key={r.id}
+                onClick={() => { setRuleId(r.id); setAmount(String(r.amount)); }}
+                style={{
+                  padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 12.5, fontFamily: FONTS.sans,
+                  border: `1px solid ${ruleId === r.id ? theme.green : theme.lineDark}`,
+                  background: ruleId === r.id ? theme.green : theme.paper,
+                  color: ruleId === r.id ? '#fff' : theme.ink,
+                }}
+              >
+                {r.type} · ₱{r.amount}
+              </button>
+            ))}
+            <button
+              onClick={() => setRuleId('custom')}
+              style={{
+                padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 12.5, fontFamily: FONTS.sans,
+                border: `1px solid ${isCustom ? theme.green : theme.lineDark}`,
+                background: isCustom ? theme.green : theme.paper,
+                color: isCustom ? '#fff' : theme.ink,
+              }}
+            >
+              Custom
+            </button>
+          </div>
+          {isCustom && (
+            <input
+              value={customType}
+              onChange={e => setCustomType(e.target.value)}
+              placeholder="e.g. Uniform replacement, Damaged music binder"
+              style={{ ...inputStyle, marginBottom: 16 }}
+            />
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 16 }}>
+            <div>
+              <label style={labelStyle}>Amount (₱)</label>
+              <input type="number" min={1} value={amount} onChange={e => setAmount(e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Date</label>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+
+          <label style={labelStyle}>Reference / reason (optional)</label>
+          <input
+            value={reference}
+            onChange={e => setReference(e.target.value)}
+            placeholder={feeType || 'e.g. Rehearsal late arrival (18:24)'}
+            style={{ ...inputStyle, marginBottom: 16 }}
+          />
+
+          <label style={labelStyle}>Members ({selectedIds.size} selected)</label>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by name or ID…"
+              style={{ ...inputStyle, flex: 1 }}
+            />
+            <select value={sectionFilter} onChange={e => setSectionFilter(e.target.value)} style={{ ...inputStyle, width: 130 }}>
+              {['All', 'Soprano', 'Alto', 'Tenor', 'Bass'].map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div style={{ border: `1px solid ${theme.line}`, borderRadius: 8, maxHeight: 220, overflowY: 'auto' }}>
+            {filteredMembers.length === 0 ? (
+              <div style={{ padding: 16, fontSize: 12.5, color: theme.dim, textAlign: 'center' }}>No members match.</div>
+            ) : filteredMembers.map((m: any) => (
+              <label
+                key={m.id}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', cursor: 'pointer',
+                  borderTop: `1px solid ${theme.line}`, background: selectedIds.has(m.id) ? theme.greenSoft : 'transparent',
+                }}
+              >
+                <input type="checkbox" checked={selectedIds.has(m.id)} onChange={() => toggleMember(m.id)} />
+                <Avatar member={m} size={24} />
+                <span style={{ fontSize: 13, flex: 1 }}>{m.name}</span>
+                <SectionTag section={m.section} />
+              </label>
+            ))}
+          </div>
+
+          {error && <div style={{ marginTop: 12, fontSize: 12, color: theme.red }}>{error}</div>}
+        </div>
+
+        <div style={{ padding: '16px 28px', borderTop: `1px solid ${theme.line}`, display: 'flex', justifyContent: 'flex-end', gap: 10, background: theme.cream }}>
+          <Button variant="outline" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button onClick={handleSubmit} icon="check" disabled={submitting}>
+            {submitting ? 'Charging…' : `Charge ${selectedIds.size || ''} member${selectedIds.size === 1 ? '' : 's'}`}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StatCard({ label, value, trend, tone = 'neutral' }: { label: string; value: string | number; trend: string; tone?: string }) {
   const { theme } = useTheme();
   const colors: Record<string, string> = { green: theme.green, amber: theme.amber, red: theme.red, blue: theme.blue, neutral: theme.ink };
@@ -159,6 +341,7 @@ export function AdminFees() {
   const isMobile = vw < 768;
   const [tab, setTab] = useState('members');
   const [selectedPayment, setSelectedPayment] = useState<any | null>(null);
+  const [chargingFee, setChargingFee] = useState(false);
 
   const pendingPayments = (app.fees as any[]).filter((f: any) => f.status === 'pending');
 
@@ -177,6 +360,53 @@ export function AdminFees() {
     app.showToast(`Rejected payment from ${p.memberName}`, 'error');
   };
 
+  const handleChargeFee = async (payload: { memberIds: number[]; type: string; amount: number; date: string; reference: string }) => {
+    const rows = payload.memberIds
+      .map(id => MEMBERS.find((m: any) => m.id === id))
+      .filter((m: any) => !!m?._uuid)
+      .map((m: any) => ({
+        account_id_fk: m._uuid,
+        fee_date: payload.date,
+        type: payload.type,
+        amount: payload.amount,
+        reference: payload.reference,
+        status: 'unpaid',
+      }));
+
+    if (rows.length === 0) {
+      app.showToast("Selected members aren't linked to profiles — contact an admin.", 'error');
+      return;
+    }
+
+    const { data: inserted, error } = await supabase
+      .from('fee_records')
+      .insert(rows)
+      .select('id, account_id_fk, fee_date, type, amount, status, reference');
+
+    if (error) {
+      app.showToast(`Could not charge fee: ${error.message}`, 'error');
+      return;
+    }
+
+    (inserted ?? []).forEach((row: any) => {
+      const m = MEMBERS.find((mm: any) => mm._uuid === row.account_id_fk);
+      app.addFee({
+        id: row.id,
+        date: row.fee_date,
+        type: row.type,
+        amount: Number(row.amount),
+        status: row.status,
+        reference: row.reference,
+        memberId: m?.id ?? 0,
+        memberName: m?.name ?? '',
+        section: m?.section ?? '',
+      });
+    });
+
+    app.showToast(`Charged ${rows.length} member${rows.length === 1 ? '' : 's'} ₱${payload.amount} — ${payload.type}`);
+    setChargingFee(false);
+  };
+
   return (
     <>
       <PageHeader
@@ -184,11 +414,16 @@ export function AdminFees() {
         title="Fee Management"
         subtitle="Track balances, approve payments, edit the fee schedule."
         actions={
-          pendingPayments.length > 0 && (
-            <Button variant="outline" icon="clock" onClick={() => setTab('pending')}>
-              {pendingPayments.length} Pending {pendingPayments.length === 1 ? 'Payment' : 'Payments'}
+          <>
+            {pendingPayments.length > 0 && (
+              <Button variant="outline" icon="clock" onClick={() => setTab('pending')}>
+                {pendingPayments.length} Pending {pendingPayments.length === 1 ? 'Payment' : 'Payments'}
+              </Button>
+            )}
+            <Button icon="plus" onClick={() => setChargingFee(true)}>
+              Charge Fee
             </Button>
-          )
+          </>
         }
       />
 
@@ -430,6 +665,12 @@ export function AdminFees() {
             handleRejectPayment(selectedPayment, 'Invalid receipt');
             setSelectedPayment(null);
           }}
+        />
+      )}
+      {chargingFee && (
+        <ChargeFeeModal
+          onClose={() => setChargingFee(false)}
+          onCharge={handleChargeFee}
         />
       )}
     </>
