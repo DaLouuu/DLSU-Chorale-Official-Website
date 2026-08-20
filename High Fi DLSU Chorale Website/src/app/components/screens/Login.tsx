@@ -90,14 +90,22 @@ function getPasswordPolicyIssues(password: string, context?: PasswordPolicyConte
   return issues;
 }
 
-export function Login() {
-  const { go } = useRouter();
+export function Login({ startAtRoleSelect }: { startAtRoleSelect?: boolean } = {}) {
+  const { go, user: routerUser } = useRouter();
   const { theme, mode, setMode } = useTheme();
   const vw = useViewportWidth();
   const isMobile = vw < 680;
 
-  const [screen, setScreen] = useState<Screen>('login');
-  const [verifiedUser, setVerifiedUser] = useState<VerifiedUser | null>(null);
+  // When the attendance kiosk is exited after being launched from the
+  // role-select screen, the app navigates back here via the 'role-select'
+  // route (instead of dropping straight into the Admin Console) — reconstruct
+  // the same verifiedUser shape from the session payload the router carries.
+  const roleSelectUser: VerifiedUser | null = startAtRoleSelect && routerUser
+    ? { schoolId: routerUser.id, email: routerUser.email, name: routerUser.name, section: routerUser.section, profileUuid: routerUser._uuid ?? null, isAdmin: true }
+    : null;
+
+  const [screen, setScreen] = useState<Screen>(roleSelectUser ? 'role-select' : 'login');
+  const [verifiedUser, setVerifiedUser] = useState<VerifiedUser | null>(roleSelectUser);
 
   // ── Login form state ──────────────────────────────────────────────────────
   const [email, setEmail] = useState('');

@@ -133,6 +133,23 @@ export function notifyEventSignup(opts: {
   return send(opts.adminEmail, `${icon} ${opts.memberName} ${opts.withdrew ? 'withdrew from' : 'signed up for'} ${opts.eventName}`, html);
 }
 
+export function notifyAnnouncement(opts: {
+  email: string;
+  title: string;
+  body: string;
+  pinned: boolean;
+  author: string;
+}) {
+  const html = wrap(
+    (opts.pinned ? badge('Pinned', '#c9a84c') + '<br/><br/>' : '') +
+    h2(`📣 ${opts.title}`) +
+    `<p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px">${opts.body}</p>
+     <p style="font-size:12px;color:#9ca3af;margin:0">— ${opts.author}</p>` +
+    cta('View in Member Portal')
+  );
+  return send(opts.email, `📣 ${opts.title}`, html);
+}
+
 export function notifyRehearsalReminder(opts: {
   email: string;
   name: string;

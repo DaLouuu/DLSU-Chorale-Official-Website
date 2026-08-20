@@ -11,6 +11,7 @@ import { Field } from '../ui/Field';
 import { FEE_SUMMARIES, MEMBERS, EVENTS } from '../../data';
 import { downloadCSV, todayStamp } from '../../utils/exportCsv';
 import { supabase } from '../../supabase';
+import { notifyAnnouncement } from '../../utils/email';
 
 declare global {
   interface Window {
@@ -790,7 +791,18 @@ export function AdminHome() {
               author: user.name,
               date: inserted.created_at ? inserted.created_at.slice(0, 10) : undefined,
             });
-            app.showToast(`Notice broadcast to ${data.recipients === 'all' ? 'all members' : data.recipients}`);
+
+            const recipientMembers = MEMBERS.filter((m: any) => {
+              if (!m.email) return false;
+              if (data.recipients === 'all') return true;
+              if (data.recipients === 'exec') return !!m.exec;
+              return m.section === data.recipients;
+            });
+            recipientMembers.forEach((m: any) => {
+              notifyAnnouncement({ email: m.email, title: data.title, body: data.body, pinned: data.pinned, author: user.name });
+            });
+
+            app.showToast(`Notice broadcast to ${recipientMembers.length} member${recipientMembers.length === 1 ? '' : 's'}`);
           }}
         />
       )}

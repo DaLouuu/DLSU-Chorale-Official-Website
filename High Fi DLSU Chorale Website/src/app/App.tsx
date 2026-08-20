@@ -25,7 +25,7 @@ import { AdminEvents } from './components/screens/AdminEvents';
 import { Shell } from './components/layout/Shell';
 
 // Router Context
-type Route = 'landing' | 'login' | 'pending' | 'rfid' | 'member-home' | 'admin-home' |
+type Route = 'landing' | 'login' | 'role-select' | 'pending' | 'rfid' | 'member-home' | 'admin-home' |
   'member-attendance' | 'member-excuses' | 'member-performances' | 'member-fees' | 'member-announcements' | 'member-profile' | 'member-music' |
   'admin-attendance' | 'admin-excuses' | 'admin-fees' | 'admin-analytics' | 'admin-members' | 'admin-music' | 'admin-events';
 type RouterContextType = {
@@ -328,6 +328,7 @@ function Router() {
 
   if (route === 'landing') return <Landing />;
   if (route === 'login') return <Login />;
+  if (route === 'role-select') return <Login startAtRoleSelect />;
   if (route === 'pending') return <PendingVerification />;
   if (route === 'rfid') return <RFIDKiosk />;
 

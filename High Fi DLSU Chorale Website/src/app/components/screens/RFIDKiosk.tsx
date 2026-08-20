@@ -44,7 +44,10 @@ function rehearsalTitle(r: any) {
 export function RFIDKiosk() {
   const { go, role } = useRouter();
   const { theme } = useTheme();
-  const exitRoute = role === 'admin' ? 'admin-home' : role === 'member' ? 'member-home' : 'landing';
+  // Admins only ever reach the kiosk via the role-select screen (there's no
+  // in-console "launch kiosk" entry point), so exiting should return them to
+  // that same choice screen rather than dropping straight into the console.
+  const exitRoute = role === 'admin' ? 'role-select' : role === 'member' ? 'member-home' : 'landing';
   const vw = useViewportWidth();
   const isMobile = vw < 768;
   const isSmall = vw < 480;
