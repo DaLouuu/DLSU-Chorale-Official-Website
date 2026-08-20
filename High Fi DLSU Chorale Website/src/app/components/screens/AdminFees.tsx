@@ -3,6 +3,7 @@ import { useTheme, useApp } from '../../App';
 import { supabase } from '../../supabase';
 import { FEE_SUMMARIES, MEMBERS } from '../../data';
 import { FONTS } from '../../theme';
+import { notifyPaymentDecision } from '../../utils/email';
 import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -422,12 +423,16 @@ export function AdminFees() {
     await supabase.from('fee_records').update({ status: 'paid', paid_at: paidAt }).eq('id', p.id);
     app.approvePayment(p.id);
     app.showToast(`Approved payment from ${p.memberName}`);
+    const email = MEMBERS.find((m: any) => m.id === p.memberId)?.email;
+    if (email) notifyPaymentDecision({ email, name: p.memberName, type: p.type, amount: p.amount, status: 'Approved' });
   };
 
   const handleRejectPayment = async (p: any, reason: string) => {
     await supabase.from('fee_records').update({ status: 'unpaid', rejection_reason: reason }).eq('id', p.id);
     app.rejectPayment(p.id, reason);
     app.showToast(`Rejected payment from ${p.memberName}`, 'error');
+    const email = MEMBERS.find((m: any) => m.id === p.memberId)?.email;
+    if (email) notifyPaymentDecision({ email, name: p.memberName, type: p.type, amount: p.amount, status: 'Rejected', reason });
   };
 
   const handleChargeFee = async (payload: { memberIds: number[]; type: string; amount: number; date: string; reference: string }) => {

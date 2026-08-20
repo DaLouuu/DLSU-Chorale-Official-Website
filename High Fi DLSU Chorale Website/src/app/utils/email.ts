@@ -150,6 +150,56 @@ export function notifyAnnouncement(opts: {
   return send(opts.email, `📣 ${opts.title}`, html);
 }
 
+export function notifyPaymentDecision(opts: {
+  email: string;
+  name: string;
+  type: string;
+  amount: number;
+  status: 'Approved' | 'Rejected';
+  reason?: string;
+}) {
+  const approved = opts.status === 'Approved';
+  const icon = approved ? '✅' : '❌';
+  const statusColor = approved ? '#16a34a' : '#dc2626';
+  const html = wrap(
+    h2(`${icon} Your Payment was ${approved ? 'Approved' : 'Rejected'}`) +
+    muted(`Hello ${opts.name}, here's the update on your recent payment submission.`) +
+    table([
+      ['Fee', opts.type],
+      ['Amount', `₱${opts.amount}`],
+      ['Status', badge(opts.status, statusColor)],
+      ...(opts.reason ? [['Reason', opts.reason] as [string, string]] : []),
+    ]) +
+    `<p style="font-size:13px;color:#6b7280">${approved ? 'This fee is now marked as paid on your account.' : 'This fee is still outstanding — please resubmit with a valid proof of payment.'}</p>`
+  );
+  return send(opts.email, `${icon} Payment ${opts.status} — ${opts.type}`, html);
+}
+
+export function notifyRoleSlotDecision(opts: {
+  email: string;
+  name: string;
+  eventName: string;
+  roleName: string;
+  committee: string;
+  status: 'Approved' | 'Rejected';
+}) {
+  const approved = opts.status === 'Approved';
+  const icon = approved ? '✅' : '❌';
+  const statusColor = approved ? '#16a34a' : '#dc2626';
+  const html = wrap(
+    h2(`${icon} Your Role Request was ${opts.status}`) +
+    muted(`Hello ${opts.name}, here's the update on your cross-committee role request.`) +
+    table([
+      ['Event', opts.eventName],
+      ['Role', opts.roleName],
+      ['Committee', opts.committee],
+      ['Status', badge(opts.status, statusColor)],
+    ]) +
+    `<p style="font-size:13px;color:#6b7280">Log in to the member portal to view this event's details.</p>`
+  );
+  return send(opts.email, `${icon} Role Request ${opts.status} — ${opts.eventName}`, html);
+}
+
 export function notifyRehearsalReminder(opts: {
   email: string;
   name: string;

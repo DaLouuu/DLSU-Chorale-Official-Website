@@ -8,6 +8,7 @@ import { Chip } from '../ui/Chip';
 import { Icon } from '../ui/Icon';
 import { supabase } from '../../supabase';
 import { EVENTS, MEMBERS } from '../../data';
+import { notifyRoleSlotDecision } from '../../utils/email';
 import {
   EventMeta,
   EventSignup,
@@ -1014,6 +1015,18 @@ function SignupsOverviewModal({
 
   const update = (memberId: number, roleName: string | null, status: 'approved' | 'rejected') => {
     updateSignupStatus(String(event.event_id), memberId, roleName, status);
+    const req = pendingRoleRequests.find(r => r.memberId === memberId && r.roleName === roleName);
+    const email = MEMBERS.find((m: any) => m.id === memberId)?.email;
+    if (req && email) {
+      notifyRoleSlotDecision({
+        email,
+        name: req.memberName,
+        eventName: displayName(event),
+        roleName: req.roleName ?? '',
+        committee: req.roleCommittee ?? '',
+        status: status === 'approved' ? 'Approved' : 'Rejected',
+      });
+    }
     onUpdated();
   };
 
@@ -1237,18 +1250,17 @@ function EventDrawer({
 
   return (
     <>
-      {/* Backdrop */}
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 40 }} />
-
-      {/* Drawer */}
       <div
+        onClick={onClose}
+        style={{ position: 'fixed', inset: 0, background: 'rgba(8,32,26,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 24 }}
+      >
+      <div
+        onClick={e => e.stopPropagation()}
         style={{
-          position: 'fixed', top: 0, right: 0, bottom: 0,
-          width: 520, maxWidth: '96vw',
-          background: theme.paper, zIndex: 50,
-          boxShadow: '-16px 0 64px rgba(0,0,0,0.15)',
+          width: 640, maxWidth: '100%', maxHeight: '90vh',
+          background: theme.paper, border: `1px solid ${theme.line}`, borderRadius: 14,
           display: 'flex', flexDirection: 'column',
-          overflowY: 'auto',
+          overflow: 'hidden',
         }}
       >
         {/* Header */}
@@ -1583,6 +1595,7 @@ function EventDrawer({
             </Button>
           </div>
         )}
+      </div>
       </div>
 
       {pendingChanges && (
