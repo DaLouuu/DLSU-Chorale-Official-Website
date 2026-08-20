@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTheme, useApp } from '../../App';
 import { supabase } from '../../supabase';
-import { FEE_SUMMARIES, FEE_RULES, MEMBERS } from '../../data';
+import { FEE_SUMMARIES, MEMBERS } from '../../data';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
@@ -133,6 +133,8 @@ function PaymentDetailsModal({ payment, onClose, onApprove, onReject }: { paymen
 
 function ChargeFeeModal({ onClose, onCharge }: { onClose: () => void; onCharge: (payload: { memberIds: number[]; type: string; amount: number; date: string; reference: string }) => Promise<void> }) {
   const { theme, mode } = useTheme();
+  const app = useApp();
+  const feeRules = app.feeRules;
   const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   useEffect(() => {
     const handler = () => setVw(window.innerWidth);
@@ -144,16 +146,16 @@ function ChargeFeeModal({ onClose, onCharge }: { onClose: () => void; onCharge: 
   const [search, setSearch] = useState('');
   const [sectionFilter, setSectionFilter] = useState('All');
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [ruleId, setRuleId] = useState<string>(FEE_RULES[0]?.id ?? 'custom');
+  const [ruleId, setRuleId] = useState<string>(feeRules[0]?.id ?? 'custom');
   const [customType, setCustomType] = useState('');
-  const [amount, setAmount] = useState(String(FEE_RULES[0]?.amount ?? ''));
+  const [amount, setAmount] = useState(String(feeRules[0]?.amount ?? ''));
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [reference, setReference] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const isCustom = ruleId === 'custom';
-  const feeType = isCustom ? customType : (FEE_RULES.find(r => r.id === ruleId)?.type ?? '');
+  const feeType = isCustom ? customType : (feeRules.find((r: any) => r.id === ruleId)?.type ?? '');
 
   const filteredMembers = MEMBERS.filter((m: any) =>
     (sectionFilter === 'All' || m.section === sectionFilter) &&
@@ -214,7 +216,7 @@ function ChargeFeeModal({ onClose, onCharge }: { onClose: () => void; onCharge: 
         <div style={{ padding: isMobile ? 20 : 28 }}>
           <label style={labelStyle}>Fee type</label>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: isCustom ? 10 : 16 }}>
-            {FEE_RULES.map(r => (
+            {feeRules.map((r: any) => (
               <button
                 key={r.id}
                 onClick={() => { setRuleId(r.id); setAmount(String(r.amount)); }}
@@ -313,6 +315,69 @@ function ChargeFeeModal({ onClose, onCharge }: { onClose: () => void; onCharge: 
   );
 }
 
+function FeeRuleModal({ rule, onClose, onSave }: { rule: any | null; onClose: () => void; onSave: (data: { type: string; amount: number; effective: string }) => Promise<void> }) {
+  const { theme, mode } = useTheme();
+  const isMobile = useState(typeof window !== 'undefined' ? window.innerWidth : 1200)[0] < 640;
+  const [type, setType] = useState(rule?.type ?? '');
+  const [amount, setAmount] = useState(String(rule?.amount ?? ''));
+  const [effective, setEffective] = useState(rule?.effective ?? new Date().toISOString().slice(0, 10));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const inputStyle = {
+    width: '100%', padding: '11px 14px', border: `1px solid ${theme.lineDark}`,
+    borderRadius: 10, fontSize: 14, fontFamily: FONTS.sans, background: theme.paper,
+    color: theme.ink, outline: 'none', boxSizing: 'border-box' as const, colorScheme: mode,
+  };
+  const labelStyle = {
+    fontSize: 11.5, fontFamily: FONTS.mono, letterSpacing: 1, color: theme.dim,
+    textTransform: 'uppercase' as const, display: 'block', marginBottom: 5,
+  };
+
+  const handleSave = async () => {
+    const amt = parseFloat(amount);
+    if (!type.trim()) { setError('Enter a fee type.'); return; }
+    if (!amt || amt <= 0) { setError('Enter a valid amount.'); return; }
+    if (!effective) { setError('Select an effective date.'); return; }
+    setError('');
+    setSaving(true);
+    await onSave({ type: type.trim(), amount: amt, effective });
+    setSaving(false);
+  };
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(8,32,26,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: theme.paper, color: theme.ink, borderRadius: 14, width: isMobile ? '100%' : 480, maxWidth: '100%', border: `1px solid ${theme.line}` }}>
+        <div style={{ padding: '22px 28px', borderBottom: `1px solid ${theme.line}`, background: theme.cream }}>
+          <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, color: theme.green, textTransform: 'uppercase' }}>Fee Schedule</div>
+          <h3 style={{ fontFamily: FONTS.serif, fontSize: 24, margin: '6px 0 0', fontWeight: 500 }}>{rule ? 'Edit fee rule' : 'Add fee rule'}</h3>
+        </div>
+        <div style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <label style={labelStyle}>Type</label>
+            <input value={type} onChange={e => setType(e.target.value)} placeholder="e.g. Late (Rehearsal)" style={inputStyle} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <label style={labelStyle}>Amount (₱)</label>
+              <input type="number" min={1} value={amount} onChange={e => setAmount(e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Effective date</label>
+              <input type="date" value={effective} onChange={e => setEffective(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+          {error && <div style={{ fontSize: 12, color: theme.red }}>{error}</div>}
+        </div>
+        <div style={{ padding: '16px 28px', borderTop: `1px solid ${theme.line}`, display: 'flex', justifyContent: 'flex-end', gap: 10, background: theme.cream }}>
+          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button onClick={handleSave} icon="check" disabled={saving}>{saving ? 'Saving…' : rule ? 'Save changes' : 'Add rule'}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StatCard({ label, value, trend, tone = 'neutral' }: { label: string; value: string | number; trend: string; tone?: string }) {
   const { theme } = useTheme();
   const colors: Record<string, string> = { green: theme.green, amber: theme.amber, red: theme.red, blue: theme.blue, neutral: theme.ink };
@@ -342,6 +407,8 @@ export function AdminFees() {
   const [tab, setTab] = useState('members');
   const [selectedPayment, setSelectedPayment] = useState<any | null>(null);
   const [chargingFee, setChargingFee] = useState(false);
+  const [editingRule, setEditingRule] = useState<any | null>(null);
+  const [showRuleModal, setShowRuleModal] = useState(false);
 
   const pendingPayments = (app.fees as any[]).filter((f: any) => f.status === 'pending');
   const paidHistory = (app.fees as any[])
@@ -408,6 +475,35 @@ export function AdminFees() {
 
     app.showToast(`Charged ${rows.length} member${rows.length === 1 ? '' : 's'} ₱${payload.amount} — ${payload.type}`);
     setChargingFee(false);
+  };
+
+  const handleSaveFeeRule = async (data: { type: string; amount: number; effective: string }) => {
+    if (editingRule) {
+      const { error } = await supabase
+        .from('fee_rules')
+        .update({ type: data.type, amount: data.amount, effective_date: data.effective })
+        .eq('id', editingRule.id);
+      if (error) {
+        app.showToast(`Could not save fee rule: ${error.message}`, 'error');
+        return;
+      }
+      app.setFeeRules(app.feeRules.map((r: any) => (r.id === editingRule.id ? { ...r, ...data } : r)));
+      app.showToast('Fee rule updated');
+    } else {
+      const { data: inserted, error } = await supabase
+        .from('fee_rules')
+        .insert({ type: data.type, amount: data.amount, effective_date: data.effective })
+        .select('id')
+        .single();
+      if (error) {
+        app.showToast(`Could not add fee rule: ${error.message}`, 'error');
+        return;
+      }
+      app.setFeeRules([...app.feeRules, { id: String(inserted.id), ...data }]);
+      app.showToast('Fee rule added');
+    }
+    setShowRuleModal(false);
+    setEditingRule(null);
   };
 
   return (
@@ -619,8 +715,13 @@ export function AdminFees() {
 
       {tab === 'rules' && (
         <Card>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+            <Button size="sm" icon="plus" onClick={() => { setEditingRule(null); setShowRuleModal(true); }}>
+              Add rule
+            </Button>
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            {FEE_RULES.map((r, i) => (
+            {app.feeRules.map((r: any, i: number) => (
               <div
                 key={r.id}
                 style={{
@@ -639,7 +740,7 @@ export function AdminFees() {
                 <div style={{ fontFamily: FONTS.serif, fontSize: 22, fontWeight: 500 }}>₱{r.amount}</div>
                 <Chip tone="green">Active</Chip>
                 <div style={{ textAlign: 'right' }}>
-                  <Button size="sm" variant="outline">
+                  <Button size="sm" variant="outline" onClick={() => { setEditingRule(r); setShowRuleModal(true); }}>
                     Edit
                   </Button>
                 </div>
@@ -710,6 +811,13 @@ export function AdminFees() {
         <ChargeFeeModal
           onClose={() => setChargingFee(false)}
           onCharge={handleChargeFee}
+        />
+      )}
+      {showRuleModal && (
+        <FeeRuleModal
+          rule={editingRule}
+          onClose={() => { setShowRuleModal(false); setEditingRule(null); }}
+          onSave={handleSaveFeeRule}
         />
       )}
     </>

@@ -1,6 +1,6 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { PALETTES, FONTS, ThemeMode, Theme } from './theme';
-import { CURRENT_MEMBER, CURRENT_ADMIN, EXCUSE_REQUESTS, EVENTS, FEE_RECORDS, ANNOUNCEMENTS, initializePublicData, initializeUserData } from './data';
+import { CURRENT_MEMBER, CURRENT_ADMIN, EXCUSE_REQUESTS, EVENTS, FEE_RECORDS, FEE_RULES, ANNOUNCEMENTS, MUSIC_LIBRARY, initializePublicData, initializeUserData } from './data';
 import logo from '../imports/dlsu-chorale-logo.png';
 import { Landing } from './components/screens/Landing';
 import { Login } from './components/screens/Login';
@@ -96,7 +96,11 @@ type AppStateContextType = {
   excuses: any[];
   events: any[];
   fees: any[];
+  feeRules: any[];
+  setFeeRules: (data: any[]) => void;
   announcements: any[];
+  musicLibrary: any[];
+  setMusicLibrary: (data: any[]) => void;
   showToast: (msg: string, tone?: string) => void;
   addExcuse: (excuse: any) => void;
   updateExcuse: (id: number, patch: any) => void;
@@ -121,7 +125,11 @@ export const useApp = () => {
       excuses: EXCUSE_REQUESTS,
       events: EVENTS,
       fees: FEE_RECORDS,
+      feeRules: FEE_RULES,
+      setFeeRules: () => {},
       announcements: ANNOUNCEMENTS,
+      musicLibrary: MUSIC_LIBRARY,
+      setMusicLibrary: () => {},
       showToast: () => {},
       addExcuse: () => {},
       updateExcuse: () => {},
@@ -143,7 +151,9 @@ function AppStateProvider({ children }: { children: ReactNode }) {
   const [excuses, setExcuses] = useState(EXCUSE_REQUESTS);
   const [events, setEvents] = useState(EVENTS);
   const [fees, setFees] = useState(FEE_RECORDS);
+  const [feeRules, setFeeRules] = useState(FEE_RULES);
   const [announcements, setAnnouncements] = useState(ANNOUNCEMENTS);
+  const [musicLibrary, setMusicLibrary] = useState(MUSIC_LIBRARY);
   const [toast, setToast] = useState<{ msg: string; tone: string; id: number } | null>(null);
   const [focusEventId, setFocusEvent] = useState<string | null>(null);
 
@@ -244,9 +254,9 @@ function AppStateProvider({ children }: { children: ReactNode }) {
 
   const addAnnouncement = (announcement: any) => {
     const newAnnouncement = {
-      ...announcement,
-      id: `a${Date.now()}`,
       date: new Date().toISOString().slice(0, 10),
+      ...announcement,
+      id: announcement.id ?? `a${Date.now()}`,
     };
     setAnnouncements(prev => [newAnnouncement, ...prev]);
   };
@@ -257,7 +267,11 @@ function AppStateProvider({ children }: { children: ReactNode }) {
         excuses,
         events,
         fees,
+        feeRules,
+        setFeeRules,
         announcements,
+        musicLibrary,
+        setMusicLibrary,
         showToast,
         addExcuse,
         updateExcuse,

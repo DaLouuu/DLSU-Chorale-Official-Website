@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTheme, useApp, useRouter } from '../../App';
 import { supabase } from '../../supabase';
-import { FEE_RULES } from '../../data';
 import { FONTS } from '../../theme';
 
 function useViewportWidth() {
@@ -135,7 +134,7 @@ export function MemberFees() {
           </Card>
           <Card>
             <h3 style={{ fontFamily: FONTS.serif, fontSize: 18, margin: '0 0 12px', fontWeight: 500 }}>Fee schedule</h3>
-            {FEE_RULES.map(r => (
+            {app.feeRules.map((r: any) => (
               <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: `1px solid ${theme.line}` }}>
                 <span style={{ fontSize: 13, color: theme.ink }}>{r.type}</span>
                 <span style={{ fontFamily: FONTS.serif, fontSize: 16, fontWeight: 500 }}>₱{r.amount}</span>

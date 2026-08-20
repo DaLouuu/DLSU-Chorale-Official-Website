@@ -248,6 +248,19 @@ function computeFeeSummaries(records: any[]): any[] {
   return MOCK_MEMBERS.map(m => byMember.get(m.id) ?? { memberId: m.id, memberName: m.name, section: m.section, outstanding: 0, paid: 0, lastPayment: null });
 }
 
+const MOCK_FEE_RULES = [
+  { id: "r1", type: "Late (Rehearsal)", amount: 50, effective: "2026-01-01" },
+  { id: "r2", type: "Absent — unexcused (Rehearsal)", amount: 150, effective: "2026-01-01" },
+  { id: "r3", type: "Late (Performance)", amount: 200, effective: "2026-01-01" },
+  { id: "r4", type: "Absent — unexcused (Performance)", amount: 500, effective: "2026-01-01" },
+];
+
+const MOCK_ANNOUNCEMENTS = [
+  { id: "a1", title: "📌 BCFC callboard — sectional schedules posted", body: "Sopranos & Altos: Tues/Thurs 6PM. Tenors & Basses: Mon/Wed 6PM. Full ensemble call this Friday.", date: "2026-04-23", pinned: true, author: "Maestro Emmanuel dela Peña" },
+  { id: "a2", title: "Busan repertoire binders ready for pickup", body: "New binders are at the music office. Please pick up by Friday; bring your ID.", date: "2026-04-22", pinned: false, author: "Patricia Lim (VP Internal)" },
+  { id: "a3", title: "Reminder — fee settlement deadline", body: "Outstanding balances for March must be settled by April 30. Finance will be at the studio every rehearsal.", date: "2026-04-20", pinned: true, author: "Isabela Cruz (Finance)" },
+];
+
 // ── Mutable live exports — replaced by Supabase data at runtime ───────────────
 // ESM live bindings mean consumers will see the updated value after assignment.
 
@@ -259,19 +272,8 @@ export let EVENTS: any[] = MOCK_EVENTS;
 export let EXCUSE_REQUESTS: any[] = MOCK_EXCUSE_REQUESTS;
 export let FEE_RECORDS: any[] = MOCK_FEE_RECORDS;
 export let FEE_SUMMARIES: any[] = computeFeeSummaries(MOCK_FEE_RECORDS);
-
-export const FEE_RULES = [
-  { id: "r1", type: "Late (Rehearsal)", amount: 50, effective: "2026-01-01" },
-  { id: "r2", type: "Absent — unexcused (Rehearsal)", amount: 150, effective: "2026-01-01" },
-  { id: "r3", type: "Late (Performance)", amount: 200, effective: "2026-01-01" },
-  { id: "r4", type: "Absent — unexcused (Performance)", amount: 500, effective: "2026-01-01" },
-];
-
-export const ANNOUNCEMENTS = [
-  { id: "a1", title: "📌 BCFC callboard — sectional schedules posted", body: "Sopranos & Altos: Tues/Thurs 6PM. Tenors & Basses: Mon/Wed 6PM. Full ensemble call this Friday.", date: "2026-04-23", pinned: true, author: "Maestro Emmanuel dela Peña" },
-  { id: "a2", title: "Busan repertoire binders ready for pickup", body: "New binders are at the music office. Please pick up by Friday; bring your ID.", date: "2026-04-22", pinned: false, author: "Patricia Lim (VP Internal)" },
-  { id: "a3", title: "Reminder — fee settlement deadline", body: "Outstanding balances for March must be settled by April 30. Finance will be at the studio every rehearsal.", date: "2026-04-20", pinned: true, author: "Isabela Cruz (Finance)" },
-];
+export let FEE_RULES: any[] = MOCK_FEE_RULES;
+export let ANNOUNCEMENTS: any[] = MOCK_ANNOUNCEMENTS;
 
 export const ANALYTICS_MONTHLY = [
   { month: "Jan", Soprano: 4, Alto: 3, Tenor: 5, Bass: 2 },
@@ -336,7 +338,7 @@ export const SOCIAL_EVENTS = [
   },
 ];
 
-export const MUSIC_LIBRARY = [
+export let MUSIC_LIBRARY: any[] = [
   {
     id: "m1",
     category: "Current Repertoire",
@@ -572,6 +574,69 @@ export async function initializePublicData(): Promise<void> {
         };
       });
       FEE_SUMMARIES = computeFeeSummaries(FEE_RECORDS);
+    }
+
+    // 5. Fee rules (fee schedule)
+    const { data: ruleData } = await supabase
+      .from('fee_rules')
+      .select('*')
+      .order('effective_date', { ascending: false });
+
+    if (ruleData && ruleData.length > 0) {
+      FEE_RULES = ruleData.map(r => ({
+        id: String(r.id),
+        type: r.type ?? '',
+        amount: Number(r.amount ?? 0),
+        effective: r.effective_date ?? '',
+      }));
+    }
+
+    // 6. Announcements
+    const { data: announcementData } = await supabase
+      .from('announcements')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (announcementData && announcementData.length > 0) {
+      ANNOUNCEMENTS = announcementData.map(a => ({
+        id: String(a.id),
+        title: a.title ?? '',
+        body: a.body ?? '',
+        date: a.created_at ? a.created_at.slice(0, 10) : '',
+        pinned: !!a.pinned,
+        author: a.author ?? '',
+        recipients: a.recipients ?? 'all',
+      }));
+    }
+
+    // 7. Music library (categories + items)
+    const { data: categoryData } = await supabase
+      .from('music_categories')
+      .select('*')
+      .order('sort_order', { ascending: true });
+
+    if (categoryData && categoryData.length > 0) {
+      const { data: itemData } = await supabase
+        .from('music_items')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      MUSIC_LIBRARY = categoryData.map(cat => ({
+        id: String(cat.id),
+        _categoryId: cat.id,
+        category: cat.name ?? '',
+        items: (itemData ?? [])
+          .filter((it: any) => it.category_id === cat.id)
+          .map((it: any) => ({
+            id: String(it.id),
+            _itemId: it.id,
+            title: it.title ?? '',
+            type: it.type ?? 'Score',
+            link: it.link ?? '',
+            notes: it.notes ?? '',
+            eventId: it.event_id_fk != null ? String(it.event_id_fk) : undefined,
+          })),
+      }));
     }
   } catch {
     // On failure, keep mock data as fallback

@@ -15,18 +15,6 @@ type MusicItem = {
   notes: string;
 };
 
-type MusicCategory = {
-  id: string;
-  category: string;
-  items: MusicItem[];
-};
-
-declare global {
-  interface Window {
-    MUSIC_LIBRARY: MusicCategory[];
-  }
-}
-
 export function MemberMusicLibrary() {
   const { theme } = useTheme();
   const app = useApp();
@@ -73,7 +61,7 @@ export function MemberMusicLibrary() {
 
   const allEvents = app.events;
   const allTypes = Array.from(new Set(
-    window.MUSIC_LIBRARY.flatMap(cat => cat.items.map(item => item.type))
+    app.musicLibrary.flatMap(cat => cat.items.map(item => item.type))
   ));
 
   return (
@@ -179,7 +167,7 @@ export function MemberMusicLibrary() {
       </Card>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {window.MUSIC_LIBRARY.map(cat => {
+        {app.musicLibrary.map(cat => {
           const filteredItems = filterItems(cat.items);
           if (filteredItems.length === 0) return null;
 
@@ -339,7 +327,7 @@ export function MemberMusicLibrary() {
           );
         })}
 
-        {window.MUSIC_LIBRARY.every(cat => filterItems(cat.items).length === 0) && (
+        {app.musicLibrary.every(cat => filterItems(cat.items).length === 0) && (
           <Card style={{ textAlign: 'center', padding: 60 }}>
             <Icon name="search" size={48} stroke={theme.dim} />
             <h3 style={{ fontFamily: FONTS.serif, fontSize: 22, margin: '16px 0 8px', color: theme.dim }}>

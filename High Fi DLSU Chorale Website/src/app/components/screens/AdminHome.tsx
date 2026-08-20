@@ -53,16 +53,25 @@ function generateWeeklyDates(startDate: string, endDate: string, days: string[])
   return dates;
 }
 
-function BroadcastNoticeModal({ onClose, onBroadcast }: { onClose: () => void; onBroadcast: (data: { title: string; body: string; pinned: boolean; recipients: string }) => void }) {
+function BroadcastNoticeModal({ onClose, onBroadcast }: { onClose: () => void; onBroadcast: (data: { title: string; body: string; pinned: boolean; recipients: string }) => Promise<void> }) {
   const { theme, mode } = useTheme();
   const isMobile = useViewportWidth() < 768;
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [pinned, setPinned] = useState(false);
   const [recipients, setRecipients] = useState('all');
+  const [sending, setSending] = useState(false);
 
-  const handleBroadcast = () => {
-    onBroadcast({ title, body, pinned, recipients });
+  const sectionCounts = MEMBERS.reduce((acc: Record<string, number>, m: any) => {
+    acc[m.section] = (acc[m.section] ?? 0) + 1;
+    return acc;
+  }, {});
+  const execCount = MEMBERS.filter((m: any) => m.exec).length;
+
+  const handleBroadcast = async () => {
+    setSending(true);
+    await onBroadcast({ title, body, pinned, recipients });
+    setSending(false);
     onClose();
   };
 
@@ -95,12 +104,12 @@ function BroadcastNoticeModal({ onClose, onBroadcast }: { onClose: () => void; o
           <div>
             <label style={{ fontSize: 11.5, fontFamily: FONTS.mono, letterSpacing: 1, color: theme.dim, textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>Recipients</label>
             <select value={recipients} onChange={e => setRecipients(e.target.value)} style={modalInput}>
-              <option value="all">All members (64)</option>
-              <option value="Soprano">Soprano section (16)</option>
-              <option value="Alto">Alto section (15)</option>
-              <option value="Tenor">Tenor section (16)</option>
-              <option value="Bass">Bass section (17)</option>
-              <option value="exec">Executive board only (8)</option>
+              <option value="all">All members ({MEMBERS.length})</option>
+              <option value="Soprano">Soprano section ({sectionCounts.Soprano ?? 0})</option>
+              <option value="Alto">Alto section ({sectionCounts.Alto ?? 0})</option>
+              <option value="Tenor">Tenor section ({sectionCounts.Tenor ?? 0})</option>
+              <option value="Bass">Bass section ({sectionCounts.Bass ?? 0})</option>
+              <option value="exec">Executive board only ({execCount})</option>
             </select>
           </div>
 
@@ -126,8 +135,10 @@ function BroadcastNoticeModal({ onClose, onBroadcast }: { onClose: () => void; o
         </div>
 
         <div style={{ padding: isMobile ? '14px 18px' : '16px 28px', borderTop: `1px solid ${theme.line}`, display: 'flex', justifyContent: 'space-between', gap: 10, background: theme.cream, flexWrap: 'wrap' }}>
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button icon="megaphone" onClick={handleBroadcast} disabled={!title || !body}>Broadcast notice</Button>
+          <Button variant="ghost" onClick={onClose} disabled={sending}>Cancel</Button>
+          <Button icon="megaphone" onClick={handleBroadcast} disabled={!title || !body || sending}>
+            {sending ? 'Broadcasting…' : 'Broadcast notice'}
+          </Button>
         </div>
       </div>
     </div>
@@ -753,13 +764,31 @@ export function AdminHome() {
       {showBroadcast && (
         <BroadcastNoticeModal
           onClose={() => setShowBroadcast(false)}
-          onBroadcast={(data) => {
+          onBroadcast={async (data) => {
+            const { data: inserted, error } = await supabase
+              .from('announcements')
+              .insert({
+                title: data.title,
+                body: data.body,
+                pinned: data.pinned,
+                author: user.name,
+                recipients: data.recipients,
+              })
+              .select('id, created_at')
+              .single();
+
+            if (error) {
+              app.showToast(`Could not broadcast notice: ${error.message}`, 'error');
+              return;
+            }
+
             app.addAnnouncement({
+              id: String(inserted.id),
               title: data.title,
               body: data.body,
               pinned: data.pinned,
               author: user.name,
-              recipients: data.recipients,
+              date: inserted.created_at ? inserted.created_at.slice(0, 10) : undefined,
             });
             app.showToast(`Notice broadcast to ${data.recipients === 'all' ? 'all members' : data.recipients}`);
           }}

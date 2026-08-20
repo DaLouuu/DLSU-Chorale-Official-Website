@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTheme, useApp } from '../../App';
 import { EVENTS } from '../../data';
+import { supabase } from '../../supabase';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
@@ -8,12 +9,6 @@ import { Button } from '../ui/Button';
 import { Field } from '../ui/Field';
 import { Icon } from '../ui/Icon';
 import { isValidLink } from '../../utils/links';
-
-declare global {
-  interface Window {
-    MUSIC_LIBRARY: any[];
-  }
-}
 
 function MusicItemModal({ item, category, onClose, onSave, onDelete }: any) {
   const { theme } = useTheme();
@@ -290,6 +285,7 @@ function CategoryModal({ category, onClose, onSave, onDelete }: any) {
 export function AdminMusicLibrary() {
   const { theme } = useTheme();
   const app = useApp();
+  const musicLibrary = app.musicLibrary;
   const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   useEffect(() => {
     const handler = () => setVw(window.innerWidth);
@@ -297,7 +293,6 @@ export function AdminMusicLibrary() {
     return () => window.removeEventListener('resize', handler);
   }, []);
   const isMobile = vw < 768;
-  const [musicLibrary, setMusicLibrary] = useState(window.MUSIC_LIBRARY || []);
   const [showItemModal, setShowItemModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -320,69 +315,93 @@ export function AdminMusicLibrary() {
     return theme.ink;
   };
 
-  const handleSaveItem = (data: any) => {
-    const categoryIndex = musicLibrary.findIndex((c: any) => c.category === selectedCategory);
-    if (categoryIndex === -1) return;
+  const handleSaveItem = async (data: any) => {
+    const category = musicLibrary.find((c: any) => c.category === selectedCategory);
+    if (!category?._categoryId) {
+      app.showToast("This category isn't linked to a saved record yet — recreate it first.", 'error');
+      return;
+    }
+    const row = {
+      category_id: category._categoryId,
+      title: data.title,
+      type: data.type,
+      link: data.link || null,
+      notes: data.notes || null,
+      event_id_fk: data.eventId ? Number(data.eventId) : null,
+    };
 
     if (editingItem) {
-      const updatedLibrary = [...musicLibrary];
-      const itemIndex = updatedLibrary[categoryIndex].items.findIndex((i: any) => i === editingItem);
-      updatedLibrary[categoryIndex].items[itemIndex] = data;
-      setMusicLibrary(updatedLibrary);
-      window.MUSIC_LIBRARY = updatedLibrary;
+      const { error } = await supabase.from('music_items').update(row).eq('id', editingItem._itemId);
+      if (error) { app.showToast(`Could not update item: ${error.message}`, 'error'); return; }
+      app.setMusicLibrary(musicLibrary.map((c: any) =>
+        c.category === selectedCategory
+          ? { ...c, items: c.items.map((i: any) => (i._itemId === editingItem._itemId ? { ...data, id: editingItem.id, _itemId: editingItem._itemId } : i)) }
+          : c
+      ));
       app.showToast('Music item updated');
     } else {
-      const updatedLibrary = [...musicLibrary];
-      updatedLibrary[categoryIndex].items.push(data);
-      setMusicLibrary(updatedLibrary);
-      window.MUSIC_LIBRARY = updatedLibrary;
+      const { data: inserted, error } = await supabase.from('music_items').insert(row).select('id').single();
+      if (error) { app.showToast(`Could not add item: ${error.message}`, 'error'); return; }
+      app.setMusicLibrary(musicLibrary.map((c: any) =>
+        c.category === selectedCategory
+          ? { ...c, items: [...c.items, { ...data, id: String(inserted.id), _itemId: inserted.id }] }
+          : c
+      ));
       app.showToast('Music item added');
     }
     setEditingItem(null);
   };
 
-  const handleDeleteItem = () => {
-    const categoryIndex = musicLibrary.findIndex((c: any) => c.category === selectedCategory);
-    if (categoryIndex === -1) return;
+  const handleDeleteItem = async () => {
+    const category = musicLibrary.find((c: any) => c.category === selectedCategory);
+    if (!category || !editingItem?._itemId) return;
 
-    const updatedLibrary = [...musicLibrary];
-    updatedLibrary[categoryIndex].items = updatedLibrary[categoryIndex].items.filter((i: any) => i !== editingItem);
-    setMusicLibrary(updatedLibrary);
-    window.MUSIC_LIBRARY = updatedLibrary;
+    const { error } = await supabase.from('music_items').delete().eq('id', editingItem._itemId);
+    if (error) { app.showToast(`Could not delete item: ${error.message}`, 'error'); return; }
+    app.setMusicLibrary(musicLibrary.map((c: any) =>
+      c.category === selectedCategory
+        ? { ...c, items: c.items.filter((i: any) => i._itemId !== editingItem._itemId) }
+        : c
+    ));
     app.showToast('Music item deleted', 'error');
     setEditingItem(null);
   };
 
-  const handleSaveCategory = (name: string) => {
+  const handleSaveCategory = async (name: string) => {
     if (editingCategory) {
-      const updatedLibrary = musicLibrary.map((c: any) =>
-        c.id === editingCategory.id ? { ...c, category: name } : c
-      );
-      setMusicLibrary(updatedLibrary);
-      window.MUSIC_LIBRARY = updatedLibrary;
+      if (!editingCategory._categoryId) {
+        app.showToast("This category isn't linked to a saved record yet — recreate it instead.", 'error');
+        return;
+      }
+      const { error } = await supabase.from('music_categories').update({ name }).eq('id', editingCategory._categoryId);
+      if (error) { app.showToast(`Could not rename category: ${error.message}`, 'error'); return; }
+      app.setMusicLibrary(musicLibrary.map((c: any) => (c.id === editingCategory.id ? { ...c, category: name } : c)));
       app.showToast('Category updated');
     } else {
-      const newCategory = {
-        id: `m${Date.now()}`,
-        category: name,
-        items: [],
-      };
-      setMusicLibrary([...musicLibrary, newCategory]);
-      window.MUSIC_LIBRARY = [...musicLibrary, newCategory];
+      const { data: inserted, error } = await supabase
+        .from('music_categories')
+        .insert({ name, sort_order: musicLibrary.length })
+        .select('id')
+        .single();
+      if (error) { app.showToast(`Could not add category: ${error.message}`, 'error'); return; }
+      app.setMusicLibrary([...musicLibrary, { id: String(inserted.id), _categoryId: inserted.id, category: name, items: [] }]);
       app.showToast('Category added');
     }
     setEditingCategory(null);
   };
 
-  const handleDeleteCategory = () => {
-    const updatedLibrary = musicLibrary.filter((c: any) => c.id !== editingCategory.id);
-    setMusicLibrary(updatedLibrary);
-    window.MUSIC_LIBRARY = updatedLibrary;
+  const handleDeleteCategory = async () => {
+    if (!editingCategory?._categoryId) {
+      app.setMusicLibrary(musicLibrary.filter((c: any) => c.id !== editingCategory.id));
+      setEditingCategory(null);
+      return;
+    }
+    const { error } = await supabase.from('music_categories').delete().eq('id', editingCategory._categoryId);
+    if (error) { app.showToast(`Could not delete category: ${error.message}`, 'error'); return; }
+    app.setMusicLibrary(musicLibrary.filter((c: any) => c.id !== editingCategory.id));
     app.showToast('Category deleted', 'error');
     setEditingCategory(null);
   };
-
-  window.MUSIC_LIBRARY = musicLibrary;
 
   return (
     <>
