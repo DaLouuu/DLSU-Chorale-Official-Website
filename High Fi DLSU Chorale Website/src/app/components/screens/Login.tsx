@@ -9,16 +9,7 @@ import { supabase } from '../../supabase';
 import { initializeUserData } from '../../data';
 import { Moon, Sun } from 'lucide-react';
 import choirTcc from '../../../imports/choir-tcc.png';
-
-function useViewportWidth() {
-  const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handler = () => setWidth(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
-  return width;
-}
+import { useViewportWidth } from '../../utils/useViewportWidth';
 
 const FALLBACK_ADMIN_IDS = new Set(
   (import.meta.env.VITE_ADMIN_SCHOOL_IDS ?? '')

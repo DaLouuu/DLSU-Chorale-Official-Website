@@ -10,6 +10,7 @@ import { Chip, StatusPill } from '../ui/Chip';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
 import { Field } from '../ui/Field';
+import { useViewportWidth } from '../../utils/useViewportWidth';
 
 export function MemberExcuses() {
   const { user } = useRouter();
@@ -62,12 +63,7 @@ export function MemberExcuses() {
     setDocumentUrl(e.documentUrl ?? '');
     setTab('new');
   };
-  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handler = () => setVw(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
+  const vw = useViewportWidth();
   const isMobile = vw < 768;
 
   const selectedEvent = events.find(ev => ev.id === eventId) ?? null;

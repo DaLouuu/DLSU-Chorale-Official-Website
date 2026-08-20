@@ -13,6 +13,7 @@ import { downloadCSV, todayStamp } from '../../utils/exportCsv';
 import { supabase } from '../../supabase';
 import { notifyAnnouncement, notifyScheduleChange } from '../../utils/email';
 import { RecipientPicker, RecipientSelection, DEFAULT_RECIPIENTS, resolveRecipients } from '../ui/RecipientPicker';
+import { useViewportWidth } from '../../utils/useViewportWidth';
 
 declare global {
   interface Window {
@@ -402,16 +403,6 @@ const toSupabaseRow = (data: any) => ({
   venue: data.venue || null,
   notes: data.notes || null,
 });
-
-function useViewportWidth() {
-  const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handler = () => setWidth(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
-  return width;
-}
 
 export function AdminHome() {
   const { user, go } = useRouter();

@@ -1,19 +1,9 @@
-import { useState, useEffect } from 'react';
 import { useRouter, useTheme } from '../../App';
 import { FONTS } from '../../theme';
 import logo from '../../../imports/dlsu-chorale-logo.png';
 import b2b2 from '../../../imports/choir-b2b-2.png';
 import { Moon, Sun, LogIn } from 'lucide-react';
-
-function useViewportWidth() {
-  const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handler = () => setWidth(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
-  return width;
-}
+import { useViewportWidth } from '../../utils/useViewportWidth';
 
 export function Landing() {
   const { go } = useRouter();

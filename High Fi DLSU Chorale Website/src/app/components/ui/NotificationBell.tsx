@@ -3,6 +3,7 @@ import { useTheme, useApp, useRouter } from '../../App';
 import { FONTS } from '../../theme';
 import { Icon } from './Icon';
 import { Chip } from './Chip';
+import { useViewportWidth } from '../../utils/useViewportWidth';
 
 type Notification = {
   id: string;
@@ -21,13 +22,7 @@ export function NotificationBell() {
   const [showPanel, setShowPanel] = useState(false);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const panelRef = useRef<HTMLDivElement>(null);
-  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-
-  useEffect(() => {
-    const handler = () => setVw(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
+  const vw = useViewportWidth();
   const isMobile = vw < 768;
 
   // Generate notifications based on context

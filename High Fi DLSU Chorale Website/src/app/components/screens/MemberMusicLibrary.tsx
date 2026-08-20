@@ -7,6 +7,7 @@ import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
 import { Chip } from '../ui/Chip';
 import { isValidLink } from '../../utils/links';
+import { useViewportWidth } from '../../utils/useViewportWidth';
 
 type MusicItem = {
   title: string;
@@ -21,12 +22,7 @@ export function MemberMusicLibrary() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [eventFilter, setEventFilter] = useState<string>('all');
-  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handler = () => setVw(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
+  const vw = useViewportWidth();
   const isMobile = vw < 768;
 
   const getIcon = (type: string) => {

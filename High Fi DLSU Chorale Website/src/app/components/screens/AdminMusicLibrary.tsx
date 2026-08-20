@@ -9,15 +9,11 @@ import { Button } from '../ui/Button';
 import { Field } from '../ui/Field';
 import { Icon } from '../ui/Icon';
 import { isValidLink } from '../../utils/links';
+import { useViewportWidth } from '../../utils/useViewportWidth';
 
 function MusicItemModal({ item, category, onClose, onSave, onDelete }: any) {
   const { theme } = useTheme();
-  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handler = () => setVw(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
+  const vw = useViewportWidth();
   const isMobile = vw < 768;
   const [formData, setFormData] = useState(
     item || {
@@ -182,12 +178,7 @@ function MusicItemModal({ item, category, onClose, onSave, onDelete }: any) {
 
 function CategoryModal({ category, onClose, onSave, onDelete }: any) {
   const { theme } = useTheme();
-  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handler = () => setVw(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
+  const vw = useViewportWidth();
   const isMobile = vw < 640;
   const [name, setName] = useState(category?.category || '');
 
@@ -286,12 +277,7 @@ export function AdminMusicLibrary() {
   const { theme } = useTheme();
   const app = useApp();
   const musicLibrary = app.musicLibrary;
-  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handler = () => setVw(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
+  const vw = useViewportWidth();
   const isMobile = vw < 768;
   const [showItemModal, setShowItemModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);

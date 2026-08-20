@@ -2,16 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTheme, useApp, useRouter } from '../../App';
 import { supabase } from '../../supabase';
 import { FONTS } from '../../theme';
-
-function useViewportWidth() {
-  const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handler = () => setWidth(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
-  return width;
-}
+import { useViewportWidth } from '../../utils/useViewportWidth';
 import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';

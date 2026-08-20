@@ -10,16 +10,12 @@ import { Chip, StatusPill } from '../ui/Chip';
 import { Field } from '../ui/Field';
 import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
+import { useViewportWidth } from '../../utils/useViewportWidth';
 
 
 function WeeklyDigestModal({ onClose }: { onClose: () => void }) {
   const { theme } = useTheme();
-  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handler = () => setVw(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
+  const vw = useViewportWidth();
   const isMobile = vw < 640;
   const weekData = [
     { date: '2026-04-24', status: 'present', time: '18:02' },
@@ -243,12 +239,7 @@ function MilitaryTimePicker({
 
 function ClassScheduleModal({ schedule, onClose, onSave }: any) {
   const { theme } = useTheme();
-  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handler = () => setVw(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
+  const vw = useViewportWidth();
   const isMobile = vw < 768;
   const [formData, setFormData] = useState(
     schedule || { term: 'Term 3 2025-2026', classes: [] }
@@ -488,12 +479,7 @@ export function MemberProfile() {
   const { theme } = useTheme();
   const app = useApp();
   const m = user;
-  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handler = () => setVw(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
+  const vw = useViewportWidth();
   const isMobile = vw < 768;
 
   const [showDigest, setShowDigest] = useState(false);

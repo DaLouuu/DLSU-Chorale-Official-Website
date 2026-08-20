@@ -8,19 +8,10 @@ import { DecorativeAccent } from '../ui/DecorativeAccent';
 import { Tutorial } from '../ui/Tutorial';
 import logo from '../../../imports/dlsu-chorale-logo.png';
 import { MEMBERS, SOCIAL_EVENTS } from '../../data';
+import { useViewportWidth } from '../../utils/useViewportWidth';
 
 function tutorialSeenKey(role: string, userId: string | number) {
   return `chorale_tutorial_seen_${role}_${userId}`;
-}
-
-function useViewportWidth() {
-  const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handler = () => setWidth(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
-  return width;
 }
 
 const MEMBER_NAV = [

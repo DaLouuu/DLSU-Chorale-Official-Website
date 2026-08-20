@@ -7,6 +7,7 @@ import { Logo } from '../ui/Logo';
 import { EVENTS, MEMBERS } from '../../data';
 import { supabase } from '../../supabase';
 import choirB2b1 from '../../../imports/choir-b2b-1.png';
+import { useViewportWidth } from '../../utils/useViewportWidth';
 
 // Minutes past call time before a check-in counts as "late" instead of
 // "present". No RFID hardware anymore — this kiosk IS the attendance record,
@@ -21,16 +22,6 @@ function computeLogStatus(callTime: string | null | undefined): 'present' | 'lat
   const cutoff = new Date();
   cutoff.setHours(h, (m || 0) + LATE_GRACE_MINUTES, 0, 0);
   return new Date() > cutoff ? 'late' : 'present';
-}
-
-function useViewportWidth() {
-  const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handler = () => setWidth(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
-  return width;
 }
 
 // Whatever's on today — rehearsal or performance — or the next upcoming one

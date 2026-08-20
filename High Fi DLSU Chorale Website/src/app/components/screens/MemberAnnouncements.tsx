@@ -1,9 +1,9 @@
 import { useTheme, useApp } from '../../App';
-import { useEffect, useState } from 'react';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
+import { useViewportWidth } from '../../utils/useViewportWidth';
 
 type Announcement = {
   id: string;
@@ -21,12 +21,7 @@ type AnnouncementCardProps = {
 
 function AnnouncementCard({ a, variant = 'paper' }: AnnouncementCardProps) {
   const { theme } = useTheme();
-  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handler = () => setVw(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
+  const vw = useViewportWidth();
   const isMobile = vw < 640;
 
   return (
@@ -44,12 +39,7 @@ function AnnouncementCard({ a, variant = 'paper' }: AnnouncementCardProps) {
 export function MemberAnnouncements() {
   const app = useApp();
   const { theme } = useTheme();
-  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handler = () => setVw(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
+  const vw = useViewportWidth();
   const isMobile = vw < 768;
   const announcements = app.announcements as Announcement[];
   const pinned = announcements.filter(a => a.pinned);

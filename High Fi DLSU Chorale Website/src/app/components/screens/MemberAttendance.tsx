@@ -8,6 +8,7 @@ import { StatusPill } from '../ui/Chip';
 import { Icon } from '../ui/Icon';
 import { ATTENDANCE_LOG } from '../../data';
 import { downloadCSV, todayStamp } from '../../utils/exportCsv';
+import { useViewportWidth } from '../../utils/useViewportWidth';
 
 function StatCard({ label, value, trend, tone = 'neutral' }: any) {
   const { theme } = useTheme();
@@ -34,12 +35,7 @@ function LegendDot({ color, label }: { color: string; label: string }) {
 export function MemberAttendance() {
   const [filter, setFilter] = useState('All');
   const { theme } = useTheme();
-  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handler = () => setVw(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
+  const vw = useViewportWidth();
   const isMobile = vw < 768;
 
   const handleExportCSV = () => {

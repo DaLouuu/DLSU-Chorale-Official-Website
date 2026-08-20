@@ -11,15 +11,11 @@ import { Avatar } from '../ui/Avatar';
 import { SectionTag } from '../ui/SectionTag';
 import { Chip } from '../ui/Chip';
 import { Icon } from '../ui/Icon';
+import { useViewportWidth } from '../../utils/useViewportWidth';
 
 function PaymentDetailsModal({ payment, onClose, onApprove, onReject }: { payment: any; onClose: () => void; onApprove: () => void; onReject: () => void }) {
   const { theme } = useTheme();
-  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handler = () => setVw(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
+  const vw = useViewportWidth();
   const isMobile = vw < 768;
 
   if (!payment) return null;
@@ -136,12 +132,7 @@ function ChargeFeeModal({ onClose, onCharge }: { onClose: () => void; onCharge: 
   const { theme, mode } = useTheme();
   const app = useApp();
   const feeRules = app.feeRules;
-  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handler = () => setVw(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
+  const vw = useViewportWidth();
   const isMobile = vw < 640;
 
   const [search, setSearch] = useState('');
@@ -402,12 +393,7 @@ export function AdminFees() {
   // approving a payment or charging a fee updates these numbers
   // immediately instead of only after a page reload.
   const FEE_SUMMARIES = useMemo(() => computeFeeSummaries(app.fees), [app.fees]);
-  const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handler = () => setVw(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
+  const vw = useViewportWidth();
   const isMobile = vw < 768;
   const [tab, setTab] = useState('members');
   const [selectedPayment, setSelectedPayment] = useState<any | null>(null);

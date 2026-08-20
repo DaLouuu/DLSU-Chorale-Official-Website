@@ -10,6 +10,7 @@ import { Calendar } from '../ui/Calendar';
 import { ATTENDANCE_LOG, FEE_RECORDS, REHEARSALS } from '../../data';
 import { notifyRehearsalReminder } from '../../utils/email';
 import tet from '../../../imports/choir-tet.png';
+import { useViewportWidth } from '../../utils/useViewportWidth';
 
 declare global {
   interface Window {
@@ -28,16 +29,6 @@ function StatCard({ label, value, trend, tone = 'neutral' }: any) {
       <div style={{ fontSize: 11.5, color: theme.dim }}>{trend}</div>
     </Card>
   );
-}
-
-function useViewportWidth() {
-  const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handler = () => setWidth(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
-  return width;
 }
 
 export function MemberHome() {
