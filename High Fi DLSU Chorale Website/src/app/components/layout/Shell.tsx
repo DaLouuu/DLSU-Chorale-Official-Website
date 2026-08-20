@@ -116,7 +116,11 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
       <div style={{ position: 'relative', zIndex: 1, padding: 14, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
         <button
           onClick={() => {
-            try { localStorage.removeItem('chorale_session'); sessionStorage.removeItem('chorale_session'); } catch {}
+            try {
+              localStorage.removeItem('chorale_session');
+              sessionStorage.removeItem('chorale_session');
+              sessionStorage.removeItem('hr_incident_session_token');
+            } catch {}
             go('landing');
           }}
           style={{

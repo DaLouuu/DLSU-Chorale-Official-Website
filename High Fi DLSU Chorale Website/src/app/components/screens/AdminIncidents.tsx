@@ -515,10 +515,26 @@ function ReportDetail({
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
+const HR_SESSION_STORAGE_KEY = 'hr_incident_session_token';
+
 export function AdminIncidents() {
   const { theme } = useTheme();
   const app = useApp();
-  const [sessionToken, setSessionToken] = useState<string | null>(null);
+  // Kept in sessionStorage (not just React state) so switching to another
+  // admin tab and back doesn't force HR to re-enter the password + OTP —
+  // it only clears on sign-out (see Shell.tsx) or when the token's own
+  // 4-hour server-side expiry kicks in (verify_hr_session_token rejects it
+  // and the catch block below drops back to the lock screen).
+  const [sessionToken, setSessionTokenState] = useState<string | null>(() => {
+    try { return sessionStorage.getItem(HR_SESSION_STORAGE_KEY); } catch { return null; }
+  });
+  const setSessionToken = (token: string | null) => {
+    setSessionTokenState(token);
+    try {
+      if (token) sessionStorage.setItem(HR_SESSION_STORAGE_KEY, token);
+      else sessionStorage.removeItem(HR_SESSION_STORAGE_KEY);
+    } catch {}
+  };
   const [reports, setReports] = useState<Report[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -534,8 +550,14 @@ export function AdminIncidents() {
       setLoading(false);
       return (rows ?? []) as Report[];
     } catch (e: any) {
-      app.showToast(`Could not load reports: ${e.message}`, 'error');
       setLoading(false);
+      if (/session expired|invalid/i.test(e.message ?? '')) {
+        // Stale/expired token from a previous visit — drop back to the lock
+        // screen instead of leaving the tab stuck on a permanent error toast.
+        setSessionToken(null);
+        return [];
+      }
+      app.showToast(`Could not load reports: ${e.message}`, 'error');
       return [];
     }
   }
