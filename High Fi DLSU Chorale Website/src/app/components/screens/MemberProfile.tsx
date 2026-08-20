@@ -525,7 +525,7 @@ export function MemberProfile() {
     if (!profileUuid) return;
     supabase
       .from('profiles')
-      .select('avatar_url, pronouns, current_term_stat, membership_status, class_schedule')
+      .select('avatar_url, pronouns, current_term_stat, membership_status, class_schedule, weekly_digest_opt_in')
       .eq('id', profileUuid)
       .single()
       .then(({ data }) => {
@@ -546,6 +546,12 @@ export function MemberProfile() {
         if (data.class_schedule) {
           setUserSchedule(data.class_schedule as { term: string; classes: any[] });
         }
+        // The digest itself is a server-side scheduled job, so it needs the
+        // real opt-in state from the DB — local device state can drift from
+        // it (e.g. toggled off on another device).
+        if (typeof data.weekly_digest_opt_in === 'boolean') {
+          setNotif({ weeklyDigest: data.weekly_digest_opt_in });
+        }
       });
   }, [profileUuid]);
 
@@ -558,6 +564,11 @@ export function MemberProfile() {
     const next = { ...notifications, ...patch };
     setNotifications(next);
     try { localStorage.setItem('pref_notifications', JSON.stringify(next)); } catch {}
+    // weeklyDigest is the one preference a server-side scheduled job needs to
+    // read, so it has to live in the database, not just this device's storage.
+    if ('weeklyDigest' in patch && profileUuid) {
+      supabase.from('profiles').update({ weekly_digest_opt_in: patch.weeklyDigest }).eq('id', profileUuid);
+    }
   };
 
 
