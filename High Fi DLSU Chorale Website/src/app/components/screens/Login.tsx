@@ -337,7 +337,7 @@ export function Login() {
           <div style={{ fontFamily: FONTS.serif, fontSize: 32, lineHeight: 1.1, fontWeight: 500 }}>
             Welcome back,
             <br />
-            <em style={{ color: theme.greenMid }}>Chorista.</em>
+            <em style={{ color: theme.amber }}>Chorista.</em>
           </div>
         </div>
       )}

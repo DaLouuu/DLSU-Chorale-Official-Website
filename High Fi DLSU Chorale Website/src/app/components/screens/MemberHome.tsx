@@ -142,7 +142,7 @@ export function MemberHome() {
           <h2 style={{ fontFamily: FONTS.serif, fontSize: isMobile ? 'clamp(24px, 7vw, 30px)' : 'clamp(22px, 2.6vw, 34px)', fontWeight: 500, margin: '14px 0 6px', lineHeight: 1.1, overflowWrap: 'break-word' }}>
             Baccalaureate & Commencement
             <br />
-            <em style={{ color: theme.greenMid }}>— Term 3</em>
+            <em style={{ color: theme.amber }}>— Term 3</em>
           </h2>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13, opacity: 0.85, marginTop: 14, fontFamily: FONTS.mono }}>
             <span>MAY 10 · 07:30</span>
