@@ -79,7 +79,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
           </div>
         </div>
         <div style={{ marginTop: 14, fontSize: 10, fontFamily: FONTS.mono, letterSpacing: 2, opacity: 0.6, textTransform: 'uppercase' }}>
-          {role === 'admin' ? 'Admin Console' : 'Official Website'}
+          {role === 'admin' ? 'Admin Console' : 'Management System'}
         </div>
       </div>
 

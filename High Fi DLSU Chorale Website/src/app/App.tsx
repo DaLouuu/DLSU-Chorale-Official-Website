@@ -378,7 +378,7 @@ export default function App() {
 
   // Set browser tab title and generate a square favicon to avoid stretching.
   useEffect(() => {
-    document.title = 'DLSU Chorale Official Website';
+    document.title = 'DLSU Chorale Management System';
     let link = document.querySelector<HTMLLinkElement>("link[rel~='icon']");
     if (!link) {
       link = document.createElement('link');

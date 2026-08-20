@@ -123,7 +123,7 @@ export function Landing() {
                 textTransform: 'uppercase',
               }}
             >
-              Est. 1977 · Official Website
+              Est. 1977 · Management System
             </div>
           </div>
         </div>
@@ -154,7 +154,7 @@ export function Landing() {
               maxWidth: 420,
             }}
           >
-            Welcome to the DLSU Chorale Official Website.
+            Welcome to the DLSU Chorale Management System.
           </p>
 
           <div
@@ -194,7 +194,7 @@ export function Landing() {
         {/* Footer note — desktop only */}
         {!isMobile && (
           <div style={{ fontSize: 11, color: theme.dim, fontFamily: FONTS.mono, letterSpacing: 0.3 }}>
-            DLSU Chorale · Official Website · {new Date().getFullYear()}
+            DLSU Chorale · Management System · {new Date().getFullYear()}
           </div>
         )}
       </div>
