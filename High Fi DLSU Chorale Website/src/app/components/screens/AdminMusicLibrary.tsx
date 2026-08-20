@@ -395,8 +395,7 @@ export function AdminMusicLibrary() {
 
   const handleDeleteCategory = async () => {
     if (!editingCategory?._categoryId) {
-      app.setMusicLibrary(musicLibrary.filter((c: any) => c.id !== editingCategory.id));
-      setEditingCategory(null);
+      app.showToast("This category isn't linked to a saved record yet — edit and re-save it first, then delete.", 'error');
       return;
     }
     const { error } = await supabase.from('music_categories').delete().eq('id', editingCategory._categoryId);

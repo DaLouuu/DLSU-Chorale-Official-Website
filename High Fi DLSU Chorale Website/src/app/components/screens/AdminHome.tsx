@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useTheme, useApp } from '../../App';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
@@ -8,7 +8,7 @@ import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
 import { Calendar } from '../ui/Calendar';
 import { Field } from '../ui/Field';
-import { FEE_SUMMARIES, MEMBERS, EVENTS } from '../../data';
+import { MEMBERS, EVENTS, computeFeeSummaries } from '../../data';
 import { downloadCSV, todayStamp } from '../../utils/exportCsv';
 import { supabase } from '../../supabase';
 import { notifyAnnouncement, notifyScheduleChange } from '../../utils/email';
@@ -417,6 +417,10 @@ export function AdminHome() {
   const { user, go } = useRouter();
   const { theme } = useTheme();
   const app = useApp();
+  // Derived live from app.fees so this stays accurate as payments get
+  // approved or fees get charged, instead of the static data.ts snapshot
+  // (which is only ever computed once, before any of that happens).
+  const FEE_SUMMARIES = useMemo(() => computeFeeSummaries(app.fees), [app.fees]);
   const vw = useViewportWidth();
   const isMobile = vw < 768;
   const [showBroadcast, setShowBroadcast] = useState(false);
@@ -465,26 +469,30 @@ export function AdminHome() {
     let addedCount = 0;
     let firstAdded: any = null;
     if (editingRehearsal) {
-      const updated = { ...editingRehearsal, ...data };
       if (editingRehearsal._eventId) {
-        await supabase.from('events').update(toSupabaseRow(data)).eq('id', editingRehearsal._eventId);
+        const { error } = await supabase.from('events').update(toSupabaseRow(data)).eq('event_id', editingRehearsal._eventId);
+        if (error) { app.showToast(`Could not update rehearsal: ${error.message}`, 'error'); return; }
       }
+      const updated = { ...editingRehearsal, ...data };
       setRehearsals(prev => prev.map(r => r.id === editingRehearsal.id ? updated : r));
       app.showToast('Rehearsal updated');
     } else if (Array.isArray(data)) {
       const newOnes: any[] = [];
       for (let i = 0; i < data.length; i++) {
         const d = data[i];
-        const { data: row } = await supabase.from('events').insert(toSupabaseRow(d)).select('id').single();
-        newOnes.push({ ...d, id: row?.id ?? `r${Date.now()}_${i}`, _eventId: row?.id ?? null });
+        const { data: row, error } = await supabase.from('events').insert(toSupabaseRow(d)).select('event_id').single();
+        if (error) { app.showToast(`Could not add rehearsal for ${d.date}: ${error.message}`, 'error'); continue; }
+        newOnes.push({ ...d, id: String(row.event_id), _eventId: row.event_id });
       }
+      if (newOnes.length === 0) { setEditingRehearsal(null); return; }
       setRehearsals(prev => [...prev, ...newOnes]);
       app.showToast(`${newOnes.length} rehearsal${newOnes.length !== 1 ? 's' : ''} added`);
       addedCount = newOnes.length;
       firstAdded = newOnes[0];
     } else {
-      const { data: row } = await supabase.from('events').insert(toSupabaseRow(data)).select('id').single();
-      const newOne = { ...data, id: row?.id ?? `r${Date.now()}`, _eventId: row?.id ?? null };
+      const { data: row, error } = await supabase.from('events').insert(toSupabaseRow(data)).select('event_id').single();
+      if (error) { app.showToast(`Could not add rehearsal: ${error.message}`, 'error'); return; }
+      const newOne = { ...data, id: String(row.event_id), _eventId: row.event_id };
       setRehearsals(prev => [...prev, newOne]);
       app.showToast('Rehearsal added');
       addedCount = 1;
@@ -511,7 +519,8 @@ export function AdminHome() {
     const target = cancellingRehearsal;
     if (!target) return;
     if (target._eventId) {
-      await supabase.from('events').delete().eq('id', target._eventId);
+      const { error } = await supabase.from('events').delete().eq('event_id', target._eventId);
+      if (error) { app.showToast(`Could not cancel rehearsal: ${error.message}`, 'error'); return; }
     }
     setRehearsals(prev => prev.filter(r => r.id !== target.id));
     app.showToast('Rehearsal cancelled', 'error');

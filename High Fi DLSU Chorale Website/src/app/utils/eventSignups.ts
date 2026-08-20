@@ -138,24 +138,26 @@ export function getEventMeta(eventId: string): EventMeta {
   return metaCache[eventId] ?? DEFAULT_META;
 }
 
-export function setEventMeta(eventId: string, meta: EventMeta) {
+export async function setEventMeta(eventId: string, meta: EventMeta): Promise<{ error: string | null }> {
   metaCache[eventId] = meta;
   persistLocalCache();
-  void (async () => {
-    await supabase.from('event_role_slots').delete().eq('event_id', Number(eventId));
-    if (meta.roleSlots.length === 0) return;
-    await supabase.from('event_role_slots').insert(
-      meta.roleSlots.map(slot => ({
-        event_id: Number(eventId),
-        committee: slot.committee,
-        role_name: slot.role,
-        slot_limit: slot.limit,
-        major_event_enabled: meta.majorEvent.enabled,
-        exam_required: meta.majorEvent.examRequired,
-        ensemble_type: meta.majorEvent.ensembleType || null,
-      })),
-    );
-  })();
+
+  const { error: delErr } = await supabase.from('event_role_slots').delete().eq('event_id', Number(eventId));
+  if (delErr) return { error: delErr.message };
+  if (meta.roleSlots.length === 0) return { error: null };
+
+  const { error: insErr } = await supabase.from('event_role_slots').insert(
+    meta.roleSlots.map(slot => ({
+      event_id: Number(eventId),
+      committee: slot.committee,
+      role_name: slot.role,
+      slot_limit: slot.limit,
+      major_event_enabled: meta.majorEvent.enabled,
+      exam_required: meta.majorEvent.examRequired,
+      ensemble_type: meta.majorEvent.ensembleType || null,
+    })),
+  );
+  return { error: insErr ? insErr.message : null };
 }
 
 export function getEventSignups(eventId: string): EventSignup[] {
@@ -167,17 +169,20 @@ export function setEventSignups(eventId: string, signups: EventSignup[]) {
   persistLocalCache();
 }
 
-export function upsertEventSignup(eventId: string, signup: EventSignup) {
+export async function upsertEventSignup(eventId: string, signup: EventSignup): Promise<{ error: string | null }> {
   const existing = getEventSignups(eventId);
   const idx = existing.findIndex(s =>
     s.memberId === signup.memberId &&
     s.type === signup.type &&
     (s.roleName ?? '') === (signup.roleName ?? ''),
   );
-  if (idx >= 0) existing[idx] = signup;
-  else existing.push(signup);
-  setEventSignups(eventId, existing);
-  void supabase.from('event_signups').upsert(
+  const previous = idx >= 0 ? existing[idx] : null;
+  const next = [...existing];
+  if (idx >= 0) next[idx] = signup;
+  else next.push(signup);
+  setEventSignups(eventId, next);
+
+  const { error } = await supabase.from('event_signups').upsert(
     {
       event_id: Number(eventId),
       member_id: signup.memberId,
@@ -193,29 +198,63 @@ export function upsertEventSignup(eventId: string, signup: EventSignup) {
     },
     { onConflict: 'event_id,member_id,signup_type,role_name' },
   );
+
+  if (error) {
+    // Roll back the optimistic cache update so the UI doesn't claim a
+    // signup that was never actually saved.
+    const rolledBack = previous
+      ? existing.map(s => (s === previous ? previous : s))
+      : existing.filter(s => s !== signup);
+    setEventSignups(eventId, rolledBack);
+    return { error: error.message };
+  }
+  return { error: null };
 }
 
-export function removeMemberSignups(eventId: string, memberId: number) {
+export async function removeMemberSignups(eventId: string, memberId: number): Promise<{ error: string | null }> {
   const existing = getEventSignups(eventId);
+  const removed = existing.filter(s => s.memberId === memberId);
   setEventSignups(eventId, existing.filter(s => s.memberId !== memberId));
-  void supabase.from('event_signups').delete().eq('event_id', Number(eventId)).eq('member_id', memberId);
+
+  const { error } = await supabase.from('event_signups').delete().eq('event_id', Number(eventId)).eq('member_id', memberId);
+  if (error) {
+    setEventSignups(eventId, [...getEventSignups(eventId), ...removed]);
+    return { error: error.message };
+  }
+  return { error: null };
 }
 
-export function updateSignupStatus(
+export async function updateSignupStatus(
   eventId: string,
   memberId: number,
   roleName: string | null,
   status: EventSignup['status'],
-) {
+): Promise<{ error: string | null }> {
   const existing = getEventSignups(eventId);
   const idx = existing.findIndex(s => s.memberId === memberId && (s.roleName ?? null) === roleName);
-  if (idx < 0) return;
-  existing[idx] = { ...existing[idx], status };
-  setEventSignups(eventId, existing);
-  void supabase
+  if (idx < 0) return { error: 'This sign-up is not in the local cache — refresh and try again.' };
+
+  const previousStatus = existing[idx].status;
+  const next = [...existing];
+  next[idx] = { ...next[idx], status };
+  setEventSignups(eventId, next);
+
+  const { error } = await supabase
     .from('event_signups')
     .update({ status })
     .eq('event_id', Number(eventId))
     .eq('member_id', memberId)
     .eq('role_name', roleName ?? '');
+
+  if (error) {
+    const rolledBack = getEventSignups(eventId);
+    const rbIdx = rolledBack.findIndex(s => s.memberId === memberId && (s.roleName ?? null) === roleName);
+    if (rbIdx >= 0) {
+      const reverted = [...rolledBack];
+      reverted[rbIdx] = { ...reverted[rbIdx], status: previousStatus };
+      setEventSignups(eventId, reverted);
+    }
+    return { error: error.message };
+  }
+  return { error: null };
 }

@@ -231,7 +231,7 @@ const MOCK_FEE_RECORDS = [
 
 // Outstanding/paid/lastPayment are derived from fee records so mock and
 // live-Supabase data stay consistent instead of using separately seeded numbers.
-function computeFeeSummaries(records: any[]): any[] {
+export function computeFeeSummaries(records: any[]): any[] {
   const byMember = new Map<number, { memberId: number; memberName: string; section: string; outstanding: number; paid: number; lastPayment: string | null }>();
   for (const r of records) {
     const key = r.memberId;
@@ -245,7 +245,11 @@ function computeFeeSummaries(records: any[]): any[] {
       if (!summary.lastPayment || (r.paidAt && r.paidAt > summary.lastPayment)) summary.lastPayment = r.paidAt ?? summary.lastPayment;
     }
   }
-  return MOCK_MEMBERS.map(m => byMember.get(m.id) ?? { memberId: m.id, memberName: m.name, section: m.section, outstanding: 0, paid: 0, lastPayment: null });
+  // Reads the live MEMBERS binding (not MOCK_MEMBERS) so this reflects the
+  // real roster once initializePublicData() has replaced it — otherwise
+  // every fee summary after that point silently reverts to the 16
+  // hardcoded mock members regardless of what's actually in the database.
+  return MEMBERS.map(m => byMember.get(m.id) ?? { memberId: m.id, memberName: m.name, section: m.section, outstanding: 0, paid: 0, lastPayment: null });
 }
 
 const MOCK_FEE_RULES = [
@@ -271,7 +275,6 @@ export let ATTENDANCE_LOG: any[] = MOCK_ATTENDANCE_LOG;
 export let EVENTS: any[] = MOCK_EVENTS;
 export let EXCUSE_REQUESTS: any[] = MOCK_EXCUSE_REQUESTS;
 export let FEE_RECORDS: any[] = MOCK_FEE_RECORDS;
-export let FEE_SUMMARIES: any[] = computeFeeSummaries(MOCK_FEE_RECORDS);
 export let FEE_RULES: any[] = MOCK_FEE_RULES;
 export let ANNOUNCEMENTS: any[] = MOCK_ANNOUNCEMENTS;
 
@@ -573,7 +576,6 @@ export async function initializePublicData(): Promise<void> {
           } : undefined,
         };
       });
-      FEE_SUMMARIES = computeFeeSummaries(FEE_RECORDS);
     }
 
     // 5. Fee rules (fee schedule)
@@ -697,7 +699,6 @@ Object.assign(window, {
   EXCUSE_REQUESTS,
   EVENTS,
   FEE_RECORDS,
-  FEE_SUMMARIES,
   ANNOUNCEMENTS,
   FEE_RULES,
   ANALYTICS_MONTHLY,

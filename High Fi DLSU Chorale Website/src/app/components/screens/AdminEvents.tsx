@@ -995,6 +995,7 @@ function SignupsOverviewModal({
   onUpdated: () => void;
 }) {
   const { theme } = useTheme();
+  const app = useApp();
   const signups = getEventSignups(String(event.event_id));
   const approved = signups.filter(s => s.status === 'approved');
   const pendingRoleRequests = signups.filter(
@@ -1014,8 +1015,9 @@ function SignupsOverviewModal({
     return acc;
   }, {});
 
-  const update = (memberId: number, roleName: string | null, status: 'approved' | 'rejected') => {
-    updateSignupStatus(String(event.event_id), memberId, roleName, status);
+  const update = async (memberId: number, roleName: string | null, status: 'approved' | 'rejected') => {
+    const { error } = await updateSignupStatus(String(event.event_id), memberId, roleName, status);
+    if (error) { app.showToast(`Could not update sign-up: ${error}`, 'error'); return; }
     const req = pendingRoleRequests.find(r => r.memberId === memberId && r.roleName === roleName);
     const email = MEMBERS.find((m: any) => m.id === memberId)?.email;
     if (req && email) {
@@ -1199,7 +1201,7 @@ function EventDrawer({
       return;
     }
     if (savedEventId != null) {
-      setEventMeta(String(savedEventId), {
+      const { error: metaError } = await setEventMeta(String(savedEventId), {
         roleSlots: form.role_slots.filter(s => s.committee && s.role && s.limit > 0),
         majorEvent: {
           enabled: form.major_event_enabled,
@@ -1207,6 +1209,10 @@ function EventDrawer({
           ensembleType: form.ensemble_type.trim(),
         },
       });
+      if (metaError) {
+        setSaveError(`Event saved, but role slots could not be saved: ${metaError}`);
+        return;
+      }
     }
 
     if (!editing && notifyEnabled) {
@@ -1789,6 +1795,7 @@ export function AdminEvents() {
     const { error } = await safeUpdateEventRow(ev.event_id, { is_closed: false });
     if (error) {
       setEvents(prev => prev.map(e => (e.event_id === ev.event_id ? { ...e, is_closed: true } : e)));
+      app.showToast(`Could not reopen event: ${error.message}`, 'error');
     }
   };
 

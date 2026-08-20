@@ -497,7 +497,7 @@ export function MemberPerformances() {
 
   const hasRequiredForm = (e: UnifiedEvent) => e.forms?.waiver?.enabled || e.forms?.excuse?.enabled;
 
-  const handleSignUp = (e: UnifiedEvent) => {
+  const handleSignUp = async (e: UnifiedEvent) => {
     if (e.category === 'Social') {
       const wasSignedUp = !!socialSignups[e.id];
       setSocialSignups(prev => ({ ...prev, [e.id]: !wasSignedUp }));
@@ -507,7 +507,8 @@ export function MemberPerformances() {
       return;
     }
     if (e.mySignup) {
-      removeMemberSignups(String(e.id), user.id);
+      const { error } = await removeMemberSignups(String(e.id), user.id);
+      if (error) { app.showToast(`Could not remove sign-up: ${error}`, 'error'); return; }
       setSignupsVersion(v => v + 1);
       app.showToast('Removed from roster');
       if (adminEmail) notifyEventSignup({ adminEmail, memberName: user?.name ?? '', section: user?.section ?? '', eventName: e.name, eventDate: e.date, withdrew: true });
@@ -527,7 +528,7 @@ export function MemberPerformances() {
     if (hasRequiredForm(e)) {
       setSignupEvent(e);
     } else {
-      upsertEventSignup(String(e.id), {
+      const { error } = await upsertEventSignup(String(e.id), {
         memberId: user.id,
         memberName: user.name,
         committee: memberCommittee,
@@ -539,6 +540,7 @@ export function MemberPerformances() {
         status: 'approved',
         createdAt: new Date().toISOString(),
       });
+      if (error) { app.showToast(`Could not sign up: ${error}`, 'error'); return; }
       setSignupsVersion(v => v + 1);
       app.showToast(`Signed up — ${e.name}`);
       if (adminEmail) notifyEventSignup({ adminEmail, memberName: user?.name ?? '', section: user?.section ?? '', eventName: e.name, eventDate: e.date });
@@ -632,8 +634,8 @@ export function MemberPerformances() {
         <SignUpFormModal
           event={signupEvent}
           onClose={() => setSignupEvent(null)}
-          onSubmit={() => {
-            upsertEventSignup(String(signupEvent.id), {
+          onSubmit={async () => {
+            const { error } = await upsertEventSignup(String(signupEvent.id), {
               memberId: user.id,
               memberName: user.name,
               committee: memberCommittee,
@@ -645,6 +647,7 @@ export function MemberPerformances() {
               status: 'approved',
               createdAt: new Date().toISOString(),
             });
+            if (error) { app.showToast(`Could not sign up: ${error}`, 'error'); return; }
             setSignupsVersion(v => v + 1);
             app.showToast(`Signed up — ${signupEvent.name}`);
             if (adminEmail) notifyEventSignup({ adminEmail, memberName: user?.name ?? '', section: user?.section ?? '', eventName: signupEvent.name, eventDate: signupEvent.date });
@@ -657,9 +660,9 @@ export function MemberPerformances() {
           data={roleSignupData}
           memberCommittee={memberCommittee}
           onClose={() => setRoleSignupData(null)}
-          onSubmit={({ committee, role }) => {
+          onSubmit={async ({ committee, role }) => {
             const requiresApproval = memberCommittee && memberCommittee !== committee;
-            upsertEventSignup(String(roleSignupData.event.id), {
+            const { error } = await upsertEventSignup(String(roleSignupData.event.id), {
               memberId: user.id,
               memberName: user.name,
               committee: memberCommittee,
@@ -671,6 +674,7 @@ export function MemberPerformances() {
               status: requiresApproval ? 'pending' : 'approved',
               createdAt: new Date().toISOString(),
             });
+            if (error) { app.showToast(`Could not sign up: ${error}`, 'error'); return; }
             setSignupsVersion(v => v + 1);
             setRoleSignupData(null);
             app.showToast(requiresApproval ? 'Request sent for admin approval.' : `Signed up as ${role}.`);

@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTheme, useApp } from '../../App';
 import { supabase } from '../../supabase';
-import { FEE_SUMMARIES, MEMBERS } from '../../data';
+import { MEMBERS, computeFeeSummaries } from '../../data';
 import { FONTS } from '../../theme';
 import { notifyPaymentDecision } from '../../utils/email';
 import { PageHeader } from '../ui/PageHeader';
@@ -398,6 +398,10 @@ const tdStyle = { padding: '12px 16px', verticalAlign: 'middle' as const };
 export function AdminFees() {
   const app = useApp();
   const { theme } = useTheme();
+  // Derived live from app.fees (not the static data.ts snapshot) so
+  // approving a payment or charging a fee updates these numbers
+  // immediately instead of only after a page reload.
+  const FEE_SUMMARIES = useMemo(() => computeFeeSummaries(app.fees), [app.fees]);
   const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   useEffect(() => {
     const handler = () => setVw(window.innerWidth);
@@ -442,7 +446,8 @@ export function AdminFees() {
 
   const handleApprovePayment = async (p: any) => {
     const paidAt = p.paymentData?.paymentDate || new Date().toISOString().slice(0, 10);
-    await supabase.from('fee_records').update({ status: 'paid', paid_at: paidAt }).eq('id', p.id);
+    const { error } = await supabase.from('fee_records').update({ status: 'paid', paid_at: paidAt }).eq('id', p.id);
+    if (error) { app.showToast(`Could not approve payment: ${error.message}`, 'error'); return; }
     app.approvePayment(p.id);
     app.showToast(`Approved payment from ${p.memberName}`);
     const email = MEMBERS.find((m: any) => m.id === p.memberId)?.email;
@@ -450,7 +455,8 @@ export function AdminFees() {
   };
 
   const handleRejectPayment = async (p: any, reason: string) => {
-    await supabase.from('fee_records').update({ status: 'unpaid', rejection_reason: reason }).eq('id', p.id);
+    const { error } = await supabase.from('fee_records').update({ status: 'unpaid', rejection_reason: reason }).eq('id', p.id);
+    if (error) { app.showToast(`Could not reject payment: ${error.message}`, 'error'); return; }
     app.rejectPayment(p.id, reason);
     app.showToast(`Rejected payment from ${p.memberName}`, 'error');
     const email = MEMBERS.find((m: any) => m.id === p.memberId)?.email;

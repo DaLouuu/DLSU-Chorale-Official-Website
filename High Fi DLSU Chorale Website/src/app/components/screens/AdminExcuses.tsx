@@ -52,16 +52,15 @@ export function AdminExcuses() {
   const handleApprove = async (e: Excuse) => {
     setActioning(e.id);
     const adminName = user?.name ?? 'Admin';
-    // Persist to Supabase
-    await supabase
+    const { error } = await supabase
       .from('excuse_requests')
       .update({ status: 'Approved', admin_response: 'Approved.', approved_by: adminName })
       .eq('request_id', e.id);
-    // Update local state immediately
+    setActioning(null);
+    if (error) { app.showToast(`Could not approve excuse: ${error.message}`, 'error'); return; }
     app.updateExcuse(e.id, { status: 'Approved', approvedBy: adminName, notes: 'Approved.' });
     app.showToast(`Approved · ${e.memberName}`);
     notifyExcuseDecision({ email: memberEmail(e.memberId), name: e.memberName, excuseType: e.type, date: e.date, status: 'Approved', notes: 'Approved.' });
-    setActioning(null);
   };
 
   const handleDecline = async () => {
@@ -69,16 +68,17 @@ export function AdminExcuses() {
     setActioning(declineFor.id);
     const adminName = user?.name ?? 'Admin';
     const note = declineNote || 'Declined.';
-    await supabase
+    const { error } = await supabase
       .from('excuse_requests')
       .update({ status: 'Declined', admin_response: note, approved_by: adminName })
       .eq('request_id', declineFor.id);
+    setActioning(null);
+    if (error) { app.showToast(`Could not decline excuse: ${error.message}`, 'error'); return; }
     app.updateExcuse(declineFor.id, { status: 'Declined', approvedBy: adminName, notes: note });
     notifyExcuseDecision({ email: memberEmail(declineFor.memberId), name: declineFor.memberName, excuseType: declineFor.type, date: declineFor.date, status: 'Declined', notes: note });
     app.showToast('Declined — member notified', 'error');
     setDeclineFor(null);
     setDeclineNote('');
-    setActioning(null);
   };
 
   return (

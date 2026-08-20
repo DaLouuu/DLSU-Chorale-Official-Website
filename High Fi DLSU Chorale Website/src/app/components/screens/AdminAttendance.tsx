@@ -123,6 +123,7 @@ export function AdminAttendance() {
   // Map: profileUuid → Map<eventId, logStatus>
   const [logMap, setLogMap] = useState<Map<string, Map<number, string>>>(new Map());
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [logsError, setLogsError] = useState<string | null>(null);
 
   const week = getWeekBounds(weekOffset);
   const realWeekEvents = EVENTS.filter(ev => ev.date >= week.start && ev.date <= week.end);
@@ -138,14 +139,22 @@ export function AdminAttendance() {
       .map(ev => Number(ev.id))
       .filter(Boolean);
 
-    if (eventIds.length === 0) { setLogMap(new Map()); return; }
+    if (eventIds.length === 0) { setLogMap(new Map()); setLogsError(null); return; }
 
     setLoadingLogs(true);
+    setLogsError(null);
     supabase
       .from('attendance_logs')
       .select('account_id_fk, event_id_fk, log_status')
       .in('event_id_fk', eventIds)
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) {
+          // Leave logMap untouched rather than showing everyone as absent —
+          // an empty/stale map plus a visible error beats confidently wrong data.
+          setLogsError(error.message);
+          setLoadingLogs(false);
+          return;
+        }
         const map = new Map<string, Map<number, string>>();
         for (const log of data ?? []) {
           if (!log.account_id_fk) continue;
@@ -153,6 +162,10 @@ export function AdminAttendance() {
           map.get(log.account_id_fk)!.set(log.event_id_fk, (log.log_status ?? 'present').toLowerCase());
         }
         setLogMap(map);
+        setLoadingLogs(false);
+      })
+      .catch((err: any) => {
+        setLogsError(err?.message ?? 'Could not reach the database.');
         setLoadingLogs(false);
       });
   }, [weekOffset, week.start]);
@@ -213,6 +226,12 @@ export function AdminAttendance() {
           </>
         }
       />
+
+      {logsError && !usingMock && (
+        <div style={{ padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', fontSize: 12.5, color: '#dc2626', marginBottom: 16 }}>
+          Could not load attendance logs for this week ({logsError}) — statuses below may be showing as "absent" when they aren't. Try again or check your connection.
+        </div>
+      )}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 14 }}>
         {/* Section tabs */}

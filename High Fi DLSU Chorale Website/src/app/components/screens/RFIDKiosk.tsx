@@ -123,32 +123,47 @@ export function RFIDKiosk() {
     const eventId = (event as any)._eventId ?? Number(event.id);
     const memberUuid = member._uuid ?? null;
 
+    if (!memberUuid || !eventId) {
+      console.warn('[Kiosk] Missing member profile link or event id — attendance not recorded.');
+      setErrorMessage("Your account isn't linked to a profile yet — contact an admin before checking in.");
+      setState('error');
+      setTimeout(() => setState('idle'), 2500);
+      return;
+    }
+
     setSubmitting(true);
     let status: 'present' | 'late' | 'already' = 'present';
-    if (memberUuid && eventId) {
-      const { data: existingLog } = await supabase
-        .from('attendance_logs')
-        .select('log_id')
-        .eq('account_id_fk', memberUuid)
-        .eq('event_id_fk', eventId)
-        .maybeSingle();
+    let recorded = false;
 
-      if (existingLog) {
-        status = 'already';
-      } else {
-        status = computeLogStatus((event as any).callTime);
-        const { error: logErr } = await supabase.from('attendance_logs').insert({
-          account_id_fk: memberUuid,
-          event_id_fk: eventId,
-          log_status: status,
-          log_method: 'kiosk',
-        });
-        if (logErr) console.warn('[Kiosk] Could not record attendance:', logErr.message);
-      }
+    const { data: existingLog } = await supabase
+      .from('attendance_logs')
+      .select('log_id')
+      .eq('account_id_fk', memberUuid)
+      .eq('event_id_fk', eventId)
+      .maybeSingle();
+
+    if (existingLog) {
+      status = 'already';
+      recorded = true;
     } else {
-      console.warn('[Kiosk] Missing member profile link or event id — attendance not recorded.');
+      status = computeLogStatus((event as any).callTime);
+      const { error: logErr } = await supabase.from('attendance_logs').insert({
+        account_id_fk: memberUuid,
+        event_id_fk: eventId,
+        log_status: status,
+        log_method: 'kiosk',
+      });
+      recorded = !logErr;
+      if (logErr) console.warn('[Kiosk] Could not record attendance:', logErr.message);
     }
     setSubmitting(false);
+
+    if (!recorded) {
+      setErrorMessage('Could not record attendance — please try again, or notify an admin if this keeps happening.');
+      setState('error');
+      setTimeout(() => setState('idle'), 2500);
+      return;
+    }
 
     setFailCount(0);
     setCheckedInMember(member.name);
