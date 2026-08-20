@@ -1932,12 +1932,13 @@ export function AdminEvents() {
                       </div>
                     </td>
                     <td style={{ ...tdStyle, textAlign: 'right' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
                       <button
                         onClick={e => { e.stopPropagation(); setManageEvent(ev); setSignupsVersion(v => v + 1); }}
                         style={{
                           background: 'transparent', border: `1px solid ${theme.lineDark}`,
                           borderRadius: 7, padding: '5px 10px', cursor: 'pointer',
-                          fontSize: 12, color: theme.ink, fontFamily: FONTS.sans, marginRight: 8,
+                          fontSize: 12, color: theme.ink, fontFamily: FONTS.sans,
                         }}
                       >
                         Manage
@@ -1948,7 +1949,7 @@ export function AdminEvents() {
                           background: 'transparent', border: `1px solid ${theme.lineDark}`,
                           borderRadius: 7, padding: '5px 12px', cursor: 'pointer',
                           fontSize: 12, color: theme.ink, fontFamily: FONTS.sans,
-                          display: 'inline-flex', alignItems: 'center', gap: 5, marginRight: 8,
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
                         }}
                       >
                         <Icon name="edit" size={13} /> Edit
@@ -1968,12 +1969,13 @@ export function AdminEvents() {
                         title="Delete event"
                         style={{
                           background: 'transparent', border: 'none',
-                          padding: '5px 6px', cursor: 'pointer', color: theme.dim, marginLeft: 4,
+                          padding: '5px 6px', cursor: 'pointer', color: theme.dim,
                           display: 'inline-flex', alignItems: 'center',
                         }}
                       >
                         <Icon name="trash" size={14} />
                       </button>
+                      </div>
                     </td>
                         </>
                       );
