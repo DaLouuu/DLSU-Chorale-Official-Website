@@ -285,6 +285,18 @@ export function notifyHrIncidentOtp(opts: { email: string; code: string }) {
   return send(opts.email, '🔐 Your Incident Reports access code', html);
 }
 
+export function notifyAccountSetupOtp(opts: { email: string; code: string }) {
+  const html = wrap(
+    h2('🔐 Confirm Your Account Setup') +
+    muted('Use this code to finish setting up your DLSU Chorale account. It expires in 10 minutes.') +
+    `<div style="background:${G};border-radius:10px;padding:20px 24px;color:#fff;margin-bottom:20px;text-align:center">
+       <p style="margin:0;font-size:32px;font-weight:700;letter-spacing:8px">${opts.code}</p>
+     </div>
+     <p style="font-size:13px;color:#6b7280">If you did not request this, someone else may be trying to set up your account — you can safely ignore this email; no password has been set yet.</p>`
+  );
+  return send(opts.email, '🔐 Confirm your DLSU Chorale account setup', html);
+}
+
 export function notifyRehearsalReminder(opts: {
   email: string;
   name: string;

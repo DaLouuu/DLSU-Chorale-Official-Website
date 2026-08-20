@@ -10,6 +10,7 @@ import { initializeUserData } from '../../data';
 import { Moon, Sun } from 'lucide-react';
 import choirTcc from '../../../imports/choir-tcc.png';
 import { useViewportWidth } from '../../utils/useViewportWidth';
+import { notifyAccountSetupOtp } from '../../utils/email';
 
 const FALLBACK_ADMIN_IDS = new Set(
   (import.meta.env.VITE_ADMIN_SCHOOL_IDS ?? '')
@@ -18,7 +19,7 @@ const FALLBACK_ADMIN_IDS = new Set(
     .filter(Boolean)
 );
 
-type Screen = 'login' | 'setup' | 'forgot' | 'role-select';
+type Screen = 'login' | 'setup-otp' | 'setup' | 'forgot' | 'role-select';
 
 type VerifiedUser = {
   schoolId: number;
@@ -122,6 +123,12 @@ export function Login({ startAtRoleSelect }: { startAtRoleSelect?: boolean } = {
   const [setupAnswer2, setSetupAnswer2] = useState('');
   const [setupLoading, setSetupLoading] = useState(false);
   const [setupError, setSetupError] = useState('');
+
+  // ── Setup OTP state (confirms the visitor controls the email on file
+  // before letting them set a brand-new password) ────────────────────────────
+  const [setupOtp, setSetupOtp] = useState('');
+  const [setupOtpBusy, setSetupOtpBusy] = useState(false);
+  const [setupOtpError, setSetupOtpError] = useState('');
 
   // ── Forgot password state ─────────────────────────────────────────────────
   const [forgotEmail, setForgotEmail] = useState('');
@@ -494,7 +501,7 @@ export function Login({ startAtRoleSelect }: { startAtRoleSelect?: boolean } = {
         if (isMissingVerifyPasswordRpcError(pwErr)) {
           // RPC missing in DB/schema cache; continue with first-time setup flow.
           setVerifiedUser(user);
-          setScreen('setup');
+          await sendSetupOtp(user);
           return;
         }
         setError('Password check failed. Please try again.');
@@ -502,9 +509,10 @@ export function Login({ startAtRoleSelect }: { startAtRoleSelect?: boolean } = {
       }
 
       if (pwCheck === null) {
-        // No password configured — go to setup
+        // No password configured — confirm they control the email on file
+        // before letting them set one.
         setVerifiedUser(user);
-        setScreen('setup');
+        await sendSetupOtp(user);
         return;
       }
 
@@ -558,6 +566,38 @@ export function Login({ startAtRoleSelect }: { startAtRoleSelect?: boolean } = {
     } finally {
       setLoading(false);
     }
+  };
+
+  // ── Setup OTP ────────────────────────────────────────────────────────────
+  // Confirms whoever's setting up this account actually controls the DLSU
+  // email on file — without this, knowing just a school ID + email (both
+  // often guessable) was enough to set someone else's password first.
+  const sendSetupOtp = async (u: VerifiedUser) => {
+    setSetupOtpError('');
+    const { data: code, error: err } = await supabase.rpc('request_account_setup_otp', { p_school_id: u.schoolId });
+    if (err || !code) {
+      // RPC missing in DB/schema cache — fall back to the old behavior
+      // rather than locking every new member out of setup entirely.
+      setScreen('setup');
+      return;
+    }
+    await notifyAccountSetupOtp({ email: u.email, code });
+    setScreen('setup-otp');
+  };
+
+  const submitSetupOtp = async (e?: FormEvent) => {
+    e?.preventDefault();
+    if (!verifiedUser) return;
+    setSetupOtpError('');
+    setSetupOtpBusy(true);
+    const { data, error: err } = await supabase.rpc('verify_account_setup_otp', {
+      p_school_id: verifiedUser.schoolId,
+      p_code: setupOtp.trim(),
+    });
+    setSetupOtpBusy(false);
+    if (err || !data) { setSetupOtpError('Incorrect or expired code.'); return; }
+    setSetupOtp('');
+    setScreen('setup');
   };
 
   // ── Setup submit ──────────────────────────────────────────────────────────
@@ -853,6 +893,82 @@ export function Login({ startAtRoleSelect }: { startAtRoleSelect?: boolean } = {
     saveSession('member', memberPayload);
     go('member-home', { role: 'member', user: memberPayload });
   };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Screen: Setup OTP
+  // ─────────────────────────────────────────────────────────────────────────
+  if (screen === 'setup-otp' && verifiedUser) {
+    return (
+      <div style={outerWrap}>
+        <ThemeToggleButton />
+        <Card pad={0} style={cardStyle}>
+          <GreenPanel />
+          <form
+            onSubmit={submitSetupOtp}
+            style={{
+              flex: 1,
+              padding: isMobile ? '28px 24px 32px' : '44px 48px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: isMobile ? 14 : 18,
+              boxSizing: 'border-box',
+            }}
+          >
+            <div>
+              <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, color: theme.green, textTransform: 'uppercase' as const }}>
+                First-time setup
+              </div>
+              <h2 style={{ fontFamily: FONTS.serif, fontSize: isMobile ? 24 : 28, margin: '6px 0 0 0', fontWeight: 500 }}>
+                Confirm it's you
+              </h2>
+              <p style={{ color: theme.dim, fontSize: 13, margin: '6px 0 0 0' }}>
+                We sent a 6-digit code to {verifiedUser.email} to confirm you control this email before setting a password.
+              </p>
+            </div>
+
+            <div>
+              {fieldLabel('Verification code')}
+              <input
+                value={setupOtp}
+                onChange={e => setSetupOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="000000"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                style={{ ...inputStyle(), letterSpacing: 6, textAlign: 'center' as const, fontSize: 20 }}
+              />
+            </div>
+
+            {setupOtpError && <ErrorBox msg={setupOtpError} />}
+
+            <Button
+              size="lg"
+              type="submit"
+              disabled={setupOtpBusy || setupOtp.length !== 6}
+              style={{ justifyContent: 'center', width: '100%', opacity: setupOtpBusy ? 0.7 : 1 }}
+            >
+              {setupOtpBusy ? 'Verifying…' : 'Verify & continue'}
+            </Button>
+
+            <button
+              type="button"
+              onClick={() => sendSetupOtp(verifiedUser)}
+              style={{ background: 'transparent', border: 'none', color: theme.green, fontSize: 12.5, cursor: 'pointer', fontFamily: FONTS.sans, padding: 0, textAlign: 'left' as const }}
+            >
+              Resend code
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setScreen('login'); setVerifiedUser(null); setSetupOtp(''); setSetupOtpError(''); }}
+              style={{ background: 'transparent', border: 'none', color: theme.dim, fontSize: 12.5, cursor: 'pointer', fontFamily: FONTS.sans, padding: 0, textAlign: 'left' as const }}
+            >
+              ← Back to sign in
+            </button>
+          </form>
+        </Card>
+      </div>
+    );
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // Screen: Password Setup
