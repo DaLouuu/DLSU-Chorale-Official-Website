@@ -859,7 +859,13 @@ export function Login({ startAtRoleSelect }: { startAtRoleSelect?: boolean } = {
         p_password: adminVerifyPw,
       });
 
-      if (pwErr) throw pwErr;
+      // A lockout (too many failed attempts, tracked server-side now — see
+      // 20260839_admin_session_token.sql) comes back as an RPC error with a
+      // specific message; anything else is a generic failure to verify.
+      if (pwErr) {
+        setAdminVerifyError(pwErr.message?.includes('Too many failed attempts') ? pwErr.message : 'Something went wrong. Please try again.');
+        return;
+      }
 
       if (pwCheck === null) {
         setAdminVerifyError('Admin password not configured. Please contact support.');
@@ -877,7 +883,17 @@ export function Login({ startAtRoleSelect }: { startAtRoleSelect?: boolean } = {
         return;
       }
 
-      const adminPayload = { id: verifiedUser!.schoolId, _uuid: verifiedUser!.profileUuid, name: verifiedUser!.name, section: verifiedUser!.section, email: verifiedUser!.email };
+      // Session token for viewing payment-proof images — see
+      // get-signed-url Edge Function / 20260840_lock_down_payment_proofs.sql.
+      // Non-fatal if this fails (RPC missing in schema cache, etc.): admin
+      // console access itself doesn't depend on it, only proof viewing does.
+      let adminToken: string | undefined;
+      try {
+        const { data: token } = await supabase.rpc('issue_admin_session_token', { p_school_id: verifiedUser!.schoolId });
+        if (token) adminToken = token;
+      } catch {}
+
+      const adminPayload = { id: verifiedUser!.schoolId, _uuid: verifiedUser!.profileUuid, name: verifiedUser!.name, section: verifiedUser!.section, email: verifiedUser!.email, adminToken };
       saveSession('admin', adminPayload);
       go('admin-home', { role: 'admin', user: adminPayload });
     } catch {

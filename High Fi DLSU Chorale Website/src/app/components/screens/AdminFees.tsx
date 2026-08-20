@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useTheme, useApp } from '../../App';
+import { useTheme, useApp, useRouter } from '../../App';
 import { supabase } from '../../supabase';
 import { MEMBERS, computeFeeSummaries } from '../../data';
 import { FONTS } from '../../theme';
@@ -13,18 +13,64 @@ import { Chip } from '../ui/Chip';
 import { Icon } from '../ui/Icon';
 import { useViewportWidth } from '../../utils/useViewportWidth';
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const PAYMENT_PROOFS_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/admin-payment-proofs` : undefined;
+// payment-proofs is a private bucket (20260840_lock_down_payment_proofs.sql)
+// — a stored proof URL only still resolves to a storage object path, not a
+// working link, so it needs turning into a fresh signed URL via the
+// admin-session-gated Edge Function above.
+const PAYMENT_PROOF_PREFIX = SUPABASE_URL ? `${SUPABASE_URL}/storage/v1/object/public/payment-proofs/` : undefined;
+
+function paymentProofStoragePath(url: string): string | null {
+  if (!PAYMENT_PROOF_PREFIX || !url.startsWith(PAYMENT_PROOF_PREFIX)) return null;
+  return url.slice(PAYMENT_PROOF_PREFIX.length);
+}
+
 function PaymentDetailsModal({ payment, onClose, onApprove, onReject }: { payment: any; onClose: () => void; onApprove: () => void; onReject: () => void }) {
   const { theme } = useTheme();
+  const { user } = useRouter();
   const vw = useViewportWidth();
   const isMobile = vw < 768;
+  const [signedProofUrl, setSignedProofUrl] = useState<string | null>(null);
+  const [proofError, setProofError] = useState<string | null>(null);
 
-  if (!payment) return null;
-
-  const fallbackProofUrl = typeof payment.paymentData?.proofFileName === 'string' &&
+  const fallbackProofUrl = payment && typeof payment.paymentData?.proofFileName === 'string' &&
     /^(https?:\/\/|data:image\/|\/)/i.test(payment.paymentData.proofFileName)
     ? payment.paymentData.proofFileName
     : null;
-  const proofImage = payment.paymentData?.proofDataUrl || fallbackProofUrl;
+  const rawProofImage = payment ? (payment.paymentData?.proofDataUrl || fallbackProofUrl) : null;
+  const proofStoragePath = rawProofImage ? paymentProofStoragePath(rawProofImage) : null;
+  // Not our bucket (e.g. a mock/sample record using a bundled placeholder
+  // image) — just use it as-is, nothing to sign.
+  const proofImage = proofStoragePath ? signedProofUrl : rawProofImage;
+
+  useEffect(() => {
+    setSignedProofUrl(null);
+    setProofError(null);
+    if (!proofStoragePath) return;
+    const adminToken = (user as any)?.adminToken;
+    if (!adminToken || !PAYMENT_PROOFS_URL) {
+      setProofError('Could not load proof image — admin session token missing. Try signing out and back in.');
+      return;
+    }
+    fetch(PAYMENT_PROOFS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(SUPABASE_ANON_KEY ? { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, apikey: SUPABASE_ANON_KEY } : {}),
+      },
+      body: JSON.stringify({ token: adminToken, path: proofStoragePath }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data?.signedUrl) setSignedProofUrl(data.signedUrl);
+        else setProofError(data?.error || 'Could not load proof image.');
+      })
+      .catch(() => setProofError('Could not load proof image.'));
+  }, [proofStoragePath]);
+
+  if (!payment) return null;
 
   return (
     <div
@@ -103,9 +149,13 @@ function PaymentDetailsModal({ payment, onClose, onApprove, onReject }: { paymen
                     {payment.paymentData.proofFileName}
                   </div>
                 </div>
-              ) : (
+              ) : proofStoragePath && !proofError ? (
                 <div style={{ padding: 12, background: theme.cream, borderRadius: 8, border: `1px solid ${theme.line}`, fontSize: 13, color: theme.dim }}>
-                  {payment.paymentData?.proofFileName || 'No file uploaded'}
+                  Loading proof image…
+                </div>
+              ) : (
+                <div style={{ padding: 12, background: theme.cream, borderRadius: 8, border: `1px solid ${theme.line}`, fontSize: 13, color: proofError ? theme.red : theme.dim }}>
+                  {proofError || payment.paymentData?.proofFileName || 'No file uploaded'}
                 </div>
               )}
             </div>
