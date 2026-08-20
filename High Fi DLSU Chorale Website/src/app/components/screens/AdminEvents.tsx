@@ -112,21 +112,63 @@ const EVENT_TYPE_CHIP: Record<string, 'neutral' | 'green' | 'amber' | 'blue' | '
 
 // ── PDF text extraction ───────────────────────────────────────────────────────
 
-async function extractPdfText(file: File): Promise<string> {
-  const buf = await file.arrayBuffer();
-  // Decode as latin-1 so every byte becomes a char — PDF binary survives
-  const raw = new TextDecoder('iso-8859-1').decode(buf);
-  const parts: string[] = [];
+function grabPdfStrings(text: string, into: string[]) {
   // Capture all PDF string objects: content between ( … ) with basic escape handling
   const re = /\(([^)\\]{0,400}(?:\\.[^)\\]{0,400})*)\)/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(raw)) !== null) {
+  while ((m = re.exec(text)) !== null) {
     const s = m[1]
       .replace(/\\n/g, '\n').replace(/\\r/g, '').replace(/\\t/g, ' ')
       .replace(/\\([^nrt])/g, '$1');
     // Keep only strings with readable content
-    if (s.length >= 2 && /[a-zA-Z0-9]/.test(s)) parts.push(s);
+    if (s.length >= 2 && /[a-zA-Z0-9]/.test(s)) into.push(s);
   }
+}
+
+async function extractPdfText(file: File): Promise<string> {
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  // Decode as latin-1 so every byte becomes a char — PDF binary survives,
+  // and string indices line up 1:1 with byte offsets (needed below to slice
+  // the original bytes back out for decompression).
+  const raw = new TextDecoder('iso-8859-1').decode(buf);
+  const parts: string[] = [];
+
+  // 1. Whatever's readable directly — works for PDFs with uncompressed
+  // content streams, which some simple generators still produce.
+  grabPdfStrings(raw, parts);
+
+  // 2. Most real-world PDFs (Word "Save as PDF", Google Docs, Canva, etc.)
+  // compress every content stream with FlateDecode, so step 1 alone finds
+  // nothing in the vast majority of PDFs actually submitted — not because
+  // the wording doesn't match, but because there's no literal text in the
+  // raw file bytes to match against at all. Walk every "stream...endstream"
+  // block whose dictionary declares that filter and decompress it, same
+  // idea as extractDocxText's ZIP entries, just the zlib-wrapped variant
+  // PDF uses instead of ZIP's raw deflate.
+  const streamRe = /<<([^>]*?)>>\s*stream\r?\n/g;
+  let sm: RegExpExecArray | null;
+  while ((sm = streamRe.exec(raw)) !== null) {
+    if (!/\/Filter\s*[\/\[][^>]*FlateDecode/.test(sm[1])) continue;
+    const dataStart = sm.index + sm[0].length;
+    let dataEnd = raw.indexOf('endstream', dataStart);
+    if (dataEnd === -1) continue;
+    if (raw[dataEnd - 1] === '\n') dataEnd--;
+    if (raw[dataEnd - 1] === '\r') dataEnd--;
+    try {
+      const ds = new DecompressionStream('deflate');
+      const writer = ds.writable.getWriter();
+      writer.write(bytes.subarray(dataStart, dataEnd));
+      writer.close();
+      const inflated = new Uint8Array(await new Response(ds.readable).arrayBuffer());
+      grabPdfStrings(new TextDecoder('iso-8859-1').decode(inflated), parts);
+    } catch {
+      // Boundary heuristic missed, or a filter/chain we don't handle
+      // (e.g. ASCII85Decode before FlateDecode, or this "stream" was
+      // actually a compressed image) — skip it and keep going.
+    }
+  }
+
   return parts.join(' ');
 }
 
@@ -661,10 +703,14 @@ function FileUploadZone({
             return;
           }
         }
-        // PDF yielded no fields — just attach
-        parseError = null;
-      } catch {
-        parseError = null;
+        // Text was found but didn't match the expected "Event Title:" /
+        // "Venue:" / etc. request-form wording, or there was no extractable
+        // text at all (e.g. a scanned/image-only PDF) — either way, attach
+        // it and say so plainly instead of quietly doing nothing.
+        parseError = 'Could not auto-read fields from this PDF — it was uploaded as an attachment, but you\'ll need to fill in the form manually.';
+      } catch (e) {
+        console.warn('[FileUpload] PDF parse failed:', e);
+        parseError = 'Could not auto-read this PDF — it was uploaded as an attachment, but you\'ll need to fill in the form manually.';
       }
     } else if (name.endsWith('.docx')) {
       setStatus('Reading document…');
@@ -1964,17 +2010,22 @@ export function AdminEvents() {
                       >
                         {ev.is_closed ? 'Reopen' : 'Close'}
                       </button>
-                      <button
-                        onClick={e => { e.stopPropagation(); setDeletingEvent(ev); }}
-                        title="Delete event"
-                        style={{
-                          background: 'transparent', border: 'none',
-                          padding: '5px 6px', cursor: 'pointer', color: theme.dim,
-                          display: 'inline-flex', alignItems: 'center',
-                        }}
-                      >
-                        <Icon name="trash" size={14} />
-                      </button>
+                      </div>
+                      {/* Kept off the primary action row — an icon-only button never
+                          lines up cleanly against bordered text pills, especially once
+                          they wrap onto their own lines at narrow widths. */}
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
+                        <button
+                          onClick={e => { e.stopPropagation(); setDeletingEvent(ev); }}
+                          title="Delete event"
+                          style={{
+                            background: 'transparent', border: `1px solid ${theme.lineDark}`,
+                            borderRadius: 7, padding: '5px 10px', cursor: 'pointer', color: theme.dim,
+                            display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontFamily: FONTS.sans,
+                          }}
+                        >
+                          <Icon name="trash" size={13} /> Delete
+                        </button>
                       </div>
                     </td>
                         </>
