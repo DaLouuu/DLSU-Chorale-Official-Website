@@ -200,6 +200,32 @@ export function notifyRoleSlotDecision(opts: {
   return send(opts.email, `${icon} Role Request ${opts.status} — ${opts.eventName}`, html);
 }
 
+export function notifyScheduleChange(opts: {
+  email: string;
+  name: string;
+  title: string;
+  date: string;
+  time?: string;
+  venue?: string;
+  action: 'Scheduled' | 'Updated' | 'Cancelled';
+}) {
+  const cancelled = opts.action === 'Cancelled';
+  const icon = cancelled ? '🚫' : opts.action === 'Updated' ? '🔄' : '🗓️';
+  const statusColor = cancelled ? '#dc2626' : '#16a34a';
+  const html = wrap(
+    h2(`${icon} ${opts.title} ${opts.action}`) +
+    muted(`Hello ${opts.name}.`) +
+    table([
+      ['Date', opts.date],
+      ...(opts.time ? [['Time', opts.time] as [string, string]] : []),
+      ...(opts.venue ? [['Venue', opts.venue] as [string, string]] : []),
+      ['Status', badge(opts.action, statusColor)],
+    ]) +
+    `<p style="font-size:13px;color:#6b7280">${cancelled ? 'This has been removed from the schedule.' : 'Log in to the member portal for full details.'}</p>`
+  );
+  return send(opts.email, `${icon} ${opts.title} ${opts.action.toLowerCase()}`, html);
+}
+
 export function notifyRehearsalReminder(opts: {
   email: string;
   name: string;

@@ -11,7 +11,8 @@ import { Field } from '../ui/Field';
 import { FEE_SUMMARIES, MEMBERS, EVENTS } from '../../data';
 import { downloadCSV, todayStamp } from '../../utils/exportCsv';
 import { supabase } from '../../supabase';
-import { notifyAnnouncement } from '../../utils/email';
+import { notifyAnnouncement, notifyScheduleChange } from '../../utils/email';
+import { RecipientPicker, RecipientSelection, DEFAULT_RECIPIENTS, resolveRecipients } from '../ui/RecipientPicker';
 
 declare global {
   interface Window {
@@ -54,20 +55,14 @@ function generateWeeklyDates(startDate: string, endDate: string, days: string[])
   return dates;
 }
 
-function BroadcastNoticeModal({ onClose, onBroadcast }: { onClose: () => void; onBroadcast: (data: { title: string; body: string; pinned: boolean; recipients: string }) => Promise<void> }) {
+function BroadcastNoticeModal({ onClose, onBroadcast }: { onClose: () => void; onBroadcast: (data: { title: string; body: string; pinned: boolean; recipients: RecipientSelection }) => Promise<void> }) {
   const { theme, mode } = useTheme();
   const isMobile = useViewportWidth() < 768;
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [pinned, setPinned] = useState(false);
-  const [recipients, setRecipients] = useState('all');
+  const [recipients, setRecipients] = useState<RecipientSelection>(DEFAULT_RECIPIENTS);
   const [sending, setSending] = useState(false);
-
-  const sectionCounts = MEMBERS.reduce((acc: Record<string, number>, m: any) => {
-    acc[m.section] = (acc[m.section] ?? 0) + 1;
-    return acc;
-  }, {});
-  const execCount = MEMBERS.filter((m: any) => m.exec).length;
 
   const handleBroadcast = async () => {
     setSending(true);
@@ -102,17 +97,7 @@ function BroadcastNoticeModal({ onClose, onBroadcast }: { onClose: () => void; o
         <div style={{ padding: isMobile ? 18 : 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Field label="Notice title" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Rehearsal schedule update" />
 
-          <div>
-            <label style={{ fontSize: 11.5, fontFamily: FONTS.mono, letterSpacing: 1, color: theme.dim, textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>Recipients</label>
-            <select value={recipients} onChange={e => setRecipients(e.target.value)} style={modalInput}>
-              <option value="all">All members ({MEMBERS.length})</option>
-              <option value="Soprano">Soprano section ({sectionCounts.Soprano ?? 0})</option>
-              <option value="Alto">Alto section ({sectionCounts.Alto ?? 0})</option>
-              <option value="Tenor">Tenor section ({sectionCounts.Tenor ?? 0})</option>
-              <option value="Bass">Bass section ({sectionCounts.Bass ?? 0})</option>
-              <option value="exec">Executive board only ({execCount})</option>
-            </select>
-          </div>
+          <RecipientPicker value={recipients} onChange={setRecipients} members={MEMBERS as any[]} />
 
           <div>
             <label style={{ fontSize: 11.5, fontFamily: FONTS.mono, letterSpacing: 1, color: theme.dim, textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>Message body</label>
@@ -146,6 +131,44 @@ function BroadcastNoticeModal({ onClose, onBroadcast }: { onClose: () => void; o
   );
 }
 
+function CancelRehearsalModal({ rehearsal, onClose, onConfirm }: { rehearsal: any; onClose: () => void; onConfirm: (notify: RecipientSelection | null) => Promise<void> }) {
+  const { theme } = useTheme();
+  const [notifyEnabled, setNotifyEnabled] = useState(true);
+  const [notifyRecipients, setNotifyRecipients] = useState<RecipientSelection>(DEFAULT_RECIPIENTS);
+  const [confirming, setConfirming] = useState(false);
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(8,32,26,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: 24 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: theme.paper, borderRadius: 14, width: '100%', maxWidth: 520, border: `1px solid ${theme.line}`, maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ padding: '22px 28px', borderBottom: `1px solid ${theme.line}`, background: theme.cream }}>
+          <h3 style={{ fontFamily: FONTS.serif, fontSize: 22, margin: 0, fontWeight: 500, color: theme.red }}>Cancel rehearsal</h3>
+          <p style={{ fontSize: 13, color: theme.dim, marginTop: 6 }}>
+            {rehearsal.type === 'Sectional' ? `${rehearsal.section} sectional` : 'Full ensemble rehearsal'} on{' '}
+            {new Date(rehearsal.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}. This can't be undone.
+          </p>
+        </div>
+        <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, cursor: 'pointer' }}>
+            <input type="checkbox" checked={notifyEnabled} onChange={e => setNotifyEnabled(e.target.checked)} />
+            <div style={{ fontWeight: 500 }}>Email members that this was cancelled</div>
+          </label>
+          {notifyEnabled && <RecipientPicker value={notifyRecipients} onChange={setNotifyRecipients} members={MEMBERS as any[]} />}
+        </div>
+        <div style={{ padding: '16px 28px', borderTop: `1px solid ${theme.line}`, display: 'flex', justifyContent: 'flex-end', gap: 10, background: theme.cream }}>
+          <Button variant="ghost" onClick={onClose} disabled={confirming}>Back</Button>
+          <Button
+            variant="danger"
+            disabled={confirming}
+            onClick={async () => { setConfirming(true); await onConfirm(notifyEnabled ? notifyRecipients : null); setConfirming(false); }}
+          >
+            {confirming ? 'Cancelling…' : 'Cancel rehearsal'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RehearsalModal({ rehearsal, onClose, onSave, onDelete }: any) {
   const { theme, mode: themeMode } = useTheme();
   const isMobile = useViewportWidth() < 768;
@@ -163,18 +186,21 @@ function RehearsalModal({ rehearsal, onClose, onSave, onDelete }: any) {
   const [recurStart, setRecurStart] = useState('');
   const [recurEnd, setRecurEnd] = useState('');
   const [recurDays, setRecurDays] = useState<string[]>([]);
+  const [notifyEnabled, setNotifyEnabled] = useState(false);
+  const [notifyRecipients, setNotifyRecipients] = useState<RecipientSelection>(DEFAULT_RECIPIENTS);
 
   const isEditing = !!rehearsal;
   const previewDates = mode === 'weekly' ? generateWeeklyDates(recurStart, recurEnd, recurDays) : [];
 
   const handleSave = () => {
     const base = { type, section: type === 'Sectional' ? section : '', time, endTime, venue, notes };
+    const notify = notifyEnabled ? notifyRecipients : null;
     if (isEditing || mode === 'single') {
-      onSave({ ...base, date: singleDate });
+      onSave({ ...base, date: singleDate }, notify);
     } else if (mode === 'multiple') {
-      onSave(multipleDates.map(date => ({ ...base, date })));
+      onSave(multipleDates.map(date => ({ ...base, date })), notify);
     } else if (mode === 'weekly') {
-      onSave(previewDates.map(date => ({ ...base, date })));
+      onSave(previewDates.map(date => ({ ...base, date })), notify);
     }
     onClose();
   };
@@ -324,12 +350,22 @@ function RehearsalModal({ rehearsal, onClose, onSave, onDelete }: any) {
             <label style={{ fontSize: 11.5, fontFamily: FONTS.mono, letterSpacing: 1, color: theme.dim, textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>Notes</label>
             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Additional details…" style={{ ...modalInput, resize: 'vertical' }} />
           </div>
+
+          {!isEditing && (
+            <div style={{ padding: 14, background: theme.cream, borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, cursor: 'pointer' }}>
+                <input type="checkbox" checked={notifyEnabled} onChange={e => setNotifyEnabled(e.target.checked)} />
+                <div style={{ fontWeight: 500 }}>Email members about this rehearsal</div>
+              </label>
+              {notifyEnabled && <RecipientPicker value={notifyRecipients} onChange={setNotifyRecipients} members={MEMBERS as any[]} />}
+            </div>
+          )}
         </div>
 
         <div style={{ padding: isMobile ? '14px 18px' : '16px 28px', borderTop: `1px solid ${theme.line}`, display: 'flex', justifyContent: 'space-between', gap: 10, background: theme.cream, flexWrap: 'wrap' }}>
           <div>
             {isEditing && (
-              <Button variant="outline" onClick={() => { onDelete(rehearsal.id); onClose(); }} style={{ color: theme.red, borderColor: theme.red }}>Delete</Button>
+              <Button variant="outline" onClick={() => { onClose(); onDelete(rehearsal); }} style={{ color: theme.red, borderColor: theme.red }}>Delete</Button>
             )}
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
@@ -386,6 +422,7 @@ export function AdminHome() {
   const [showBroadcast, setShowBroadcast] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingRehearsal, setEditingRehearsal] = useState<any>(null);
+  const [cancellingRehearsal, setCancellingRehearsal] = useState<any | null>(null);
   const [lockedAccounts, setLockedAccounts] = useState<any[]>([]);
   const [unlockingId, setUnlockingId] = useState<number | null>(null);
 
@@ -424,7 +461,9 @@ export function AdminHome() {
     ? `next: ${nextEvent.name} in ${Math.max(1, Math.ceil((new Date(nextEvent.date).getTime() - Date.now()) / 86400000))}d`
     : 'none scheduled';
 
-  const handleSave = async (data: any) => {
+  const handleSave = async (data: any, notify: RecipientSelection | null = null) => {
+    let addedCount = 0;
+    let firstAdded: any = null;
     if (editingRehearsal) {
       const updated = { ...editingRehearsal, ...data };
       if (editingRehearsal._eventId) {
@@ -441,22 +480,54 @@ export function AdminHome() {
       }
       setRehearsals(prev => [...prev, ...newOnes]);
       app.showToast(`${newOnes.length} rehearsal${newOnes.length !== 1 ? 's' : ''} added`);
+      addedCount = newOnes.length;
+      firstAdded = newOnes[0];
     } else {
       const { data: row } = await supabase.from('events').insert(toSupabaseRow(data)).select('id').single();
       const newOne = { ...data, id: row?.id ?? `r${Date.now()}`, _eventId: row?.id ?? null };
       setRehearsals(prev => [...prev, newOne]);
       app.showToast('Rehearsal added');
+      addedCount = 1;
+      firstAdded = newOne;
     }
     setEditingRehearsal(null);
+
+    if (notify && firstAdded) {
+      const recipientMembers = resolveRecipients(notify, MEMBERS as any[]);
+      const title = addedCount > 1 ? `${addedCount} rehearsals` : (firstAdded.type === 'Sectional' ? `${firstAdded.section} sectional` : 'Full ensemble rehearsal');
+      const dateLabel = addedCount > 1
+        ? `${addedCount} sessions starting ${new Date(firstAdded.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
+        : new Date(firstAdded.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      recipientMembers.forEach((m: any) => {
+        notifyScheduleChange({
+          email: m.email, name: m.name, title, date: dateLabel,
+          time: `${firstAdded.time}–${firstAdded.endTime}`, venue: firstAdded.venue, action: 'Scheduled',
+        });
+      });
+    }
   };
 
-  const handleDelete = async (id: string) => {
-    const target = rehearsals.find(r => r.id === id);
-    if (target?._eventId) {
+  const handleCancelRehearsal = async (notify: RecipientSelection | null) => {
+    const target = cancellingRehearsal;
+    if (!target) return;
+    if (target._eventId) {
       await supabase.from('events').delete().eq('id', target._eventId);
     }
-    setRehearsals(prev => prev.filter(r => r.id !== id));
-    app.showToast('Rehearsal deleted', 'error');
+    setRehearsals(prev => prev.filter(r => r.id !== target.id));
+    app.showToast('Rehearsal cancelled', 'error');
+    setCancellingRehearsal(null);
+
+    if (notify) {
+      const recipientMembers = resolveRecipients(notify, MEMBERS as any[]);
+      const title = target.type === 'Sectional' ? `${target.section} sectional` : 'Full ensemble rehearsal';
+      recipientMembers.forEach((m: any) => {
+        notifyScheduleChange({
+          email: m.email, name: m.name, title,
+          date: new Date(target.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+          time: `${target.time}–${target.endTime}`, venue: target.venue, action: 'Cancelled',
+        });
+      });
+    }
   };
 
   const getConflicts = (eventDate: string, eventTime: string) => {
@@ -707,9 +778,7 @@ export function AdminHome() {
                   <button
                     onClick={e => {
                       e.stopPropagation();
-                      if (window.confirm(`Delete this ${r.type.toLowerCase()} on ${new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}? This can't be undone.`)) {
-                        handleDelete(r.id);
-                      }
+                      setCancellingRehearsal(r);
                     }}
                     style={{ padding: 8, background: 'transparent', border: `1px solid ${theme.red}`, borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', color: theme.red }}
                   >
@@ -766,6 +835,13 @@ export function AdminHome() {
         <BroadcastNoticeModal
           onClose={() => setShowBroadcast(false)}
           onBroadcast={async (data) => {
+            const recipientMembers = resolveRecipients(data.recipients, MEMBERS as any[]);
+            const recipientsLabel =
+              data.recipients.mode === 'all' ? 'All members' :
+              data.recipients.mode === 'section' ? `${data.recipients.section} section` :
+              data.recipients.mode === 'exec' ? 'Executive board' :
+              `${recipientMembers.length} specific member${recipientMembers.length === 1 ? '' : 's'}`;
+
             const { data: inserted, error } = await supabase
               .from('announcements')
               .insert({
@@ -773,7 +849,7 @@ export function AdminHome() {
                 body: data.body,
                 pinned: data.pinned,
                 author: user.name,
-                recipients: data.recipients,
+                recipients: recipientsLabel,
               })
               .select('id, created_at')
               .single();
@@ -792,12 +868,6 @@ export function AdminHome() {
               date: inserted.created_at ? inserted.created_at.slice(0, 10) : undefined,
             });
 
-            const recipientMembers = MEMBERS.filter((m: any) => {
-              if (!m.email) return false;
-              if (data.recipients === 'all') return true;
-              if (data.recipients === 'exec') return !!m.exec;
-              return m.section === data.recipients;
-            });
             recipientMembers.forEach((m: any) => {
               notifyAnnouncement({ email: m.email, title: data.title, body: data.body, pinned: data.pinned, author: user.name });
             });
@@ -811,7 +881,14 @@ export function AdminHome() {
           rehearsal={editingRehearsal}
           onClose={() => { setShowModal(false); setEditingRehearsal(null); }}
           onSave={handleSave}
-          onDelete={handleDelete}
+          onDelete={(r: any) => setCancellingRehearsal(r)}
+        />
+      )}
+      {cancellingRehearsal && (
+        <CancelRehearsalModal
+          rehearsal={cancellingRehearsal}
+          onClose={() => setCancellingRehearsal(null)}
+          onConfirm={handleCancelRehearsal}
         />
       )}
     </>

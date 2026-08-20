@@ -50,6 +50,17 @@ function statusChip(status: string | null) {
   return <Chip tone="neutral">{status ?? 'Unknown'}</Chip>;
 }
 
+const NEARING_GRADUATION_THRESHOLD = 3;
+
+function isNearingGraduation(termsLeft: number | null) {
+  return termsLeft != null && termsLeft <= NEARING_GRADUATION_THRESHOLD;
+}
+
+function nearingGraduationChip(termsLeft: number | null) {
+  if (!isNearingGraduation(termsLeft)) return null;
+  return <Chip tone="amber">Nearing Graduation</Chip>;
+}
+
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   const { theme } = useTheme();
   if (!value) return null;
@@ -312,14 +323,30 @@ function MemberDetailDrawer({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <EditField label="College" value={form.college} onChange={v => set('college', v)} style={editSelectStyle} />
                 <EditField label="Course" value={form.course_code} onChange={v => set('course_code', v)} style={editSelectStyle} />
-                <InfoRow label="Terms left" value={member.terms_left != null ? `${member.terms_left} terms` : null} />
+                <InfoRow
+                  label="Terms left"
+                  value={member.terms_left != null ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {member.terms_left} terms
+                      {nearingGraduationChip(member.terms_left)}
+                    </span>
+                  ) : null}
+                />
                 <InfoRow label="Last term GPA" value={member.last_term_gpa != null ? member.last_term_gpa.toFixed(2) : null} />
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <InfoRow label="College" value={member.college} />
                 <InfoRow label="Course" value={member.course_code} />
-                <InfoRow label="Terms left" value={member.terms_left != null ? `${member.terms_left} terms` : null} />
+                <InfoRow
+                  label="Terms left"
+                  value={member.terms_left != null ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {member.terms_left} terms
+                      {nearingGraduationChip(member.terms_left)}
+                    </span>
+                  ) : null}
+                />
                 <InfoRow label="Last term GPA" value={member.last_term_gpa != null ? member.last_term_gpa.toFixed(2) : null} />
               </div>
             )}
@@ -834,7 +861,12 @@ export function AdminMembers() {
                     <td style={{ ...tdStyle, fontFamily: FONTS.mono, fontSize: 12 }}>
                       {m.last_term_gpa != null ? m.last_term_gpa.toFixed(2) : '—'}
                     </td>
-                    <td style={tdStyle}>{statusChip(m.membership_status)}</td>
+                    <td style={tdStyle}>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {statusChip(m.membership_status)}
+                        {nearingGraduationChip(m.terms_left)}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -856,7 +888,8 @@ export function AdminMembers() {
           onSave={async (patch) => {
             const { error } = await supabase.from('profiles').update(patch).eq('id', selectedMember.id);
             if (error) {
-              app.showToast('Failed to save member details', 'error');
+              console.error('[AdminMembers] Save failed:', error);
+              app.showToast(`Failed to save member details: ${error.message}`, 'error');
               return;
             }
             const updated = { ...selectedMember, ...patch };

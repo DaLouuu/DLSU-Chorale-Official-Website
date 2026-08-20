@@ -8,7 +8,8 @@ import { Chip } from '../ui/Chip';
 import { Icon } from '../ui/Icon';
 import { supabase } from '../../supabase';
 import { EVENTS, MEMBERS } from '../../data';
-import { notifyRoleSlotDecision } from '../../utils/email';
+import { notifyRoleSlotDecision, notifyScheduleChange } from '../../utils/email';
+import { RecipientPicker, RecipientSelection, DEFAULT_RECIPIENTS, resolveRecipients } from '../ui/RecipientPicker';
 import {
   EventMeta,
   EventSignup,
@@ -1114,6 +1115,9 @@ function EventDrawer({
   // Change summary modal
   const [pendingChanges, setPendingChanges] = useState<{ field: string; from: string; to: string }[] | null>(null);
 
+  const [notifyEnabled, setNotifyEnabled] = useState(false);
+  const [notifyRecipients, setNotifyRecipients] = useState<RecipientSelection>(DEFAULT_RECIPIENTS);
+
   // Pre-fill form when editing
   useEffect(() => {
     if (editing) {
@@ -1204,6 +1208,18 @@ function EventDrawer({
         },
       });
     }
+
+    if (!editing && notifyEnabled) {
+      const recipientMembers = resolveRecipients(notifyRecipients, MEMBERS as any[]);
+      recipientMembers.forEach((m: any) => {
+        notifyScheduleChange({
+          email: m.email, name: m.name, title: form.name,
+          date: form.date ? new Date(form.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '',
+          time: form.call_time || undefined, venue: form.venue || undefined, action: 'Scheduled',
+        });
+      });
+    }
+
     onSaved();
     onClose();
   };
@@ -1578,6 +1594,16 @@ function EventDrawer({
             </FormField>
             )}
 
+            {!isEditing && (
+              <div style={{ padding: 14, background: theme.cream, borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={notifyEnabled} onChange={e => setNotifyEnabled(e.target.checked)} />
+                  <div style={{ fontWeight: 500 }}>Email members about this event</div>
+                </label>
+                {notifyEnabled && <RecipientPicker value={notifyRecipients} onChange={setNotifyRecipients} members={MEMBERS as any[]} />}
+              </div>
+            )}
+
             {saveError && (
               <div style={{ padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', fontSize: 12.5, color: '#dc2626', whiteSpace: 'pre-wrap' }}>
                 {saveError}
@@ -1664,6 +1690,12 @@ export function AdminEvents() {
   const [signupsVersion, setSignupsVersion] = useState(0);
   const [deletingEvent, setDeletingEvent] = useState<DbEvent | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteNotifyEnabled, setDeleteNotifyEnabled] = useState(false);
+  const [deleteNotifyRecipients, setDeleteNotifyRecipients] = useState<RecipientSelection>(DEFAULT_RECIPIENTS);
+  const [cancellingEvent, setCancellingEvent] = useState<DbEvent | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelNotifyEnabled, setCancelNotifyEnabled] = useState(true);
+  const [cancelNotifyRecipients, setCancelNotifyRecipients] = useState<RecipientSelection>(DEFAULT_RECIPIENTS);
 
   async function load() {
     setLoading(true);
@@ -1719,6 +1751,19 @@ export function AdminEvents() {
   const closeDrawer = () => { setDrawerOpen(false); setEditing(null); };
   const onSaved = () => { load(); setSignupsVersion(v => v + 1); };
 
+  const notifyForEvent = (ev: DbEvent, notify: RecipientSelection, action: 'Cancelled') => {
+    const recipientMembers = resolveRecipients(notify, MEMBERS as any[]);
+    recipientMembers.forEach((m: any) => {
+      notifyScheduleChange({
+        email: m.email, name: m.name, title: displayName(ev),
+        date: fmtDate(ev.event_date),
+        time: fmtTime(ev.call_time ?? ev.start_time) !== '—' ? fmtTime(ev.call_time ?? ev.start_time) : undefined,
+        venue: ev.venue ?? undefined,
+        action,
+      });
+    });
+  };
+
   const handleDeleteEvent = async () => {
     if (!deletingEvent) return;
     setDeleting(true);
@@ -1728,18 +1773,38 @@ export function AdminEvents() {
       app.showToast(`Could not delete event: ${error.message}`, 'error');
       return;
     }
+    if (deleteNotifyEnabled) notifyForEvent(deletingEvent, deleteNotifyRecipients, 'Cancelled');
     setEvents(prev => prev.filter(e => e.event_id !== deletingEvent.event_id));
     setDeletingEvent(null);
     app.showToast('Event deleted');
   };
 
   const toggleEventClosed = async (ev: DbEvent) => {
-    const nextClosed = !ev.is_closed;
-    setEvents(prev => prev.map(e => (e.event_id === ev.event_id ? { ...e, is_closed: nextClosed } : e)));
-    const { error } = await safeUpdateEventRow(ev.event_id, { is_closed: nextClosed });
-    if (error) {
-      setEvents(prev => prev.map(e => (e.event_id === ev.event_id ? { ...e, is_closed: ev.is_closed } : e)));
+    if (!ev.is_closed) {
+      // Closing = cancelling — confirm and offer to notify, instead of an instant toggle.
+      setCancellingEvent(ev);
+      return;
     }
+    setEvents(prev => prev.map(e => (e.event_id === ev.event_id ? { ...e, is_closed: false } : e)));
+    const { error } = await safeUpdateEventRow(ev.event_id, { is_closed: false });
+    if (error) {
+      setEvents(prev => prev.map(e => (e.event_id === ev.event_id ? { ...e, is_closed: true } : e)));
+    }
+  };
+
+  const handleConfirmCancelEvent = async () => {
+    if (!cancellingEvent) return;
+    setCancelling(true);
+    const { error } = await safeUpdateEventRow(cancellingEvent.event_id, { is_closed: true });
+    setCancelling(false);
+    if (error) {
+      app.showToast(`Could not cancel event: ${error.message}`, 'error');
+      return;
+    }
+    if (cancelNotifyEnabled) notifyForEvent(cancellingEvent, cancelNotifyRecipients, 'Cancelled');
+    setEvents(prev => prev.map(e => (e.event_id === cancellingEvent.event_id ? { ...e, is_closed: true } : e)));
+    setCancellingEvent(null);
+    app.showToast('Event cancelled');
   };
 
   const filterTab = (key: FilterType, label: string) => (
@@ -1929,14 +1994,42 @@ export function AdminEvents() {
       )}
       {deletingEvent && (
         <div onClick={() => setDeletingEvent(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(8,32,26,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: theme.paper, color: theme.ink, borderRadius: 14, width: '100%', maxWidth: 440, padding: 28, border: `1px solid ${theme.line}` }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: theme.paper, color: theme.ink, borderRadius: 14, width: '100%', maxWidth: 480, padding: 28, border: `1px solid ${theme.line}`, maxHeight: '90vh', overflowY: 'auto' }}>
             <h3 style={{ fontFamily: FONTS.serif, fontSize: 22, margin: 0, fontWeight: 500 }}>Delete event</h3>
             <p style={{ fontSize: 13, color: theme.dim, marginTop: 8 }}>
               Delete "{displayName(deletingEvent)}"? This also removes its role slots and sign-ups. Attendance logs already tied to it are kept.
             </p>
+            <div style={{ marginTop: 16, padding: 14, background: theme.cream, borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, cursor: 'pointer' }}>
+                <input type="checkbox" checked={deleteNotifyEnabled} onChange={e => setDeleteNotifyEnabled(e.target.checked)} />
+                <div style={{ fontWeight: 500 }}>Email members that this was cancelled</div>
+              </label>
+              {deleteNotifyEnabled && <RecipientPicker value={deleteNotifyRecipients} onChange={setDeleteNotifyRecipients} members={MEMBERS as any[]} />}
+            </div>
             <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <Button variant="ghost" onClick={() => setDeletingEvent(null)} disabled={deleting}>Cancel</Button>
               <Button variant="danger" onClick={handleDeleteEvent} disabled={deleting}>{deleting ? 'Deleting…' : 'Delete event'}</Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {cancellingEvent && (
+        <div onClick={() => setCancellingEvent(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(8,32,26,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: theme.paper, color: theme.ink, borderRadius: 14, width: '100%', maxWidth: 480, padding: 28, border: `1px solid ${theme.line}`, maxHeight: '90vh', overflowY: 'auto' }}>
+            <h3 style={{ fontFamily: FONTS.serif, fontSize: 22, margin: 0, fontWeight: 500, color: theme.red }}>Cancel event</h3>
+            <p style={{ fontSize: 13, color: theme.dim, marginTop: 8 }}>
+              Mark "{displayName(cancellingEvent)}" as closed/cancelled? It stays on record but no longer accepts sign-ups.
+            </p>
+            <div style={{ marginTop: 16, padding: 14, background: theme.cream, borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, cursor: 'pointer' }}>
+                <input type="checkbox" checked={cancelNotifyEnabled} onChange={e => setCancelNotifyEnabled(e.target.checked)} />
+                <div style={{ fontWeight: 500 }}>Email members that this was cancelled</div>
+              </label>
+              {cancelNotifyEnabled && <RecipientPicker value={cancelNotifyRecipients} onChange={setCancelNotifyRecipients} members={MEMBERS as any[]} />}
+            </div>
+            <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <Button variant="ghost" onClick={() => setCancellingEvent(null)} disabled={cancelling}>Back</Button>
+              <Button variant="danger" onClick={handleConfirmCancelEvent} disabled={cancelling}>{cancelling ? 'Cancelling…' : 'Cancel event'}</Button>
             </div>
           </div>
         </div>

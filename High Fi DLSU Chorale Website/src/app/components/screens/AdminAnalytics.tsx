@@ -35,7 +35,14 @@ type OrgStats = {
   avgGpa: number | null;
   birthdaysThisMonth: number;
   avgTermsLeft: number | null;
+  nearingGraduation: {
+    total: number;
+    bySection: Record<string, number>;
+    members: { name: string; section: string; termsLeft: number }[];
+  };
 };
+
+const NEARING_GRADUATION_THRESHOLD = 3;
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 function StatCard({ label, value, sub, tone = 'neutral' }: { label: string; value: string | number; sub?: string; tone?: 'green' | 'amber' | 'red' | 'blue' | 'neutral' }) {
@@ -141,7 +148,7 @@ export function AdminAnalytics() {
     async function load() {
       const { data } = await supabase
         .from('profiles')
-        .select('voice_section, committee, membership_status, current_term_stat, bday, college, course_code, terms_left, longevity_terms, last_term_gpa, entry_date');
+        .select('first_name, last_name, voice_section, committee, membership_status, current_term_stat, bday, college, course_code, terms_left, longevity_terms, last_term_gpa, entry_date');
 
       if (!data) { setLoading(false); return; }
 
@@ -153,6 +160,8 @@ export function AdminAnalytics() {
       const byCourse: Record<string, number> = {};
       const byCohortYear: Record<string, number> = {};
       const byLongevity: Record<string, number> = {};
+      const nearingGradBySection: Record<string, number> = {};
+      const nearingGradMembers: { name: string; section: string; termsLeft: number }[] = [];
       let gpaSum = 0, gpaCount = 0, termsSum = 0, termsCount = 0, birthdaysThisMonth = 0;
       const thisMonth = new Date().getMonth() + 1;
 
@@ -187,7 +196,17 @@ export function AdminAnalytics() {
         if (p.last_term_gpa != null) { gpaSum += Number(p.last_term_gpa); gpaCount++; }
 
         // Terms left
-        if (p.terms_left != null) { termsSum += Number(p.terms_left); termsCount++; }
+        if (p.terms_left != null) {
+          const terms = Number(p.terms_left);
+          termsSum += terms; termsCount++;
+          if (terms <= NEARING_GRADUATION_THRESHOLD) {
+            nearingGradBySection[sec] = (nearingGradBySection[sec] ?? 0) + 1;
+            nearingGradMembers.push({
+              name: [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Unnamed member',
+              section: sec, termsLeft: terms,
+            });
+          }
+        }
 
         // Birthdays this month
         if (p.bday) {
@@ -215,6 +234,11 @@ export function AdminAnalytics() {
         avgGpa: gpaCount ? Math.round((gpaSum / gpaCount) * 100) / 100 : null,
         birthdaysThisMonth,
         avgTermsLeft: termsCount ? Math.round((termsSum / termsCount) * 10) / 10 : null,
+        nearingGraduation: {
+          total: nearingGradMembers.length,
+          bySection: nearingGradBySection,
+          members: nearingGradMembers.sort((a, b) => a.termsLeft - b.termsLeft),
+        },
       });
       setLoading(false);
     }
@@ -407,6 +431,63 @@ export function AdminAnalytics() {
           </div>
 
           <Divider />
+
+          {stats.nearingGraduation.total > 0 && (
+            <>
+              <SectionLabel label="Nearing Graduation" />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 20 }}>
+                <MiniStatCard
+                  label="Nearing graduation"
+                  value={stats.nearingGraduation.total}
+                  sub={`${NEARING_GRADUATION_THRESHOLD} terms left or fewer`}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, marginBottom: 24 }}>
+                <Card>
+                  <h3 style={{ fontFamily: FONTS.serif, fontSize: 18, margin: '0 0 16px', fontWeight: 500 }}>Nearing Graduation by Section</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {(['Soprano', 'Alto', 'Tenor', 'Bass']).filter(s => stats.nearingGraduation.bySection[s]).map(s => (
+                      <BarRow
+                        key={s}
+                        label={s}
+                        count={stats.nearingGraduation.bySection[s]}
+                        max={stats.nearingGraduation.total}
+                        pct={Math.round((stats.nearingGraduation.bySection[s] / stats.nearingGraduation.total) * 100)}
+                      />
+                    ))}
+                  </div>
+                </Card>
+                <Card>
+                  <h3 style={{ fontFamily: FONTS.serif, fontSize: 18, margin: '0 0 16px', fontWeight: 500 }}>Nearing Graduation — Members</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0, maxHeight: 260, overflowY: 'auto' }}>
+                    {stats.nearingGraduation.members.map((m, i) => (
+                      <div
+                        key={`${m.name}-${i}`}
+                        style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          padding: '9px 0', borderTop: i === 0 ? 'none' : `1px solid ${theme.line}`, fontSize: 13,
+                        }}
+                      >
+                        <span>{m.name}</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 11, color: SECTION_COLORS[m.section] ?? theme.dim, fontFamily: FONTS.mono, textTransform: 'uppercase' }}>{m.section}</span>
+                          <span style={{
+                            fontSize: 11, fontFamily: FONTS.mono, padding: '2px 8px', borderRadius: 20,
+                            background: theme.amberSoft, color: theme.amber,
+                          }}>
+                            {m.termsLeft} term{m.termsLeft === 1 ? '' : 's'} left
+                          </span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+
+              <Divider />
+            </>
+          )}
 
           {/* ── 3. Org Tenure & Cohorts (only shown once entry_date/longevity_terms data exists) ── */}
           {(topN(stats.byCohortYear).length > 0 || topN(stats.byLongevity).length > 0) && (
