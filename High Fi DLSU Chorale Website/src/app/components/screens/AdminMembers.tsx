@@ -9,6 +9,7 @@ import { SectionTag } from '../ui/SectionTag';
 import { Chip } from '../ui/Chip';
 import { Icon } from '../ui/Icon';
 import { supabase } from '../../supabase';
+import { downloadCSV, todayStamp } from '../../utils/exportCsv';
 
 type Profile = {
   id: string;
@@ -107,13 +108,22 @@ function formFromMember(member: Profile): EditableForm {
   };
 }
 
-function MemberDetailDrawer({ member, onClose, onSave }: { member: Profile; onClose: () => void; onSave: (patch: Partial<Profile>) => Promise<void> }) {
+function MemberDetailDrawer({
+  member, onClose, onSave, onDelete,
+}: {
+  member: Profile;
+  onClose: () => void;
+  onSave: (patch: Partial<Profile>) => Promise<void>;
+  onDelete: () => Promise<void>;
+}) {
   const { theme } = useTheme();
   const name = fullName(member);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<EditableForm>(() => formFromMember(member));
   const set = <K extends keyof EditableForm>(k: K, v: EditableForm[K]) => setForm(prev => ({ ...prev, [k]: v }));
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const editSelectStyle = { width: '100%', padding: '9px 12px', border: `1px solid ${theme.lineDark}`, borderRadius: 8, fontSize: 13.5, background: theme.paper, color: theme.ink, outline: 'none' as const, boxSizing: 'border-box' as const };
 
@@ -199,13 +209,22 @@ function MemberDetailDrawer({ member, onClose, onSave }: { member: Profile; onCl
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               {!editing && (
-                <button
-                  onClick={() => setEditing(true)}
-                  title="Edit member details"
-                  style={{ background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', cursor: 'pointer', padding: 8, borderRadius: 8, display: 'flex', alignItems: 'center' }}
-                >
-                  <Icon name="edit" size={15} />
-                </button>
+                <>
+                  <button
+                    onClick={() => setEditing(true)}
+                    title="Edit member details"
+                    style={{ background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', cursor: 'pointer', padding: 8, borderRadius: 8, display: 'flex', alignItems: 'center' }}
+                  >
+                    <Icon name="edit" size={15} />
+                  </button>
+                  <button
+                    onClick={() => setConfirmDelete(true)}
+                    title="Delete member"
+                    style={{ background: 'rgba(220,38,38,0.25)', border: 'none', color: '#fff', cursor: 'pointer', padding: 8, borderRadius: 8, display: 'flex', alignItems: 'center' }}
+                  >
+                    <Icon name="trash" size={15} />
+                  </button>
+                </>
               )}
               <button
                 onClick={onClose}
@@ -229,6 +248,24 @@ function MemberDetailDrawer({ member, onClose, onSave }: { member: Profile; onCl
 
         {/* Body */}
         <div style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 24, flex: 1 }}>
+
+          {confirmDelete && (
+            <div style={{ padding: '14px 16px', borderRadius: 10, background: theme.redSoft, border: `1px solid ${theme.red}` }}>
+              <div style={{ fontSize: 13, color: theme.ink, marginBottom: 10 }}>
+                Delete {name}? This removes their profile and directory entry — they won't be able to log in anymore. Their attendance/fee/excuse history stays on record.
+              </div>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <Button variant="ghost" onClick={() => setConfirmDelete(false)} disabled={deleting}>Cancel</Button>
+                <Button
+                  variant="danger"
+                  disabled={deleting}
+                  onClick={async () => { setDeleting(true); await onDelete(); setDeleting(false); }}
+                >
+                  {deleting ? 'Deleting…' : 'Delete member'}
+                </Button>
+              </div>
+            </div>
+          )}
 
           {editing && (
             <div style={{ fontSize: 10.5, fontFamily: FONTS.mono, color: theme.amber, textTransform: 'uppercase', letterSpacing: 1 }}>Editing</div>
@@ -662,6 +699,32 @@ export function AdminMembers() {
     return null;
   }
 
+  async function handleDeleteMember(member: Profile) {
+    // Detach fee/excuse/attendance history rather than cascading — those
+    // stay on record for the term's books even after the account is gone.
+    const { error } = await supabase.from('profiles').delete().eq('id', member.id);
+    if (error) {
+      app.showToast(`Could not delete member: ${error.message}`, 'error');
+      return;
+    }
+    if (member.school_id != null) {
+      await supabase.from('directory').delete().eq('school_id', member.school_id);
+    }
+    setMembers(prev => prev.filter(m => m.id !== member.id));
+    setSelectedMember(null);
+    app.showToast(`Removed ${fullName(member)}`);
+  }
+
+  function handleExportCsv() {
+    const headers = ['ID', 'First name', 'Last name', 'Nickname', 'Email', 'Voice section', 'Committee', 'Membership status', 'College', 'Course', 'Admin'];
+    const rows = filtered.map(m => [
+      m.school_id ?? '', m.first_name ?? '', m.last_name ?? '', m.nickname ?? '', m.email ?? '',
+      m.voice_section ?? '', m.committee ?? '', m.membership_status ?? '', m.college ?? '', m.course_code ?? '',
+      m.is_admin ? 'Yes' : 'No',
+    ]);
+    downloadCSV(`chorale-members-${todayStamp()}`, [headers, ...rows]);
+  }
+
   const committees = [...new Set(members.map(m => m.committee).filter(Boolean) as string[])].sort();
 
   let filtered = members;
@@ -687,6 +750,7 @@ export function AdminMembers() {
         actions={
           <>
             <Button variant="outline" icon="filter" onClick={() => setShowFilters(true)}>Filter</Button>
+            <Button variant="outline" icon="download" onClick={handleExportCsv}>Export CSV</Button>
             <Button icon="plus" onClick={() => setShowAddMember(true)}>Add Member</Button>
           </>
         }
@@ -800,6 +864,7 @@ export function AdminMembers() {
             setSelectedMember(updated);
             app.showToast('Member details updated');
           }}
+          onDelete={() => handleDeleteMember(selectedMember)}
         />
       )}
     </>

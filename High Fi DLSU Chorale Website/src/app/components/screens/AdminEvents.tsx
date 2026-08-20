@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useTheme, useRouter } from '../../App';
+import { useTheme, useRouter, useApp } from '../../App';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
@@ -1653,6 +1653,7 @@ type FilterType = 'all' | 'social' | 'competition' | 'production' | 'festival' |
 
 export function AdminEvents() {
   const { theme } = useTheme();
+  const app = useApp();
   const [events, setEvents] = useState<DbEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -1661,6 +1662,8 @@ export function AdminEvents() {
   const [editing, setEditing] = useState<DbEvent | null>(null);
   const [manageEvent, setManageEvent] = useState<DbEvent | null>(null);
   const [signupsVersion, setSignupsVersion] = useState(0);
+  const [deletingEvent, setDeletingEvent] = useState<DbEvent | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -1715,6 +1718,20 @@ export function AdminEvents() {
   const openEdit = (ev: DbEvent) => { setEditing(ev); setDrawerOpen(true); };
   const closeDrawer = () => { setDrawerOpen(false); setEditing(null); };
   const onSaved = () => { load(); setSignupsVersion(v => v + 1); };
+
+  const handleDeleteEvent = async () => {
+    if (!deletingEvent) return;
+    setDeleting(true);
+    const { error } = await supabase.from('events').delete().eq('event_id', deletingEvent.event_id);
+    setDeleting(false);
+    if (error) {
+      app.showToast(`Could not delete event: ${error.message}`, 'error');
+      return;
+    }
+    setEvents(prev => prev.filter(e => e.event_id !== deletingEvent.event_id));
+    setDeletingEvent(null);
+    app.showToast('Event deleted');
+  };
 
   const toggleEventClosed = async (ev: DbEvent) => {
     const nextClosed = !ev.is_closed;
@@ -1874,6 +1891,17 @@ export function AdminEvents() {
                       >
                         {ev.is_closed ? 'Reopen' : 'Close'}
                       </button>
+                      <button
+                        onClick={e => { e.stopPropagation(); setDeletingEvent(ev); }}
+                        title="Delete event"
+                        style={{
+                          background: 'transparent', border: 'none',
+                          padding: '5px 6px', cursor: 'pointer', color: theme.dim, marginLeft: 4,
+                          display: 'inline-flex', alignItems: 'center',
+                        }}
+                      >
+                        <Icon name="trash" size={14} />
+                      </button>
                     </td>
                         </>
                       );
@@ -1898,6 +1926,20 @@ export function AdminEvents() {
             setSignupsVersion(v => v + 1);
           }}
         />
+      )}
+      {deletingEvent && (
+        <div onClick={() => setDeletingEvent(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(8,32,26,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: theme.paper, color: theme.ink, borderRadius: 14, width: '100%', maxWidth: 440, padding: 28, border: `1px solid ${theme.line}` }}>
+            <h3 style={{ fontFamily: FONTS.serif, fontSize: 22, margin: 0, fontWeight: 500 }}>Delete event</h3>
+            <p style={{ fontSize: 13, color: theme.dim, marginTop: 8 }}>
+              Delete "{displayName(deletingEvent)}"? This also removes its role slots and sign-ups. Attendance logs already tied to it are kept.
+            </p>
+            <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <Button variant="ghost" onClick={() => setDeletingEvent(null)} disabled={deleting}>Cancel</Button>
+              <Button variant="danger" onClick={handleDeleteEvent} disabled={deleting}>{deleting ? 'Deleting…' : 'Delete event'}</Button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

@@ -5,7 +5,23 @@ import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
 import { Logo } from '../ui/Logo';
 import { EVENTS, MEMBERS } from '../../data';
+import { supabase } from '../../supabase';
 import choirB2b1 from '../../../imports/choir-b2b-1.png';
+
+// Minutes past call time before a check-in counts as "late" instead of
+// "present". No RFID hardware anymore — this kiosk IS the attendance record,
+// so a check-in here is what actually lands in attendance_logs (and, via the
+// auto-charge trigger, what a late/absent fee gets calculated from).
+const LATE_GRACE_MINUTES = 15;
+
+function computeLogStatus(callTime: string | null | undefined): 'present' | 'late' {
+  if (!callTime) return 'present';
+  const [h, m] = callTime.split(':').map(Number);
+  if (Number.isNaN(h)) return 'present';
+  const cutoff = new Date();
+  cutoff.setHours(h, (m || 0) + LATE_GRACE_MINUTES, 0, 0);
+  return new Date() > cutoff ? 'late' : 'present';
+}
 
 function useViewportWidth() {
   const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
@@ -49,8 +65,11 @@ export function RFIDKiosk() {
   const [memberName, setMemberName] = useState('');
   const [wordInput, setWordInput] = useState('');
   const [checkedInMember, setCheckedInMember] = useState<string | null>(null);
+  const [checkedInStatus, setCheckedInStatus] = useState<'present' | 'late' | 'already'>('present');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [failCount, setFailCount] = useState(0);
   const [lockSeconds, setLockSeconds] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
 
   const MAX_ATTEMPTS = 3;
   const LOCK_DURATION = 30;
@@ -67,9 +86,9 @@ export function RFIDKiosk() {
     return () => clearTimeout(t);
   }, [lockSeconds]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (state === 'locked') return;
+    if (state === 'locked' || submitting) return;
 
     const nameVal = memberName.trim();
     const wordVal = wordInput.trim().toUpperCase();
@@ -78,7 +97,7 @@ export function RFIDKiosk() {
     const member = MEMBERS.find(m =>
       m.name.toLowerCase() === nameVal.toLowerCase() ||
       String(m.id) === nameVal
-    );
+    ) as any;
 
     if (!wordOk || !member) {
       const next = failCount + 1;
@@ -87,14 +106,53 @@ export function RFIDKiosk() {
         setState('locked');
         setLockSeconds(LOCK_DURATION);
       } else {
+        setErrorMessage(null);
         setState('error');
         setTimeout(() => setState('idle'), 2000);
       }
       return;
     }
 
+    if (!event || event.date !== todayStr) {
+      setErrorMessage('No event scheduled for today — nothing to check into.');
+      setState('error');
+      setTimeout(() => setState('idle'), 2500);
+      return;
+    }
+
+    const eventId = (event as any)._eventId ?? Number(event.id);
+    const memberUuid = member._uuid ?? null;
+
+    setSubmitting(true);
+    let status: 'present' | 'late' | 'already' = 'present';
+    if (memberUuid && eventId) {
+      const { data: existingLog } = await supabase
+        .from('attendance_logs')
+        .select('log_id')
+        .eq('account_id_fk', memberUuid)
+        .eq('event_id_fk', eventId)
+        .maybeSingle();
+
+      if (existingLog) {
+        status = 'already';
+      } else {
+        status = computeLogStatus((event as any).callTime);
+        const { error: logErr } = await supabase.from('attendance_logs').insert({
+          account_id_fk: memberUuid,
+          event_id_fk: eventId,
+          log_status: status,
+          log_method: 'kiosk',
+        });
+        if (logErr) console.warn('[Kiosk] Could not record attendance:', logErr.message);
+      }
+    } else {
+      console.warn('[Kiosk] Missing member profile link or event id — attendance not recorded.');
+    }
+    setSubmitting(false);
+
     setFailCount(0);
     setCheckedInMember(member.name);
+    setCheckedInStatus(status);
     setState('success');
     setTimeout(() => {
       setState('idle');
@@ -335,6 +393,7 @@ export function RFIDKiosk() {
               <Button
                 type="submit"
                 size="lg"
+                disabled={submitting}
                 style={{
                   width: '100%',
                   justifyContent: 'center',
@@ -345,7 +404,7 @@ export function RFIDKiosk() {
                 }}
               >
                 <Icon name="check" size={16} />
-                Check In
+                {submitting ? 'Checking in…' : 'Check In'}
               </Button>
             </form>
           </div>
@@ -359,13 +418,13 @@ export function RFIDKiosk() {
                   width: isSmall ? 90 : 110,
                   height: isSmall ? 90 : 110,
                   borderRadius: '50%',
-                  background: theme.greenSoft,
+                  background: checkedInStatus === 'late' ? theme.amberSoft : theme.greenSoft,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Icon name="check" size={isSmall ? 48 : 60} stroke={theme.greenDeep} />
+                <Icon name="check" size={isSmall ? 48 : 60} stroke={checkedInStatus === 'late' ? theme.amber : theme.greenDeep} />
               </div>
             </div>
             <div
@@ -378,7 +437,7 @@ export function RFIDKiosk() {
                 marginTop: 24,
               }}
             >
-              Attendance Marked · Present
+              {checkedInStatus === 'already' ? 'Already Checked In' : checkedInStatus === 'late' ? 'Attendance Marked · Late' : 'Attendance Marked · Present'}
             </div>
             <h2
               style={{
@@ -405,10 +464,10 @@ export function RFIDKiosk() {
               </div>
             </div>
             <h2 style={{ fontFamily: FONTS.serif, fontSize: isSmall ? 28 : isMobile ? 36 : 42, margin: '20px 0 6px', fontWeight: 500 }}>
-              Incorrect Information
+              {errorMessage ? 'Cannot Check In' : 'Incorrect Information'}
             </h2>
             <div style={{ fontSize: 14, opacity: 0.8, maxWidth: 360, margin: '0 auto' }}>
-              Name/ID or word of the day is wrong. {MAX_ATTEMPTS - failCount} attempt{MAX_ATTEMPTS - failCount !== 1 ? 's' : ''} remaining.
+              {errorMessage ?? `Name/ID or word of the day is wrong. ${MAX_ATTEMPTS - failCount} attempt${MAX_ATTEMPTS - failCount !== 1 ? 's' : ''} remaining.`}
             </div>
           </div>
         )}

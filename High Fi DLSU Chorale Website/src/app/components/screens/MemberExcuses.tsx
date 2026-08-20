@@ -39,6 +39,29 @@ export function MemberExcuses() {
   const [documentUrl, setDocumentUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [editingExcuse, setEditingExcuse] = useState<any | null>(null);
+
+  const startNewRequest = () => {
+    setEditingExcuse(null);
+    setType('Absent');
+    setDate(todayIso);
+    setEventId('');
+    setReason('');
+    setEta('');
+    setDocumentUrl('');
+    setTab('new');
+  };
+
+  const startEditRequest = (e: any) => {
+    setEditingExcuse(e);
+    setType(e.type ?? 'Absent');
+    setDate(e.date ?? todayIso);
+    setEventId(e.eventId ?? '');
+    setReason(e.reason ?? '');
+    setEta(e.eta ?? '');
+    setDocumentUrl(e.documentUrl ?? '');
+    setTab('new');
+  };
   const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   useEffect(() => {
     const handler = () => setVw(window.innerWidth);
@@ -64,47 +87,90 @@ export function MemberExcuses() {
       return;
     }
 
-    setSubmitting(true);
-    const { data: inserted, error } = await supabase
-      .from('excuse_requests')
-      .insert({
-        account_id_fk: profileUuid,
-        excused_date: date,
-        excuse_type: type,
-        notes: reason,
-        status: 'Pending',
-        eta: eta || null,
-        event_id_fk: selectedEvent?._eventId ?? null,
-        document_url: documentUrl.trim() || null,
-      })
-      .select('request_id, created_at')
-      .single();
-    setSubmitting(false);
-
-    if (error) {
-      app.showToast(`Could not submit excuse: ${error.message}`, 'error');
+    // One request per date — editing the existing one is how you fix a
+    // mistake, not filing a second one for the same day.
+    const clash = mine.find(e => e.date === date && e.id !== editingExcuse?.id);
+    if (clash) {
+      app.showToast(`You already have a ${clash.status.toLowerCase()} request for that date — edit it instead of filing a new one.`, 'error');
       return;
     }
 
-    app.addExcuse({
-      id: inserted.request_id,
-      memberId: user.id,
-      memberName: user.name,
-      section: user.section,
-      date,
-      type: type === 'Excused Absent' ? 'Excused Absent' : type,
-      reason,
-      eventId: selectedEvent?.id,
-      eventName: selectedEvent?.name,
-      allowsExcusedAbsence: selectedEvent?.allowsExcusedAbsence ?? false,
-      eta: eta || undefined,
-      documentUrl: documentUrl.trim() || undefined,
-      submittedAt: inserted.created_at ? inserted.created_at.slice(0, 16).replace('T', ' ') : undefined,
-    });
-    app.showToast("Excuse submitted — your Section Head will review it.");
-    const adminEmail = import.meta.env.VITE_ADMIN_EMAIL as string ?? '';
-    if (adminEmail) notifyExcuseFiled({ adminEmail, memberName: user.name, section: user.section, excuseType: type, date, reason });
+    setSubmitting(true);
+
+    if (editingExcuse) {
+      if (editingExcuse.status !== 'Pending') {
+        setSubmitting(false);
+        app.showToast('This request has already been decided and can no longer be edited.', 'error');
+        return;
+      }
+      const { error } = await supabase
+        .from('excuse_requests')
+        .update({
+          excused_date: date,
+          excuse_type: type,
+          notes: reason,
+          eta: eta || null,
+          event_id_fk: selectedEvent?._eventId ?? null,
+          document_url: documentUrl.trim() || null,
+        })
+        .eq('request_id', editingExcuse.id);
+      setSubmitting(false);
+      if (error) {
+        app.showToast(`Could not update excuse: ${error.message}`, 'error');
+        return;
+      }
+      app.updateExcuse(editingExcuse.id, {
+        date, type, reason,
+        eventId: selectedEvent?.id, eventName: selectedEvent?.name,
+        allowsExcusedAbsence: selectedEvent?.allowsExcusedAbsence ?? false,
+        eta: eta || undefined,
+        documentUrl: documentUrl.trim() || undefined,
+      });
+      app.showToast('Excuse request updated.');
+    } else {
+      const { data: inserted, error } = await supabase
+        .from('excuse_requests')
+        .insert({
+          account_id_fk: profileUuid,
+          excused_date: date,
+          excuse_type: type,
+          notes: reason,
+          status: 'Pending',
+          eta: eta || null,
+          event_id_fk: selectedEvent?._eventId ?? null,
+          document_url: documentUrl.trim() || null,
+        })
+        .select('request_id, created_at')
+        .single();
+      setSubmitting(false);
+
+      if (error) {
+        app.showToast(`Could not submit excuse: ${error.message}`, 'error');
+        return;
+      }
+
+      app.addExcuse({
+        id: inserted.request_id,
+        memberId: user.id,
+        memberName: user.name,
+        section: user.section,
+        date,
+        type: type === 'Excused Absent' ? 'Excused Absent' : type,
+        reason,
+        eventId: selectedEvent?.id,
+        eventName: selectedEvent?.name,
+        allowsExcusedAbsence: selectedEvent?.allowsExcusedAbsence ?? false,
+        eta: eta || undefined,
+        documentUrl: documentUrl.trim() || undefined,
+        submittedAt: inserted.created_at ? inserted.created_at.slice(0, 16).replace('T', ' ') : undefined,
+      });
+      app.showToast("Excuse submitted — your Section Head will review it.");
+      const adminEmail = import.meta.env.VITE_ADMIN_EMAIL as string ?? '';
+      if (adminEmail) notifyExcuseFiled({ adminEmail, memberName: user.name, section: user.section, excuseType: type, date, reason });
+    }
+
     setSubmitted(true);
+    setEditingExcuse(null);
     setReason('');
     setEventId('');
     setEta('');
@@ -130,7 +196,7 @@ export function MemberExcuses() {
         ].map(t => (
           <button
             key={t.k}
-            onClick={() => setTab(t.k)}
+            onClick={() => (t.k === 'new' ? startNewRequest() : setTab(t.k))}
             style={{
               padding: isMobile ? '11px 16px' : '12px 22px',
               background: 'transparent',
@@ -288,9 +354,9 @@ export function MemberExcuses() {
             </div>
 
             <div style={{ marginTop: 20, display: 'flex', gap: 10, justifyContent: isMobile ? 'stretch' : 'flex-end', flexWrap: 'wrap' }}>
-              <Button variant="outline">Save draft</Button>
+              {editingExcuse && <Button variant="outline" onClick={startNewRequest}>Cancel edit</Button>}
               <Button onClick={submit} icon="check" disabled={submitted || submitting}>
-                {submitted ? 'Submitted ✓' : submitting ? 'Submitting…' : 'Submit excuse'}
+                {submitted ? (editingExcuse ? 'Updated ✓' : 'Submitted ✓') : submitting ? 'Saving…' : editingExcuse ? 'Update request' : 'Submit excuse'}
               </Button>
             </div>
           </Card>
@@ -394,6 +460,18 @@ export function MemberExcuses() {
                 <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
                   <StatusPill status={e.status} />
                   <div style={{ fontSize: 10.5, color: theme.dim, marginTop: 6, fontFamily: FONTS.mono }}>Filed {e.submittedAt?.slice(0, 10)}</div>
+                  {e.status === 'Pending' && (
+                    <button
+                      onClick={() => startEditRequest(e)}
+                      style={{
+                        marginTop: 8, background: 'transparent', border: `1px solid ${theme.lineDark}`,
+                        borderRadius: 7, padding: '5px 12px', cursor: 'pointer', fontSize: 12,
+                        color: theme.ink, fontFamily: FONTS.sans, display: 'inline-flex', alignItems: 'center', gap: 5,
+                      }}
+                    >
+                      <Icon name="edit" size={12} /> Edit
+                    </button>
+                  )}
                 </div>
               </div>
             </Card>
