@@ -87,6 +87,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
           return (
             <button
               key={it.key}
+              data-tour={it.key}
               onClick={() => navigate(it.key)}
               style={{
                 display: 'flex',
@@ -672,7 +673,12 @@ export function Shell({ children }: ShellProps) {
       </div>
 
       {showTutorial && role && (
-        <Tutorial role={role} onClose={() => setShowTutorial(false)} />
+        <Tutorial
+          role={role}
+          isMobile={isMobile}
+          onNeedSidebar={() => setSidebarOpen(true)}
+          onClose={() => { setShowTutorial(false); if (isMobile) setSidebarOpen(false); }}
+        />
       )}
     </div>
   );
