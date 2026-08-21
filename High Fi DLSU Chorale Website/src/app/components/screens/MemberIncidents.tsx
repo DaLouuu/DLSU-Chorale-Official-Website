@@ -103,7 +103,10 @@ export function MemberIncidents() {
     setLoadingMine(false);
   }
 
-  useEffect(() => { if (tab === 'mine') loadMine(); }, [tab]);
+  // Loaded on mount regardless of which tab is active — otherwise the "My
+  // Reports (N)" tab label shows a stale 0 until the member actually clicks
+  // into that tab once.
+  useEffect(() => { loadMine(); }, []);
 
   const resetForm = () => {
     setIsAnonymous(false);
@@ -214,7 +217,7 @@ export function MemberIncidents() {
   return (
     <>
       <PageHeader
-        eyebrow="Member Portal"
+        eyebrow={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         title="Report a Concern"
         subtitle="File a confidential testimony for an incident, issue, or concern. Only HR can access submitted reports."
       />
