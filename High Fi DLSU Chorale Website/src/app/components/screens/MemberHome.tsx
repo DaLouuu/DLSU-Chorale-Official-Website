@@ -9,7 +9,6 @@ import { Icon } from '../ui/Icon';
 import { Calendar } from '../ui/Calendar';
 import { ATTENDANCE_LOG, FEE_RECORDS, REHEARSALS } from '../../data';
 import { notifyRehearsalReminder } from '../../utils/email';
-import tet from '../../../imports/choir-tet.png';
 import { useViewportWidth } from '../../utils/useViewportWidth';
 import { useGreeting } from '../../utils/greeting';
 
@@ -63,6 +62,7 @@ export function MemberHome() {
   const upcoming = app.events.filter(e => new Date(e.date) > new Date()).slice(0, 3);
   const outstanding = FEE_RECORDS.filter(f => f.status === 'unpaid').reduce((s, f) => s + f.amount, 0);
   const recent = ATTENDANCE_LOG.slice(0, 4);
+  const pinnedAnnouncement = (app.announcements as any[]).find(a => a.pinned) ?? (app.announcements as any[])[0] ?? null;
 
   const userSchedule = window.CLASS_SCHEDULES?.find((s: any) => s.memberId === user.id);
 
@@ -114,49 +114,67 @@ export function MemberHome() {
         }
       />
 
-      {/* Hero banner */}
-      <div
-        style={{
-          display: 'flex',
-          gap: 18,
-          marginBottom: 28,
-          flexDirection: isMobile ? 'column' : 'row',
-          background: isMobile
-            ? `linear-gradient(180deg, ${theme.greenDark} 0%, ${theme.greenDark} 62%, transparent 62%), url("${tet}") center/cover`
-            : `linear-gradient(90deg, ${theme.greenDark} 0%, ${theme.greenDark} 48%, transparent 48%), url("${tet}") right center/cover`,
-          borderRadius: 16,
-          overflow: 'hidden',
-          color: '#fff',
-        }}
-      >
-        <div style={{ padding: isMobile ? '22px 20px' : '32px 36px', flex: isMobile ? '1 1 auto' : '0 0 58%', minWidth: 0 }}>
-          <Chip tone="dark">Next performance · in 16 days</Chip>
-          <h2 style={{ fontFamily: FONTS.serif, fontSize: isMobile ? 'clamp(24px, 7vw, 30px)' : 'clamp(22px, 2.6vw, 34px)', fontWeight: 500, margin: '14px 0 6px', lineHeight: 1.1, overflowWrap: 'break-word' }}>
-            Baccalaureate & Commencement
-            <br />
-            <em style={{ color: theme.amber }}>— Term 3</em>
-          </h2>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13, opacity: 0.85, marginTop: 14, fontFamily: FONTS.mono }}>
-            <span>MAY 10 · 07:30</span>
-            <span>· Teresa Yuchengco Aud.</span>
-          </div>
-          <div style={{ marginTop: 22, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <Button onClick={() => { app.setFocusEvent('e1'); go('member-performances' as any); }} style={{ background: '#fff', color: theme.greenDark, border: '1px solid #fff' }}>
-              View details
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                app.signUpEvent('e1');
-                app.showToast('Signed up for BCFC — Term 3');
+      {/* Hero banner — the real next upcoming event (app.events is already
+          sorted ascending by date), not a fixed sample. Image and text are
+          separate flex boxes rather than a background-gradient trick, so a
+          long event name can never visually spill onto the photo — the two
+          panels can't overlap by construction, regardless of text length or
+          viewport width. */}
+      {upcoming[0] ? (() => {
+        const nextEvent = upcoming[0];
+        const daysUntil = Math.max(0, Math.ceil((new Date(nextEvent.date).getTime() - Date.now()) / 86400000));
+        return (
+          <div
+            style={{
+              display: 'flex',
+              marginBottom: 28,
+              flexDirection: isMobile ? 'column' : 'row',
+              borderRadius: 16,
+              overflow: 'hidden',
+              color: '#fff',
+            }}
+          >
+            <div style={{ background: theme.greenDark, padding: isMobile ? '22px 20px' : '32px 36px', flex: isMobile ? '1 1 auto' : '1 1 58%', minWidth: 0 }}>
+              <Chip tone="dark">Next performance · in {daysUntil} day{daysUntil === 1 ? '' : 's'}</Chip>
+              <h2 style={{ fontFamily: FONTS.serif, fontSize: isMobile ? 'clamp(22px, 6vw, 28px)' : 'clamp(20px, 2.2vw, 30px)', fontWeight: 500, margin: '14px 0 6px', lineHeight: 1.15, overflowWrap: 'break-word' }}>
+                {nextEvent.name}
+              </h2>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13, opacity: 0.85, marginTop: 14, fontFamily: FONTS.mono }}>
+                <span>{new Date(nextEvent.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()} · {nextEvent.callTime}</span>
+                {nextEvent.venue && <span>· {nextEvent.venue}</span>}
+              </div>
+              <div style={{ marginTop: 22, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <Button onClick={() => { app.setFocusEvent(nextEvent.id); go('member-performances' as any); }} style={{ background: '#fff', color: theme.greenDark, border: '1px solid #fff' }}>
+                  View details
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    app.signUpEvent(nextEvent.id);
+                    app.showToast(`Signed up for ${nextEvent.name}`);
+                  }}
+                  style={{ color: '#fff', border: '1px solid rgba(255,255,255,0.4)', background: 'transparent' }}
+                >
+                  Sign up
+                </Button>
+              </div>
+            </div>
+            <div
+              style={{
+                flex: isMobile ? '0 0 160px' : '0 0 42%',
+                minHeight: isMobile ? 160 : undefined,
+                backgroundImage: `url("${nextEvent.image}")`,
+                backgroundSize: 'cover',
+                backgroundPosition: isMobile ? 'center' : 'right center',
               }}
-              style={{ color: '#fff', border: '1px solid rgba(255,255,255,0.4)', background: 'transparent' }}
-            >
-              Sign up
-            </Button>
+            />
           </div>
-        </div>
-      </div>
+        );
+      })() : (
+        <Card style={{ marginBottom: 28 }}>
+          <div style={{ fontSize: 13, color: theme.dim }}>No upcoming performances scheduled yet.</div>
+        </Card>
+      )}
 
       {/* Stats row */}
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
@@ -209,14 +227,18 @@ export function MemberHome() {
 
         {/* Side col */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <Card variant="green">
-            <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, color: theme.greenDeep, textTransform: 'uppercase' }}>Pinned</div>
-            <h3 style={{ fontFamily: FONTS.serif, fontSize: 19, margin: '6px 0 8px', fontWeight: 500, lineHeight: 1.2 }}>Fee settlement deadline — April 30</h3>
-            <p style={{ fontSize: 13, color: theme.greenDeep, margin: 0, lineHeight: 1.5 }}>Outstanding balances for March must be settled by April 30. Finance will be at the studio every rehearsal.</p>
-            <a onClick={() => go('member-fees' as any)} style={{ display: 'inline-block', marginTop: 12, fontSize: 12, color: theme.greenDeep, fontWeight: 500, cursor: 'pointer' }}>
-              View my balance →
-            </a>
-          </Card>
+          {pinnedAnnouncement && (
+            <Card variant="green">
+              <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, color: theme.greenDeep, textTransform: 'uppercase' }}>
+                {pinnedAnnouncement.pinned ? 'Pinned' : 'Latest announcement'}
+              </div>
+              <h3 style={{ fontFamily: FONTS.serif, fontSize: 19, margin: '6px 0 8px', fontWeight: 500, lineHeight: 1.2 }}>{pinnedAnnouncement.title}</h3>
+              <p style={{ fontSize: 13, color: theme.greenDeep, margin: 0, lineHeight: 1.5 }}>{pinnedAnnouncement.body}</p>
+              <a onClick={() => go('member-announcements' as any)} style={{ display: 'inline-block', marginTop: 12, fontSize: 12, color: theme.greenDeep, fontWeight: 500, cursor: 'pointer' }}>
+                View announcements →
+              </a>
+            </Card>
+          )}
 
           <Card>
             <div style={{ fontFamily: FONTS.mono, fontSize: 10.5, letterSpacing: 2, color: theme.green, textTransform: 'uppercase' }}>Sign-up closing soon</div>
