@@ -226,108 +226,21 @@ export let FEE_RECORDS: any[] = MOCK_FEE_RECORDS;
 export let FEE_RULES: any[] = [];
 export let ANNOUNCEMENTS: any[] = [];
 
-export const ANALYTICS_MONTHLY = [
-  { month: "Jan", Soprano: 4, Alto: 3, Tenor: 5, Bass: 2 },
-  { month: "Feb", Soprano: 6, Alto: 4, Tenor: 3, Bass: 5 },
-  { month: "Mar", Soprano: 3, Alto: 7, Tenor: 6, Bass: 4 },
-  { month: "Apr", Soprano: 5, Alto: 5, Tenor: 8, Bass: 6 },
-];
+// No backing table for any of these five — nothing to query, so they start
+// (and stay) empty rather than showing fabricated numbers/events/schedules.
+export const ANALYTICS_MONTHLY: { month: string; Soprano: number; Alto: number; Tenor: number; Bass: number }[] = [];
 
-export const REASON_BREAKDOWN = [
-  { label: "Academic conflict", count: 24, pct: 38 },
-  { label: "Illness", count: 14, pct: 22 },
-  { label: "Family obligation", count: 10, pct: 16 },
-  { label: "Org / CSO activity", count: 8, pct: 13 },
-  { label: "Transport / traffic", count: 4, pct: 6 },
-  { label: "Other", count: 3, pct: 5 },
-];
+export const REASON_BREAKDOWN: { label: string; count: number; pct: number }[] = [];
 
-export const SOCIAL_EVENTS = [
-  {
-    id: "s1",
-    name: "Christmas Party 2026",
-    date: "2026-12-15",
-    time: "18:00",
-    venue: "Green Court, DLSU Manila",
-    description: "Annual Christmas celebration with gift exchange, games, and dinner. Bring your Secret Santa gift (₱300 budget)!",
-    slots: 64,
-    signedUp: 42,
-    mySignup: true,
-  },
-  {
-    id: "s2",
-    name: "Team Building — Tagaytay Retreat",
-    date: "2026-06-20",
-    time: "06:00",
-    venue: "Nurture Wellness Village, Tagaytay",
-    description: "Weekend team building activity with workshops, bonding games, and relaxation. Overnight stay included.",
-    slots: 50,
-    signedUp: 38,
-    mySignup: false,
-  },
-  {
-    id: "s3",
-    name: "Game Night & Pizza Party",
-    date: "2026-05-30",
-    time: "19:00",
-    venue: "Music Studio A",
-    description: "Casual game night with board games, karaoke, and unlimited pizza. Bring your favorite games!",
-    slots: 40,
-    signedUp: 28,
-    mySignup: true,
-  },
-  {
-    id: "s4",
-    name: "Beach Day — Batangas",
-    date: "2026-07-12",
-    time: "05:00",
-    venue: "Laiya, Batangas",
-    description: "Day trip to the beach for swimming, beach volleyball, and bonding. Transportation provided.",
-    slots: 55,
-    signedUp: 15,
-    mySignup: false,
-  },
-];
+export const SOCIAL_EVENTS: any[] = [];
 
 export let MUSIC_LIBRARY: any[] = [];
 
-export const REHEARSALS = [
-  { id: "r1", date: "2026-04-28", time: "18:00", endTime: "21:00", type: "Full Rehearsal", venue: "Music Studio A", notes: "BCFC repertoire focus" },
-  { id: "r2", date: "2026-04-29", time: "18:00", endTime: "20:00", type: "Sectional", section: "Soprano/Alto", venue: "Music Studio B", notes: "LPEP pieces" },
-  { id: "r3", date: "2026-04-30", time: "18:00", endTime: "20:00", type: "Sectional", section: "Tenor/Bass", venue: "Music Studio A", notes: "LPEP pieces" },
-  { id: "r4", date: "2026-05-01", time: "18:00", endTime: "21:00", type: "Full Rehearsal", venue: "Music Studio A", notes: "Run-through all upcoming performances" },
-  { id: "r5", date: "2026-05-05", time: "18:00", endTime: "21:00", type: "Full Rehearsal", venue: "Music Studio A", notes: "BCFC final rehearsal" },
-  { id: "r6", date: "2026-05-08", time: "18:00", endTime: "21:00", type: "Full Rehearsal", venue: "Music Studio A", notes: "Busan homecoming concert prep" },
-  { id: "r7", date: "2026-05-12", time: "18:00", endTime: "21:00", type: "Full Rehearsal", venue: "Music Studio A", notes: "Busan homecoming concert prep" },
-  { id: "r8", date: "2026-05-13", time: "18:00", endTime: "20:00", type: "Sectional", section: "Soprano/Alto", venue: "Music Studio B", notes: "Harmonization work" },
-  { id: "r9", date: "2026-05-14", time: "18:00", endTime: "20:00", type: "Sectional", section: "Tenor/Bass", venue: "Music Studio A", notes: "Harmonization work" },
-  { id: "r10", date: "2026-05-15", time: "18:00", endTime: "21:00", type: "Full Rehearsal", venue: "Music Studio A", notes: "Full ensemble" },
-];
+export const REHEARSALS: any[] = [];
 
-// Rehearsal events for AdminAttendance mock fallback (April 2026 weekly rehearsals)
-export const REHEARSAL_EVENTS = [
-  { id: "201", name: "Full Rehearsal", date: "2026-04-07", time: "18:00", venue: "Music Studio A", type: "rehearsal" },
-  { id: "202", name: "Sectional — S/A", date: "2026-04-09", time: "18:00", venue: "Music Studio B", type: "rehearsal" },
-  { id: "203", name: "Full Rehearsal", date: "2026-04-14", time: "18:00", venue: "Music Studio A", type: "rehearsal" },
-  { id: "204", name: "Sectional — T/B", date: "2026-04-16", time: "18:00", venue: "Music Studio A", type: "rehearsal" },
-  { id: "205", name: "Full Rehearsal", date: "2026-04-21", time: "18:00", venue: "Music Studio A", type: "rehearsal" },
-  { id: "206", name: "Sectional — S/A", date: "2026-04-23", time: "18:00", venue: "Music Studio B", type: "rehearsal" },
-  { id: "207", name: "Full Rehearsal", date: "2026-04-28", time: "18:00", venue: "Music Studio A", type: "rehearsal" },
-  { id: "208", name: "Sectional — T/B", date: "2026-04-30", time: "18:00", venue: "Music Studio A", type: "rehearsal" },
-];
+export const REHEARSAL_EVENTS: any[] = [];
 
-export const CLASS_SCHEDULES = [
-  {
-    memberId: 12100234,
-    term: "Term 3 2025-2026",
-    classes: [
-      { code: "LBYCPA2", name: "Computer Programming Applications 2", days: ["Monday", "Wednesday"], startTime: "14:30", endTime: "16:00", room: "GK304" },
-      { code: "CSADPRG", name: "Data Structures and Algorithms", days: ["Tuesday", "Thursday"], startTime: "13:00", endTime: "14:30", room: "V209" },
-      { code: "LCINTER", name: "Intermediate Spanish", days: ["Tuesday", "Thursday"], startTime: "16:00", endTime: "17:30", room: "BR305" },
-      { code: "PHYSIS2", name: "Physics for Engineers 2", days: ["Monday", "Friday"], startTime: "10:00", endTime: "11:30", room: "SJ108" },
-    ],
-  },
-];
+export const CLASS_SCHEDULES: any[] = [];
 
 // ── Supabase loaders ──────────────────────────────────────────────────────────
 
