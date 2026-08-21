@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useTheme, useApp } from '../../App';
+import { useTheme, useApp, useRouter } from '../../App';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
@@ -657,6 +657,7 @@ const tdStyle = { padding: '11px 16px', verticalAlign: 'middle' as const };
 
 export function AdminMembers() {
   const { theme } = useTheme();
+  const { user } = useRouter();
   const app = useApp();
   const [members, setMembers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -713,12 +714,29 @@ export function AdminMembers() {
       current_term_stat: 'Active',
       college: form.college.trim() || null,
       course_code: form.course_code.trim() || null,
-      is_admin: form.is_admin,
+      // is_admin is never set directly here — profiles.is_admin can only be
+      // written through admin_set_is_admin (below), which verifies the
+      // caller's admin session token. Direct client writes to that column
+      // are revoked at the database layer (20260841_lock_down_credential_and_admin_columns.sql).
     });
     if (profErr) {
       // Directory row would otherwise dangle with no profile behind it.
       await supabase.from('directory').delete().eq('school_id', schoolId);
       return `Could not create profile: ${profErr.message}`;
+    }
+
+    if (form.is_admin) {
+      const adminToken = (user as any)?.adminToken;
+      if (adminToken) {
+        const { error: adminErr } = await supabase.rpc('admin_set_is_admin', {
+          p_admin_token: adminToken, p_school_id: schoolId, p_value: true,
+        });
+        if (adminErr) {
+          app.showToast(`Member created, but could not grant admin access: ${adminErr.message}`, 'error');
+        }
+      } else {
+        app.showToast('Member created, but could not grant admin access — sign out and back in to refresh your admin session, then edit this member to grant it.', 'error');
+      }
     }
 
     app.showToast(`Added ${form.first_name} ${form.last_name} — they can now log in with their ID and email to set up their account.`);
@@ -887,11 +905,31 @@ export function AdminMembers() {
           member={selectedMember}
           onClose={() => setSelectedMember(null)}
           onSave={async (patch) => {
-            const { error } = await supabase.from('profiles').update(patch).eq('id', selectedMember.id);
-            if (error) {
-              console.error('[AdminMembers] Save failed:', error);
-              app.showToast(`Failed to save member details: ${error.message}`, 'error');
-              return;
+            // is_admin can't be written directly (revoked at the DB layer —
+            // see 20260841_lock_down_credential_and_admin_columns.sql), so
+            // it's pulled out of the generic patch and sent through the
+            // admin-session-token-gated RPC instead.
+            const { is_admin, ...restPatch } = patch as any;
+            if (Object.keys(restPatch).length > 0) {
+              const { error } = await supabase.from('profiles').update(restPatch).eq('id', selectedMember.id);
+              if (error) {
+                console.error('[AdminMembers] Save failed:', error);
+                app.showToast(`Failed to save member details: ${error.message}`, 'error');
+                return;
+              }
+            }
+            if (typeof is_admin === 'boolean' && is_admin !== selectedMember.is_admin) {
+              const adminToken = (user as any)?.adminToken;
+              if (!adminToken) {
+                app.showToast('Details saved, but could not change admin access — sign out and back in to refresh your admin session.', 'error');
+              } else {
+                const { error: adminErr } = await supabase.rpc('admin_set_is_admin', {
+                  p_admin_token: adminToken, p_school_id: selectedMember.school_id, p_value: is_admin,
+                });
+                if (adminErr) {
+                  app.showToast(`Details saved, but could not change admin access: ${adminErr.message}`, 'error');
+                }
+              }
             }
             const updated = { ...selectedMember, ...patch };
             setMembers(prev => prev.map(m => (m.id === selectedMember.id ? updated : m)));

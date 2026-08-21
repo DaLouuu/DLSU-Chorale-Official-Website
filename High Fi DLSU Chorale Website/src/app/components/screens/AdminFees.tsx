@@ -439,6 +439,7 @@ const tdStyle = { padding: '12px 16px', verticalAlign: 'middle' as const };
 export function AdminFees() {
   const app = useApp();
   const { theme } = useTheme();
+  const { user } = useRouter();
   // Derived live from app.fees (not the static data.ts snapshot) so
   // approving a payment or charging a fee updates these numbers
   // immediately instead of only after a page reload.
@@ -496,9 +497,15 @@ export function AdminFees() {
 
   const topDebtor = FEE_SUMMARIES.reduce((top: any, f: any) => (f.outstanding > (top?.outstanding ?? 0) ? f : top), null);
 
+  // Approving/rejecting go through admin-session-token-gated RPCs, not a
+  // direct table update — fee_records.status can no longer be set to 'paid'
+  // (or paid_at/rejection_reason touched at all) by a plain client write,
+  // see 20260841_lock_down_credential_and_admin_columns.sql.
   const handleApprovePayment = async (p: any) => {
+    const adminToken = (user as any)?.adminToken;
+    if (!adminToken) { app.showToast('Your admin session has expired — sign out and back in to approve payments.', 'error'); return; }
     const paidAt = p.paymentData?.paymentDate || new Date().toISOString().slice(0, 10);
-    const { error } = await supabase.from('fee_records').update({ status: 'paid', paid_at: paidAt }).eq('id', p.id);
+    const { error } = await supabase.rpc('admin_approve_payment', { p_admin_token: adminToken, p_fee_id: p.id, p_paid_at: paidAt });
     if (error) { app.showToast(`Could not approve payment: ${error.message}`, 'error'); return; }
     app.approvePayment(p.id);
     app.showToast(`Approved payment from ${p.memberName}`);
@@ -507,7 +514,9 @@ export function AdminFees() {
   };
 
   const handleRejectPayment = async (p: any, reason: string) => {
-    const { error } = await supabase.from('fee_records').update({ status: 'unpaid', rejection_reason: reason }).eq('id', p.id);
+    const adminToken = (user as any)?.adminToken;
+    if (!adminToken) { app.showToast('Your admin session has expired — sign out and back in to reject payments.', 'error'); return; }
+    const { error } = await supabase.rpc('admin_reject_payment', { p_admin_token: adminToken, p_fee_id: p.id, p_reason: reason });
     if (error) { app.showToast(`Could not reject payment: ${error.message}`, 'error'); return; }
     app.rejectPayment(p.id, reason);
     app.showToast(`Rejected payment from ${p.memberName}`, 'error');

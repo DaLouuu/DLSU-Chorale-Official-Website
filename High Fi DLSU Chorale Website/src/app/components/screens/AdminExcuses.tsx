@@ -57,10 +57,11 @@ export function AdminExcuses() {
   const handleApprove = async (e: Excuse) => {
     setActioning(e.id);
     const adminName = user?.name ?? 'Admin';
-    const { error } = await supabase
-      .from('excuse_requests')
-      .update({ status: 'Approved', admin_response: 'Approved.', approved_by: adminName })
-      .eq('request_id', e.id);
+    const adminToken = (user as any)?.adminToken;
+    if (!adminToken) { setActioning(null); app.showToast('Your admin session has expired — sign out and back in to decide excuses.', 'error'); return; }
+    const { error } = await supabase.rpc('admin_decide_excuse', {
+      p_admin_token: adminToken, p_request_id: e.id, p_status: 'Approved', p_admin_response: 'Approved.', p_approved_by: adminName,
+    });
     setActioning(null);
     if (error) { app.showToast(`Could not approve excuse: ${error.message}`, 'error'); return; }
     app.updateExcuse(e.id, { status: 'Approved', approvedBy: adminName, notes: 'Approved.' });
@@ -75,10 +76,11 @@ export function AdminExcuses() {
     setActioning(declineFor.id);
     const adminName = user?.name ?? 'Admin';
     const note = declineNote || 'Declined.';
-    const { error } = await supabase
-      .from('excuse_requests')
-      .update({ status: 'Declined', admin_response: note, approved_by: adminName })
-      .eq('request_id', declineFor.id);
+    const adminToken = (user as any)?.adminToken;
+    if (!adminToken) { setActioning(null); app.showToast('Your admin session has expired — sign out and back in to decide excuses.', 'error'); return; }
+    const { error } = await supabase.rpc('admin_decide_excuse', {
+      p_admin_token: adminToken, p_request_id: declineFor.id, p_status: 'Declined', p_admin_response: note, p_approved_by: adminName,
+    });
     setActioning(null);
     if (error) { app.showToast(`Could not decline excuse: ${error.message}`, 'error'); return; }
     app.updateExcuse(declineFor.id, { status: 'Declined', approvedBy: adminName, notes: note });
