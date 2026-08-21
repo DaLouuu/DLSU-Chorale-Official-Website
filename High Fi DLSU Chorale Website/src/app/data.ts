@@ -1,7 +1,9 @@
-// data.ts — mock data kept as initial values / fallback
-// MEMBERS, EVENTS, EXCUSE_REQUESTS, ATTENDANCE_LOG are mutable let exports
-// so that initializePublicData / initializeUserData can replace them with
-// real Supabase data before the first React render.
+// data.ts — mutable `let` exports that initializePublicData / initializeUserData
+// replace with real Supabase data before the first meaningful render.
+// EVENTS and FEE_RECORDS are the only two that keep a hardcoded sample as a
+// fallback if the real table has zero rows; everything else starts empty and
+// stays empty on a genuinely empty result, rather than silently showing
+// fabricated data.
 
 import bcfc from '../imports/choir-bcfc.png';
 import lpep from '../imports/choir-lpep.png';
@@ -10,40 +12,6 @@ import tet from '../imports/choir-tet.png';
 import b2b1 from '../imports/choir-b2b-1.png';
 
 // ── Static mock arrays used as fallbacks ─────────────────────────────────────
-
-const MOCK_MEMBERS = [
-  { id: 12100234, name: "Althea Marquez", section: "Soprano", role: "Member", committee: "Music", year: "3rd Year", rfid: "A3F21B90", email: "althea_marquez@dlsu.edu.ph", avatar: "AM" },
-  { id: 12100891, name: "Miguel Santos", section: "Bass", role: "Section Head", committee: "Logistics", year: "4th Year", rfid: "B8E402C1", email: "miguel_santos@dlsu.edu.ph", avatar: "MS", exec: true },
-  { id: 12101552, name: "Ria Dela Cruz", section: "Alto", role: "President", committee: "Executive", year: "4th Year", rfid: "C1D902A8", email: "ria_delacruz@dlsu.edu.ph", avatar: "RD", exec: true, admin: true },
-  { id: 12102344, name: "Joaquin Reyes", section: "Tenor", role: "Member", committee: "Music", year: "2nd Year", rfid: "D9F81B33", email: "joaquin_reyes@dlsu.edu.ph", avatar: "JR" },
-  { id: 12100775, name: "Patricia Lim", section: "Soprano", role: "VP Internal", committee: "Executive", year: "4th Year", rfid: "E4A72C10", email: "patricia_lim@dlsu.edu.ph", avatar: "PL", exec: true, admin: true },
-  { id: 12103201, name: "Rafael Tan", section: "Bass", role: "Member", committee: "Publicity", year: "1st Year", rfid: "F2B938D1", email: "rafael_tan@dlsu.edu.ph", avatar: "RT" },
-  { id: 12101120, name: "Sophia Garcia", section: "Alto", role: "Member", committee: "Music", year: "3rd Year", rfid: "A7B19D22", email: "sophia_garcia@dlsu.edu.ph", avatar: "SG" },
-  { id: 12102890, name: "Nico Villanueva", section: "Tenor", role: "Section Head", committee: "Music", year: "3rd Year", rfid: "B2F830A4", email: "nico_villanueva@dlsu.edu.ph", avatar: "NV", exec: true },
-  { id: 12100443, name: "Bea Cabauatan", section: "Soprano", role: "Member", committee: "Publicity", year: "2nd Year", rfid: "C3A812B5", email: "bea_cabauatan@dlsu.edu.ph", avatar: "BC" },
-  { id: 12103567, name: "Lorenzo Aquino", section: "Bass", role: "Member", committee: "Logistics", year: "1st Year", rfid: "D4E923F6", email: "lorenzo_aquino@dlsu.edu.ph", avatar: "LA" },
-  { id: 12101899, name: "Isabela Cruz", section: "Alto", role: "Member", committee: "Finance", year: "3rd Year", rfid: "E5C134A7", email: "isabela_cruz@dlsu.edu.ph", avatar: "IC" },
-  { id: 12102011, name: "Marco Dizon", section: "Tenor", role: "Member", committee: "Music", year: "2nd Year", rfid: "F6D245B8", email: "marco_dizon@dlsu.edu.ph", avatar: "MD" },
-  { id: 12100982, name: "Camille Flores", section: "Soprano", role: "Member", committee: "Music", year: "3rd Year", rfid: "A8E356C9", email: "camille_flores@dlsu.edu.ph", avatar: "CF" },
-  { id: 12103412, name: "Gabriel Lopez", section: "Bass", role: "Member", committee: "Music", year: "1st Year", rfid: "B9F467DA", email: "gabriel_lopez@dlsu.edu.ph", avatar: "GL" },
-  { id: 12101733, name: "Denise Ramos", section: "Alto", role: "Member", committee: "Publicity", year: "3rd Year", rfid: "CAA578EB", email: "denise_ramos@dlsu.edu.ph", avatar: "DR" },
-  { id: 12102655, name: "Xavier Ong", section: "Tenor", role: "Member", committee: "Logistics", year: "2nd Year", rfid: "DBB689FC", email: "xavier_ong@dlsu.edu.ph", avatar: "XO" },
-];
-
-const MOCK_ATTENDANCE_LOG = [
-  { date: "2026-04-24", type: "Rehearsal", status: "present", timeIn: "18:02", note: "" },
-  { date: "2026-04-22", type: "Rehearsal", status: "late", timeIn: "18:24", note: "Traffic on Taft" },
-  { date: "2026-04-20", type: "Rehearsal", status: "present", timeIn: "17:58", note: "" },
-  { date: "2026-04-17", type: "Performance", status: "present", timeIn: "14:30", note: "BCFC dress rehearsal" },
-  { date: "2026-04-15", type: "Rehearsal", status: "excused", timeIn: "—", note: "Academic conflict — approved" },
-  { date: "2026-04-13", type: "Rehearsal", status: "present", timeIn: "18:00", note: "" },
-  { date: "2026-04-10", type: "Rehearsal", status: "absent", timeIn: "—", note: "No submission" },
-  { date: "2026-04-08", type: "Rehearsal", status: "present", timeIn: "18:05", note: "" },
-  { date: "2026-04-06", type: "Rehearsal", status: "present", timeIn: "17:55", note: "" },
-  { date: "2026-04-03", type: "Performance", status: "present", timeIn: "15:00", note: "Sunday Mass, Chapel" },
-  { date: "2026-04-01", type: "Rehearsal", status: "late", timeIn: "18:19", note: "Last minute room change" },
-  { date: "2026-03-30", type: "Rehearsal", status: "present", timeIn: "18:01", note: "" },
-];
 
 const MOCK_EVENTS = [
   {
@@ -213,20 +181,11 @@ const MOCK_EVENTS = [
   },
 ];
 
-const MOCK_EXCUSE_REQUESTS = [
-  { id: 1, memberId: 12100234, memberName: "Althea Marquez", section: "Soprano", date: "2026-04-28", type: "Late", reason: "Lab exam until 6:30PM — ETA 7:00PM", status: "Pending", submittedAt: "2026-04-24 09:12", eta: "19:00" },
-  { id: 2, memberId: 12100234, memberName: "Althea Marquez", section: "Soprano", date: "2026-04-15", type: "Excused Absent", reason: "Academic conflict — thesis defense", status: "Approved", submittedAt: "2026-04-12 21:40", approvedBy: "Ria Dela Cruz", notes: "Attached defense schedule — approved." },
-  { id: 3, memberId: 12102344, memberName: "Joaquin Reyes", section: "Tenor", date: "2026-04-28", type: "Absent", reason: "Org event clash (CSO retreat)", status: "Pending", submittedAt: "2026-04-23 15:22" },
-  { id: 4, memberId: 12103201, memberName: "Rafael Tan", section: "Bass", date: "2026-04-28", type: "Late", reason: "Back-to-back classes until 7:00PM", status: "Pending", submittedAt: "2026-04-23 20:05", eta: "19:15" },
-  { id: 5, memberId: 12101120, memberName: "Sophia Garcia", section: "Alto", date: "2026-04-26", type: "Absent", reason: "Out of town — family obligation", status: "Pending", submittedAt: "2026-04-22 08:30" },
-];
-
+// One sample only, kept as a demo fallback the same way MOCK_EVENTS is —
+// shown only if the real fee_records table has zero rows. Includes a
+// submitted proof of payment so the admin review UI has something to show.
 const MOCK_FEE_RECORDS = [
-  { id: "f1", date: "2026-04-22", type: "Late", amount: 50, status: "unpaid", reference: "Rehearsal late arrival (18:24)", memberId: 12100234, memberName: "Althea Marquez" },
-  { id: "f2", date: "2026-04-10", type: "Absent (unexcused)", amount: 150, status: "pending", reference: "Rehearsal no-show", memberId: 12100234, memberName: "Althea Marquez", submittedAt: "2026-04-24 10:30", paymentData: { paymentDate: "2026-04-24", senderAccount: "0917-555-1234", senderAccountName: "Althea Marquez", receiverAccount: "0917-123-4567 (GCash - Isabela Cruz)", referenceNumber: "GCash-2026424-001", proofFileName: "gcash_receipt_001.jpg", proofDataUrl: lpep, amount: 150 } },
-  { id: "f3", date: "2026-04-01", type: "Late", amount: 50, status: "paid", reference: "Rehearsal late arrival (18:19)", paidAt: "2026-04-08", memberId: 12100234, memberName: "Althea Marquez" },
-  { id: "f4", date: "2026-03-11", type: "Absent (unexcused)", amount: 150, status: "paid", reference: "Rehearsal no-show", paidAt: "2026-03-20", memberId: 12100234, memberName: "Althea Marquez" },
-  { id: "f5", date: "2026-04-20", type: "Late", amount: 50, status: "pending", reference: "Rehearsal late arrival", memberId: 12102344, memberName: "Joaquin Reyes", submittedAt: "2026-04-23 14:15", paymentData: { paymentDate: "2026-04-23", senderAccount: "0917-555-9876", senderAccountName: "Joaquin Reyes", receiverAccount: "0917-123-4567 (GCash - Isabela Cruz)", referenceNumber: "GCash-2026423-002", proofFileName: "payment_proof.png", proofDataUrl: tcc, amount: 50 } },
+  { id: "f1", date: "2026-04-10", type: "Absent (unexcused)", amount: 150, status: "pending", reference: "Rehearsal no-show", memberId: 12100234, memberName: "Althea Marquez", submittedAt: "2026-04-24 10:30", paymentData: { paymentDate: "2026-04-24", senderAccount: "0917-555-1234", senderAccountName: "Althea Marquez", receiverAccount: "0917-123-4567 (GCash - Isabela Cruz)", referenceNumber: "GCash-2026424-001", proofFileName: "gcash_receipt_001.jpg", proofDataUrl: lpep, amount: 150 } },
 ];
 
 // Outstanding/paid/lastPayment are derived from fee records so mock and
@@ -245,38 +204,27 @@ export function computeFeeSummaries(records: any[]): any[] {
       if (!summary.lastPayment || (r.paidAt && r.paidAt > summary.lastPayment)) summary.lastPayment = r.paidAt ?? summary.lastPayment;
     }
   }
-  // Reads the live MEMBERS binding (not MOCK_MEMBERS) so this reflects the
-  // real roster once initializePublicData() has replaced it — otherwise
-  // every fee summary after that point silently reverts to the 16
-  // hardcoded mock members regardless of what's actually in the database.
+  // Reads the live MEMBERS binding so this reflects the real roster once
+  // initializePublicData() has replaced it.
   return MEMBERS.map(m => byMember.get(m.id) ?? { memberId: m.id, memberName: m.name, section: m.section, outstanding: 0, paid: 0, lastPayment: null });
 }
 
-const MOCK_FEE_RULES = [
-  { id: "r1", type: "Late (Rehearsal)", amount: 50, effective: "2026-01-01" },
-  { id: "r2", type: "Absent — unexcused (Rehearsal)", amount: 150, effective: "2026-01-01" },
-  { id: "r3", type: "Late (Performance)", amount: 200, effective: "2026-01-01" },
-  { id: "r4", type: "Absent — unexcused (Performance)", amount: 500, effective: "2026-01-01" },
-];
-
-const MOCK_ANNOUNCEMENTS = [
-  { id: "a1", title: "📌 BCFC callboard — sectional schedules posted", body: "Sopranos & Altos: Tues/Thurs 6PM. Tenors & Basses: Mon/Wed 6PM. Full ensemble call this Friday.", date: "2026-04-23", pinned: true, author: "Maestro Emmanuel dela Peña" },
-  { id: "a2", title: "Busan repertoire binders ready for pickup", body: "New binders are at the music office. Please pick up by Friday; bring your ID.", date: "2026-04-22", pinned: false, author: "Patricia Lim (VP Internal)" },
-  { id: "a3", title: "Reminder — fee settlement deadline", body: "Outstanding balances for March must be settled by April 30. Finance will be at the studio every rehearsal.", date: "2026-04-20", pinned: true, author: "Isabela Cruz (Finance)" },
-];
-
 // ── Mutable live exports — replaced by Supabase data at runtime ───────────────
 // ESM live bindings mean consumers will see the updated value after assignment.
+// Only EVENTS and FEE_RECORDS keep a hardcoded fallback sample (shown only if
+// the real table has zero rows) — everything else starts empty and is left
+// empty if the real query legitimately returns nothing, rather than silently
+// showing fabricated members/attendance/excuses/rules/announcements.
 
-export let MEMBERS: any[] = MOCK_MEMBERS;
-export let CURRENT_MEMBER: any = MOCK_MEMBERS[0];
-export let CURRENT_ADMIN: any = MOCK_MEMBERS[2];
-export let ATTENDANCE_LOG: any[] = MOCK_ATTENDANCE_LOG;
+export let MEMBERS: any[] = [];
+export let CURRENT_MEMBER: any = null;
+export let CURRENT_ADMIN: any = null;
+export let ATTENDANCE_LOG: any[] = [];
 export let EVENTS: any[] = MOCK_EVENTS;
-export let EXCUSE_REQUESTS: any[] = MOCK_EXCUSE_REQUESTS;
+export let EXCUSE_REQUESTS: any[] = [];
 export let FEE_RECORDS: any[] = MOCK_FEE_RECORDS;
-export let FEE_RULES: any[] = MOCK_FEE_RULES;
-export let ANNOUNCEMENTS: any[] = MOCK_ANNOUNCEMENTS;
+export let FEE_RULES: any[] = [];
+export let ANNOUNCEMENTS: any[] = [];
 
 export const ANALYTICS_MONTHLY = [
   { month: "Jan", Soprano: 4, Alto: 3, Tenor: 5, Bass: 2 },
@@ -341,44 +289,7 @@ export const SOCIAL_EVENTS = [
   },
 ];
 
-export let MUSIC_LIBRARY: any[] = [
-  {
-    id: "m1",
-    category: "Current Repertoire",
-    items: [
-      { title: "Pamugun (F. Buencamino)", type: "Score", link: "https://drive.google.com/file/d/...", notes: "SATB arrangement", eventId: "e3" },
-      { title: "Koyu No Te Nupur", type: "Score", link: "https://drive.google.com/file/d/...", notes: "Japanese folk song", eventId: "e3" },
-      { title: "Di Tayo Pwede", type: "Score", link: "https://drive.google.com/file/d/...", notes: "The Juans arr. Khow", eventId: "e2" },
-      { title: "Dansa", type: "Score", link: "https://drive.google.com/file/d/...", notes: "Festival piece", eventId: "e3" },
-    ],
-  },
-  {
-    id: "m2",
-    category: "Study Guides",
-    items: [
-      { title: "Sight-reading Exercises — Soprano", type: "PDF", link: "https://drive.google.com/file/d/...", notes: "Levels 1-3" },
-      { title: "Breathing Techniques Guide", type: "PDF", link: "https://drive.google.com/file/d/...", notes: "Maestro dela Peña" },
-      { title: "Vocal Warm-up Routines", type: "PDF", link: "https://drive.google.com/file/d/...", notes: "15-min daily routine" },
-    ],
-  },
-  {
-    id: "m3",
-    category: "Practice Tracks",
-    items: [
-      { title: "Pamugun — Soprano Part", type: "MP3", link: "https://drive.google.com/file/d/...", notes: "Isolated track", eventId: "e3" },
-      { title: "Pamugun — Full Mix", type: "MP3", link: "https://drive.google.com/file/d/...", notes: "All parts", eventId: "e3" },
-      { title: "Di Tayo Pwede — Alto Part", type: "MP3", link: "https://drive.google.com/file/d/...", notes: "Isolated track", eventId: "e2" },
-    ],
-  },
-  {
-    id: "m4",
-    category: "Archive",
-    items: [
-      { title: "Bayang Barok 2025 — Full Repertoire", type: "Folder", link: "https://drive.google.com/drive/folders/...", notes: "14 pieces", eventId: "e5" },
-      { title: "Busan 2025 Competition Pieces", type: "Folder", link: "https://drive.google.com/drive/folders/...", notes: "Award-winning set", eventId: "e3" },
-    ],
-  },
-];
+export let MUSIC_LIBRARY: any[] = [];
 
 export const REHEARSALS = [
   { id: "r1", date: "2026-04-28", time: "18:00", endTime: "21:00", type: "Full Rehearsal", venue: "Music Studio A", notes: "BCFC repertoire focus" },
@@ -432,7 +343,7 @@ export async function initializePublicData(): Promise<void> {
       .select('id, first_name, last_name, voice_section, is_admin, email, school_id, committee, membership_status, excuse_decision_opt_in, rehearsal_reminder_opt_in')
       .order('last_name', { ascending: true });
 
-    if (profilesData && profilesData.length > 0) {
+    if (profilesData) {
       MEMBERS = profilesData.map(p => {
         const firstName = p.first_name ?? '';
         const lastName = p.last_name ?? '';
@@ -509,7 +420,7 @@ export async function initializePublicData(): Promise<void> {
       .select('*, profiles!account_id_fk(first_name, last_name, voice_section, school_id)')
       .order('created_at', { ascending: false });
 
-    if (excuseData && excuseData.length > 0) {
+    if (excuseData) {
       const eventById = new Map(EVENTS.map(ev => [(ev as any)._eventId, ev]));
       EXCUSE_REQUESTS = excuseData.map(er => {
         const profile = (er as any).profiles;
@@ -586,7 +497,7 @@ export async function initializePublicData(): Promise<void> {
       .select('*')
       .order('effective_date', { ascending: false });
 
-    if (ruleData && ruleData.length > 0) {
+    if (ruleData) {
       FEE_RULES = ruleData.map(r => ({
         id: String(r.id),
         type: r.type ?? '',
@@ -601,7 +512,7 @@ export async function initializePublicData(): Promise<void> {
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (announcementData && announcementData.length > 0) {
+    if (announcementData) {
       ANNOUNCEMENTS = announcementData.map(a => ({
         id: String(a.id),
         title: a.title ?? '',
@@ -619,7 +530,7 @@ export async function initializePublicData(): Promise<void> {
       .select('*')
       .order('sort_order', { ascending: true });
 
-    if (categoryData && categoryData.length > 0) {
+    if (categoryData) {
       const { data: itemData } = await supabase
         .from('music_items')
         .select('*')
@@ -643,7 +554,8 @@ export async function initializePublicData(): Promise<void> {
       }));
     }
   } catch {
-    // On failure, keep mock data as fallback
+    // Network/query failure — leave whatever was already loaded (or the
+    // empty-array default) in place rather than crashing.
   }
 }
 
@@ -672,7 +584,7 @@ export async function initializeUserData(userUuid: string, schoolId: number): Pr
       .order('created_at', { ascending: false })
       .limit(50);
 
-    if (logs && logs.length > 0) {
+    if (logs) {
       ATTENDANCE_LOG = logs.map(log => {
         const ev = (log as any).events;
         const d = log.created_at ? new Date(log.created_at) : null;
@@ -688,7 +600,8 @@ export async function initializeUserData(userUuid: string, schoolId: number): Pr
       });
     }
   } catch {
-    // On failure, keep mock data as fallback
+    // Network/query failure — leave whatever was already loaded (or the
+    // empty-array default) in place rather than crashing.
   }
 }
 
