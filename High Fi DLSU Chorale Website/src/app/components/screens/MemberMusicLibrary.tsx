@@ -63,7 +63,7 @@ export function MemberMusicLibrary() {
   return (
     <>
       <PageHeader
-        eyebrow="Member Portal"
+        eyebrow={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         title="Music Library"
         subtitle="Access sheet music, practice tracks, and study guides. All files are hosted on Google Drive."
       />

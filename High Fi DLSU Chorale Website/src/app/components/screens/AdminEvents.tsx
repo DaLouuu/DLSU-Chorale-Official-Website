@@ -1885,7 +1885,7 @@ export function AdminEvents() {
   return (
     <>
       <PageHeader
-        eyebrow="Admin"
+        eyebrow={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         title="Events"
         subtitle="Create and manage Social, Competition, Production, Festival, and PR events"
         actions={<Button icon="plus" onClick={openCreate}>Create Event</Button>}

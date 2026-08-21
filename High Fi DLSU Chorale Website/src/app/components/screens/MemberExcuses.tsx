@@ -180,7 +180,7 @@ export function MemberExcuses() {
   return (
     <>
       <PageHeader
-        eyebrow="Member Portal"
+        eyebrow={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         title="Excuse Requests"
         subtitle="File excused absences, late arrivals, or stepping-out requests. Your Section Head decides within 24 hours."
       />

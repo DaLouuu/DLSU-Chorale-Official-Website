@@ -152,7 +152,7 @@ export function AdminRules() {
   return (
     <>
       <PageHeader
-        eyebrow="Admin"
+        eyebrow={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         title="Rules & Guidelines"
         subtitle="Manage the etiquette, attendance, and policy documents members can view."
         actions={<Button icon="plus" onClick={() => setEditingDoc('new')}>Add document</Button>}

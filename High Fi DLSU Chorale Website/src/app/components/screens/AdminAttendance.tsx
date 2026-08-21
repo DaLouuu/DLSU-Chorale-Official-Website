@@ -216,7 +216,7 @@ export function AdminAttendance() {
   return (
     <>
       <PageHeader
-        eyebrow="Admin"
+        eyebrow={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         title="Attendance Overview"
         subtitle="Section-level attendance across all rehearsals and performances."
         actions={

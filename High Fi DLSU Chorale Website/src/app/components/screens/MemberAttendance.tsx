@@ -76,7 +76,7 @@ export function MemberAttendance() {
   return (
     <>
       <PageHeader
-        eyebrow="Member Portal"
+        eyebrow={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         title="My Attendance"
         subtitle="Complete attendance record across all rehearsals and performances this term."
         actions={

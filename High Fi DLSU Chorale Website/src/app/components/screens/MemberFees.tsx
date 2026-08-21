@@ -32,7 +32,7 @@ export function MemberFees() {
 
   return (
     <>
-      <PageHeader eyebrow="Member Portal" title="Fees & Payments" subtitle="Outstanding balances, payment history, and the current fee schedule." />
+      <PageHeader eyebrow={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} title="Fees & Payments" subtitle="Outstanding balances, payment history, and the current fee schedule." />
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: 20 }}>
         <div>

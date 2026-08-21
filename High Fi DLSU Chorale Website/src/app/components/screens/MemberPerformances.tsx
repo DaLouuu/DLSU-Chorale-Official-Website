@@ -557,7 +557,7 @@ export function MemberPerformances() {
   return (
     <>
       <PageHeader
-        eyebrow="Member Portal"
+        eyebrow={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         title="Events"
         subtitle="All upcoming Chorale events — performances, social activities, competitions, and more."
       />

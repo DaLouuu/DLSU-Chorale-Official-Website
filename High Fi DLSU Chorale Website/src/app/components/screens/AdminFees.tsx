@@ -595,7 +595,7 @@ export function AdminFees() {
   return (
     <>
       <PageHeader
-        eyebrow="Admin"
+        eyebrow={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         title="Fee Management"
         subtitle="Track balances, approve payments, edit the fee schedule."
         actions={

@@ -394,7 +394,7 @@ export function AdminMusicLibrary() {
   return (
     <>
       <PageHeader
-        eyebrow="Admin Console"
+        eyebrow={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         title="Music Library Management"
         subtitle="Organize sheet music, practice tracks, and study materials."
         actions={

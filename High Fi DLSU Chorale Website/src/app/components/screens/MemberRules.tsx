@@ -33,7 +33,7 @@ export function MemberRules() {
   return (
     <>
       <PageHeader
-        eyebrow="Member Portal"
+        eyebrow={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         title="Rules & Guidelines"
         subtitle="Etiquette, attendance, and policy documents from the Executive Board."
       />

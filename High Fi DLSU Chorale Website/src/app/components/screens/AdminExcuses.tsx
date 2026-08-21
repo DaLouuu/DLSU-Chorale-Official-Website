@@ -93,7 +93,7 @@ export function AdminExcuses() {
   return (
     <>
       <PageHeader
-        eyebrow="Admin"
+        eyebrow={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         title="Excuse Approvals"
         subtitle="Review and decide on excuse requests. Status changes are saved to the database."
       />
