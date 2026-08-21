@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useTheme, useApp } from '../../App';
 import { FONTS } from '../../theme';
 import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { useViewportWidth } from '../../utils/useViewportWidth';
+import { supabase } from '../../supabase';
 
 type Announcement = {
   id: string;
@@ -44,14 +46,35 @@ export function MemberAnnouncements() {
   const announcements = app.announcements as Announcement[];
   const pinned = announcements.filter(a => a.pinned);
   const rest = announcements.filter(a => !a.pinned);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    const { data, error } = await supabase
+      .from('announcements')
+      .select('*')
+      .order('created_at', { ascending: false });
+    setRefreshing(false);
+    if (error) { app.showToast(`Could not refresh announcements: ${error.message}`, 'error'); return; }
+    app.setAnnouncements((data ?? []).map((a: any) => ({
+      id: String(a.id),
+      title: a.title ?? '',
+      body: a.body ?? '',
+      date: a.created_at ? a.created_at.slice(0, 10) : '',
+      pinned: !!a.pinned,
+      author: a.author ?? '',
+      recipients: a.recipients ?? 'all',
+    })));
+    app.showToast("You're up to date.");
+  };
 
   return (
     <>
       <PageHeader
-        eyebrow="From the Chorale FB group"
+        eyebrow={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         title="Announcements"
-        subtitle="Pinned + recent posts syndicated from the Chorale's private Facebook group."
-        actions={<Button variant="outline" icon="refresh" onClick={() => app.showToast("You're up to date — no new posts from the Facebook group.")}>Refresh feed</Button>}
+        subtitle="Pinned + recent updates posted by the Executive Board."
+        actions={<Button variant="outline" icon="refresh" onClick={handleRefresh} disabled={refreshing}>{refreshing ? 'Refreshing…' : 'Refresh'}</Button>}
       />
       {pinned.length > 0 && (
         <>

@@ -106,6 +106,7 @@ type AppStateContextType = {
   feeRules: any[];
   setFeeRules: (data: any[]) => void;
   announcements: any[];
+  setAnnouncements: (data: any[]) => void;
   musicLibrary: any[];
   setMusicLibrary: (data: any[]) => void;
   showToast: (msg: string, tone?: string) => void;
@@ -135,6 +136,7 @@ export const useApp = () => {
       feeRules: FEE_RULES,
       setFeeRules: () => {},
       announcements: ANNOUNCEMENTS,
+      setAnnouncements: () => {},
       musicLibrary: MUSIC_LIBRARY,
       setMusicLibrary: () => {},
       showToast: () => {},
@@ -277,6 +279,7 @@ function AppStateProvider({ children }: { children: ReactNode }) {
         feeRules,
         setFeeRules,
         announcements,
+        setAnnouncements,
         musicLibrary,
         setMusicLibrary,
         showToast,
