@@ -11,6 +11,7 @@ import { ATTENDANCE_LOG, FEE_RECORDS, REHEARSALS } from '../../data';
 import { notifyRehearsalReminder } from '../../utils/email';
 import tet from '../../../imports/choir-tet.png';
 import { useViewportWidth } from '../../utils/useViewportWidth';
+import { useGreeting } from '../../utils/greeting';
 
 declare global {
   interface Window {
@@ -38,6 +39,7 @@ export function MemberHome() {
   const vw = useViewportWidth();
   const isMobile = vw < 768;
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const greeting = useGreeting();
 
   useEffect(() => {
     try {
@@ -93,7 +95,7 @@ export function MemberHome() {
         eyebrow={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         title={
           <>
-            Magandang umaga, <em style={{ fontStyle: 'italic', color: theme.green }}>{user.name.split(' ')[0]}</em>.
+            {greeting}, <em style={{ fontStyle: 'italic', color: theme.green }}>{user.name.split(' ')[0]}</em>.
           </>
         }
         subtitle="Here's what's happening with the Chorale this week."

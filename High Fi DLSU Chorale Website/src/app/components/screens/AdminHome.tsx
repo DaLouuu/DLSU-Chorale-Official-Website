@@ -14,6 +14,7 @@ import { supabase } from '../../supabase';
 import { notifyAnnouncement, notifyScheduleChange } from '../../utils/email';
 import { RecipientPicker, RecipientSelection, DEFAULT_RECIPIENTS, resolveRecipients } from '../ui/RecipientPicker';
 import { useViewportWidth } from '../../utils/useViewportWidth';
+import { useGreeting } from '../../utils/greeting';
 
 declare global {
   interface Window {
@@ -408,6 +409,7 @@ export function AdminHome() {
   const { user, go } = useRouter();
   const { theme } = useTheme();
   const app = useApp();
+  const greeting = useGreeting();
   // Derived live from app.fees so this stays accurate as payments get
   // approved or fees get charged, instead of the static data.ts snapshot
   // (which is only ever computed once, before any of that happens).
@@ -593,7 +595,7 @@ export function AdminHome() {
         eyebrow={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         title={
           <>
-            Admin Console, <em style={{ fontStyle: 'italic', color: theme.green }}>{user.name.split(' ')[0]}</em>.
+            {greeting}, <em style={{ fontStyle: 'italic', color: theme.green }}>Admin {user.name.split(' ')[0]}</em>.
           </>
         }
         subtitle="Everything happening across the Chorale — at a glance."
